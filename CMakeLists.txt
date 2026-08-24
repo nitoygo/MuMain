@@ -28,6 +28,10 @@ if(MU_ENABLE_SHADER_COMPILATION)
         DOC "glslang HLSL/GLSL to SPIR-V compiler")
     find_program(SPIRV_CROSS_EXE NAMES spirv-cross
         DOC "SPIR-V cross-compiler")
+    # DirectX Shader Compiler (HLSL to DXIL) -- ships with the Windows SDK
+    # (Windows Kits\10\bin\<ver>\x64\dxc.exe) on Windows; optional elsewhere.
+    find_program(DXC_EXE NAMES dxc
+        DOC "DirectX Shader Compiler (HLSL to DXIL)")
 
     if(NOT GLSLANG_EXE OR NOT SPIRV_CROSS_EXE)
         message(FATAL_ERROR
@@ -55,12 +59,36 @@ if(MU_ENABLE_SHADER_COMPILATION)
             COMMENT "SPIR-V to MSL: ${shader_name}.${stage}.spv"
             VERBATIM
         )
-        add_custom_command(
-            OUTPUT "${dxil}"
-            COMMAND "${CMAKE_COMMAND}" -E touch "${dxil}"
-            COMMENT "DXIL stub: ${shader_name}.${stage}.dxil"
-            VERBATIM
-        )
+        if(DXC_EXE)
+            # dxc's -T profile is <stage>_<model>; this project's stage names ("vert"/"frag")
+            # aren't dxc's own vs/ps names, so map them explicitly. Shader Model 6.0 is DXIL's
+            # baseline (SM5.1 and earlier compile to DXBC, a different SDL_gpu format).
+            if(stage STREQUAL "vert")
+                set(dxc_profile "vs_6_0")
+            elseif(stage STREQUAL "frag")
+                set(dxc_profile "ps_6_0")
+            else()
+                message(FATAL_ERROR "mu_add_shader: unknown stage '${stage}' for DXIL profile mapping")
+            endif()
+            add_custom_command(
+                OUTPUT "${dxil}"
+                COMMAND "${DXC_EXE}" -T "${dxc_profile}" -E main -Fo "${dxil}" "${src}"
+                DEPENDS "${src}"
+                COMMENT "HLSL to DXIL: ${shader_name}.${stage}.hlsl"
+                VERBATIM
+            )
+        else()
+            # No dxc available on this machine/platform -- fall back to an empty placeholder
+            # rather than failing the whole build. A build with a stubbed .dxil can still run
+            # SDL_gpu on Vulkan/Metal; it just can't select the D3D12 backend (LoadShaders()
+            # will fail if D3D12 is chosen against an empty blob).
+            add_custom_command(
+                OUTPUT "${dxil}"
+                COMMAND "${CMAKE_COMMAND}" -E touch "${dxil}"
+                COMMENT "DXIL stub (dxc not found): ${shader_name}.${stage}.dxil"
+                VERBATIM
+            )
+        endif()
         set(MU_SHADER_BLOBS "${MU_SHADER_BLOBS}" "${spv}" "${msl}" "${dxil}" PARENT_SCOPE)
     endfunction()
 

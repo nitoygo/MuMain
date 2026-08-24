@@ -1054,9 +1054,15 @@ public:
             return false;
         }
 
-        // Create GPU device with all supported shader formats.
-        // SDL_gpu selects the platform backend automatically:
-        //   Metal on macOS, Vulkan on Linux, D3D12 on Windows.
+        // Create GPU device with all three shader formats this project ships compiled blobs
+        // for. DXIL was briefly dropped from this list: src/shaders/compiled/*.dxil used to be
+        // checked-in 0-byte stubs (DXIL compilation was never implemented), which made SDL_gpu's
+        // backend selection (SDL_GPUSelectBackend, SDL_gpu.c -- picks a candidate purely off
+        // which requested shader formats its properties claim, in a fixed preference order that
+        // puts D3D12 before Vulkan on Windows) commit to D3D12 and then fail once LoadShaders()
+        // actually opened the empty .dxil files. Real DXIL compilation now exists (CMakeLists.txt's
+        // mu_add_shader, via dxc when available), so the flag is back and D3D12 is a genuine
+        // candidate again.
         s_device = SDL_CreateGPUDevice(
             SDL_GPU_SHADERFORMAT_SPIRV | SDL_GPU_SHADERFORMAT_DXIL | SDL_GPU_SHADERFORMAT_MSL, true, nullptr);
 
