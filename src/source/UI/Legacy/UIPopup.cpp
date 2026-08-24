@@ -509,7 +509,9 @@ void CUIPopup::Render()
                     .pos = {320 - m_nInputSize / 2 + 5, static_cast<int>(fPosY) - 2},
                     .size = {m_nInputSize, 14},
                     .textLimit = m_nInputTextLength,
-                    .options = m_InputOptions,
+                    // Brace-init narrowing rules treat enum(int)->DWORD(unsigned long) as
+                    // narrowing even though every UIOPTIONS value fits -- explicit cast avoids it.
+                    .options = static_cast<DWORD>(m_InputOptions),
                 });
                 g_pSingleTextInputBox->GiveFocus();
                 g_pSingleTextInputBox->DoAction();

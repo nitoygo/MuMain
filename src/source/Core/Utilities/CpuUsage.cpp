@@ -12,7 +12,9 @@ public:
     Impl()
     {
         SYSTEM_INFO sysInfo;
-    MuGetSystemInfo(&sysInfo);
+        // The real Win32 GetSystemInfo (LPSYSTEM_INFO), not this project's similarly-named
+        // MuGetSystemInfo(ER_SystemInfo*) -- a different struct entirely, no processor count.
+        ::GetSystemInfo(&sysInfo);
         m_numProcessors = sysInfo.dwNumberOfProcessors;
         m_lastCheckTime = std::chrono::steady_clock::now();
         m_lastProcessTime = 0;

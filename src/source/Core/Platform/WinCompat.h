@@ -16,7 +16,59 @@
 #ifdef _WIN32
 
 #include <windows.h>
+#include <algorithm>
+#include <string>
 #define MU_C16(s) reinterpret_cast<const char16_t*>(s)
+
+// Real callers of these live outside any platform guard (StringUtils.h,
+// GlobalBitmap.cpp, ZzzTexture.cpp, etc.) -- they were only ever defined in the
+// non-Windows branch below, which meant this header shipped with no working
+// mu_wchar_to_utf8()/mu_narrow_path() on native Windows builds at all. Same
+// signatures as the portable versions below, implemented via the real Win32
+// WideCharToMultiByte API here rather than reusing that manual UTF-8 encoder.
+inline void mu_wchar_to_utf8(const wchar_t* text, std::string& result)
+{
+    result.clear();
+    if (text == nullptr)
+    {
+        return;
+    }
+
+    const int len = ::WideCharToMultiByte(CP_UTF8, 0, text, -1, nullptr, 0, nullptr, nullptr);
+    if (len <= 1)  // len includes the null terminator; <=1 means empty input or failure
+    {
+        return;
+    }
+
+    result.resize(static_cast<size_t>(len) - 1);
+    ::WideCharToMultiByte(CP_UTF8, 0, text, -1, result.data(), len, nullptr, nullptr);
+}
+
+inline std::string mu_wchar_to_utf8(const wchar_t* text)
+{
+    std::string result;
+    mu_wchar_to_utf8(text, result);
+    return result;
+}
+
+inline std::string mu_narrow_path(const wchar_t* path)
+{
+    std::string result = mu_wchar_to_utf8(path);
+    std::replace(result.begin(), result.end(), '\\', '/');
+    return result;
+}
+
+inline std::string mu_narrow_path(const std::wstring& path)
+{
+    return mu_narrow_path(path.c_str());
+}
+
+inline std::string mu_narrow_path(const char* path)
+{
+    std::string result = path == nullptr ? "" : path;
+    std::replace(result.begin(), result.end(), '\\', '/');
+    return result;
+}
 
 #else  // ---- non-Windows: minimal Win32 type shims -------------------------
 

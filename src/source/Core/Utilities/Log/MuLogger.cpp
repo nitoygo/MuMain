@@ -19,64 +19,84 @@ constexpr std::array<const char*, 11> kLoggerNames = {
     "audio", "platform", "dotnet", "gameshop", "scenes"
 };
 
-std::mutex g_mutex;
-std::unordered_map<std::string, std::shared_ptr<spdlog::logger>> g_loggers;
-std::vector<spdlog::sink_ptr> g_sinks;
-bool g_initialized = false;
-
-std::shared_ptr<spdlog::logger> CreateLogger(const std::string& name)
+struct LoggerState
 {
-    auto logger = std::make_shared<spdlog::logger>(name, g_sinks.begin(), g_sinks.end());
+    std::mutex mutex;
+    std::unordered_map<std::string, std::shared_ptr<spdlog::logger>> loggers;
+    std::vector<spdlog::sink_ptr> sinks;
+    bool initialized = false;
+};
+
+// Function-local static, not a namespace-scope global: C++ guarantees this constructs
+// exactly once, thread-safely, on first actual call -- regardless of static-initialization
+// order across translation units. Real bug this fixes: PacketBindings_ClientToServer.h
+// (auto-generated) initializes inline globals via mu::platform::GetSymbol() at dynamic
+// static-init time; if that runs before this TU's own statics would have, it can reach
+// mu::log::Get() (via GetSymbol's null-handle error path) while the plain-global version of
+// this state was still raw, uninitialized memory -- a real crash inside <xhash>/
+// unordered_map internals, not hypothetical (reproduced and stack-walked).
+LoggerState& State()
+{
+    static LoggerState state;
+    return state;
+}
+
+std::shared_ptr<spdlog::logger> CreateLogger(LoggerState& state, const std::string& name)
+{
+    auto logger = std::make_shared<spdlog::logger>(name, state.sinks.begin(), state.sinks.end());
     logger->set_level(spdlog::level::info);
     logger->flush_on(spdlog::level::err);
     spdlog::register_logger(logger);
-    g_loggers.emplace(name, logger);
+    state.loggers.emplace(name, logger);
     return logger;
 }
 } // namespace
 
 void Init(const std::filesystem::path& logDirectory)
 {
-    std::lock_guard lock(g_mutex);
-    if (g_initialized)
+    LoggerState& state = State();
+    std::lock_guard lock(state.mutex);
+    if (state.initialized)
         return;
 
     const std::filesystem::path directory = logDirectory.empty() ? std::filesystem::current_path() : logDirectory;
     std::error_code error;
     std::filesystem::create_directories(directory, error);
 
-    g_sinks.push_back(std::make_shared<spdlog::sinks::stdout_color_sink_mt>());
-    g_sinks.push_back(std::make_shared<spdlog::sinks::rotating_file_sink_mt>(directory / "MuError.log", 5 * 1024 * 1024, 3));
+    state.sinks.push_back(std::make_shared<spdlog::sinks::stdout_color_sink_mt>());
+    state.sinks.push_back(std::make_shared<spdlog::sinks::rotating_file_sink_mt>((directory / "MuError.log").string(), 5 * 1024 * 1024, 3));
 
     for (const char* name : kLoggerNames)
-        CreateLogger(name);
+        CreateLogger(state, name);
 
-    g_initialized = true;
+    state.initialized = true;
 }
 
 void Shutdown()
 {
-    std::lock_guard lock(g_mutex);
-    for (auto& [name, logger] : g_loggers)
+    LoggerState& state = State();
+    std::lock_guard lock(state.mutex);
+    for (auto& [name, logger] : state.loggers)
         logger->flush();
-    g_loggers.clear();
-    g_sinks.clear();
+    state.loggers.clear();
+    state.sinks.clear();
     spdlog::shutdown();
-    g_initialized = false;
+    state.initialized = false;
 }
 
 std::shared_ptr<spdlog::logger> Get(const std::string& name)
 {
-    std::lock_guard lock(g_mutex);
-    if (!g_initialized)
+    LoggerState& state = State();
+    std::lock_guard lock(state.mutex);
+    if (!state.initialized)
     {
         const std::filesystem::path directory = std::filesystem::current_path();
-        g_sinks.push_back(std::make_shared<spdlog::sinks::stdout_color_sink_mt>());
-        g_sinks.push_back(std::make_shared<spdlog::sinks::rotating_file_sink_mt>(directory / "MuError.log", 5 * 1024 * 1024, 3));
-        g_initialized = true;
+        state.sinks.push_back(std::make_shared<spdlog::sinks::stdout_color_sink_mt>());
+        state.sinks.push_back(std::make_shared<spdlog::sinks::rotating_file_sink_mt>((directory / "MuError.log").string(), 5 * 1024 * 1024, 3));
+        state.initialized = true;
     }
 
-    const auto found = g_loggers.find(name);
-    return found != g_loggers.end() ? found->second : CreateLogger(name);
+    const auto found = state.loggers.find(name);
+    return found != state.loggers.end() ? found->second : CreateLogger(state, name);
 }
 } // namespace mu::log

@@ -13,7 +13,10 @@ public:
     [[nodiscard]] static bool Initialize();
     static void Shutdown();
 
-    [[nodiscard]] static bool CreateWindow(const char* title, int width, int height, uint32_t flags);
+    // Named CreatePlatformWindow, not CreateWindow -- <windows.h> #defines CreateWindow to
+    // CreateWindowA/CreateWindowW, so the obvious name is a hard syntax error on MSVC (fine on
+    // macOS/Linux, which have no such macro -- this only surfaces on the Windows build).
+    [[nodiscard]] static bool CreatePlatformWindow(const char* title, int width, int height, uint32_t flags);
     [[nodiscard]] static IPlatformWindow* GetWindow();
     [[nodiscard]] static bool PollEvents();
 

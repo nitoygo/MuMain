@@ -8,6 +8,7 @@
 #include "GameLogic/Items/ItemAddOptioninfo.h"
 #include "w_BuffScriptLoader.h"
 #include "Core/Utilities/Log/MuLogger.h"
+#include "Core/Platform/WinCompat.h"
 
 //////////////////////////////////////////////////////////////////////
 // Construction/Destruction

@@ -40,7 +40,7 @@ void			CListManager::SetListManagerInfo(DownloaderType type,
     const wchar_t* RemotePath,
     const wchar_t* LocalPath,
     CListVersionInfo Version,
-    DWORD dwDownloadMaxTime)
+    uint32_t dwDownloadMaxTime)
 {
     unsigned short port = 80;
 
@@ -59,7 +59,7 @@ void			CListManager::SetListManagerInfo(DownloaderType type,
     const wchar_t* LocalPath,
     FTP_SERVICE_MODE ftpMode,
     CListVersionInfo Version,
-    DWORD dwDownloadMaxTime) // OK
+    uint32_t dwDownloadMaxTime) // OK
 {
     this->m_ListManagerInfo.m_DownloaderType = type;
     this->m_ListManagerInfo.m_nPortNum = PortNum;

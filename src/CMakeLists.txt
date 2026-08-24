@@ -476,7 +476,7 @@ set_source_files_properties(
   "${CMAKE_CURRENT_SOURCE_DIR}/source/Core/Platform/Audio/MiniAudioImpl.cpp"
   PROPERTIES
     SKIP_PRECOMPILE_HEADERS ON
-    COMPILE_OPTIONS "-Wno-error=tautological-compare"
+    COMPILE_OPTIONS "$<$<NOT:$<CXX_COMPILER_ID:MSVC>>:-Wno-error=tautological-compare>"
 )
 
 # Basic compile definitions, roughly mirroring the original MSVC project
