@@ -11,7 +11,7 @@ include("${REPO_ROOT}/cmake/EnsureSubmodule.cmake")
 
 mu_ensure_submodule("ThirdParty/SDL"
   INDICATOR "CMakeLists.txt"
-  URL "https://github.com/libsdl-org/SDL.git")
+  URL "https://github.com/nitoygo/SDL.git")
 
 # SDL3 — static link, no tests, no install
 set(SDL_SHARED OFF CACHE BOOL "" FORCE)

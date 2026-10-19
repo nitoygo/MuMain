@@ -3,7 +3,8 @@
 	url = https://github.com/ocornut/imgui.git
 [submodule "src/ThirdParty/SDL"]
 	path = src/ThirdParty/SDL
-	url = https://github.com/libsdl-org/SDL.git
+	url = https://github.com/nitoygo/SDL.git
+	branch = mu/d3d12-native-interop
 [submodule "src/ThirdParty/RmlUi"]
 	path = src/ThirdParty/RmlUi
 	url = https://github.com/nitoygo/RmlUi.git
