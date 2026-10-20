@@ -232,6 +232,7 @@ std::size_t DynamicLightHistory::Continue(Followed& light, const LightCall& call
 {
     light.x = call.x;
     light.y = call.y;
+    light.z = call.z;
     light.range = call.range;
     light.called = true;
     std::copy(call.color, call.color + ColorChannels, light.target);
@@ -258,6 +259,7 @@ LightCall DynamicLightHistory::Shown(const Followed& light, const LightHistorySe
     LightCall result;
     result.x = light.x;
     result.y = light.y;
+    result.z = light.z;
     result.source = light.source;
     for (int k = 0; k < ColorChannels; ++k)
     {
@@ -409,6 +411,7 @@ std::uint64_t DynamicLightHistory::StateHash() const
             hash.Add(channel);
         hash.Add(call.range);
         hash.Add(call.source);
+        hash.Add(call.z.value_or(-1.f));
     }
     hash.Add(m_followedCount);
     for (std::size_t i = 0; i < m_followedCount; ++i)
@@ -418,6 +421,7 @@ std::uint64_t DynamicLightHistory::StateHash() const
         hash.Add(light.y);
         hash.Add(light.range);
         hash.Add(light.source);
+        hash.Add(light.z.value_or(-1.f));
         for (int k = 0; k < 3; ++k)
         {
             hash.Add(light.target[k]);
