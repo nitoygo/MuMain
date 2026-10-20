@@ -2533,10 +2533,11 @@ __forceinline void CalcShadowPosition(vec3_t* position, const mu::ShadowProjecti
 
         // shear the shadow along its axis (x in Classic, where axisAngle is 0)
         const float axis[2] = {std::cos(projection.axisAngle), std::sin(projection.axisAngle)};
-    const float along = result[0] * axis[0] + result[1] * axis[1];
-    const float shift = result[2] * (along + projection.shearX) / (result[2] - projection.shearHeight);
-    result[0] += shift * axis[0];
-    result[1] += shift * axis[1];
+    float xy[2] = {result[0], result[1]};
+    Render::Lighting::ProjectShadow(xy, result[2], axis, projection.shearX, projection.shearHeight,
+                                    projection.pointLight);
+    result[0] = xy[0];
+    result[1] = xy[1];
 
     // Add the origin again, to get the absolute coordinate of the vertex again
     VectorAdd(result, origin, result);
@@ -2666,7 +2667,8 @@ void TakeShadowLight(Render::ModelDrawing::ShadowDraw& draw)
         constexpr float HalfTurn = 3.14159265358979f;
         for (std::size_t i = 0; i < casters.count; ++i)
         {
-            draw.lightCasts[i] = {casters.casters[i].fallAngle + HalfTurn, casters.casters[i].strength};
+            const Render::Lighting::LightShadowCaster& caster = casters.casters[i];
+            draw.lightCasts[i] = {caster.fallAngle + HalfTurn, caster.strength, caster.shearX, caster.shearHeight};
         }
         draw.lightCastCount = static_cast<int>(casters.count);
     }
@@ -3156,10 +3158,14 @@ void BMD::DrawShadow(const Render::ModelDrawing::ShadowDraw& draw) const
     if (draw.lightCastCount > 0)
     {
         const mu::ScopedGroundShadow lightShadow(mu::GroundShadowSource::PointLight);
+        projection.pointLight = true;
         for (int i = 0; i < draw.lightCastCount; ++i)
         {
-            projection.axisAngle = draw.lightCasts[i].axisAngle;
-            drawShadow(draw.alpha * draw.lightCasts[i].strength);
+            const Render::ModelDrawing::ShadowLightCast& cast = draw.lightCasts[i];
+            projection.axisAngle = cast.axisAngle;
+            projection.shearX = cast.shearX;
+            projection.shearHeight = cast.shearHeight;
+            drawShadow(draw.alpha * cast.strength);
         }
     }
 

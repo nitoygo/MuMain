@@ -40,6 +40,7 @@ struct Shadow
 {
     float4 shadowOrigin;
     float4 shadowProjection;
+    float4 shadowShape;
 };
 
 struct boneRows
@@ -153,13 +154,26 @@ float3 shearShadow(thread const float3& position, constant Shadow& _88)
 {
     float3 relative = position - _88.shadowOrigin.xyz;
     float2 axis = float2(cos(_88.shadowProjection.w), sin(_88.shadowProjection.w));
-    float along = dot(relative.xy, axis);
-    float _114 = relative.z;
-    float _122 = relative.z;
-    float3 _129 = relative;
-    float2 _131 = _129.xy + (axis * ((_114 * (along + _88.shadowProjection.x)) / (_122 - _88.shadowProjection.y)));
-    relative.x = _131.x;
-    relative.y = _131.y;
+    if (_88.shadowShape.x > 0.5)
+    {
+        float height = fast::min(relative.z, 0.89999997615814208984375 * _88.shadowProjection.y);
+        float spread = _88.shadowProjection.y / (_88.shadowProjection.y - height);
+        float2 light = axis * _88.shadowProjection.x;
+        float3 _139 = relative;
+        float2 _145 = light + ((_139.xy - light) * spread);
+        relative.x = _145.x;
+        relative.y = _145.y;
+    }
+    else
+    {
+        float along = dot(relative.xy, axis);
+        float _158 = relative.z;
+        float _164 = relative.z;
+        float3 _171 = relative;
+        float2 _173 = _171.xy + (axis * (_158 * ((along + _88.shadowProjection.x) / (_164 - _88.shadowProjection.y))));
+        relative.x = _173.x;
+        relative.y = _173.y;
+    }
     return relative + _88.shadowOrigin.xyz;
 }
 
@@ -226,8 +240,8 @@ VSOutput _main(thread const VSInput& _input, constant Skinning& _76, constant Sh
     float3 position = shearShadow(param_1, _88);
     float param_2 = position.x;
     float param_3 = position.y;
-    float _519 = terrainHeight(param_2, param_3, _88, terrainWords_1);
-    position.z = _519 + 5.0;
+    float _559 = terrainHeight(param_2, param_3, _88, terrainWords_1);
+    position.z = _559 + 5.0;
     float3 param_4 = position;
     VSOutput _output;
     _output.pos = clipPosition(param_4, _76);

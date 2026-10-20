@@ -93,6 +93,9 @@ struct ShadowLightCast
     // Radians from world +x to the axis the shear acts along.
     float axisAngle = 0.f;
     float strength = 0.f;
+    // The light's horizontal distance and height above the character (mu::ShadowProjection).
+    float shearX = 0.f;
+    float shearHeight = 0.f;
 };
 
 struct ShadowDraw
