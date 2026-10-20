@@ -16,6 +16,11 @@ struct ModelSkin;
 struct ShadowDraw;
 } // namespace Render::ModelDrawing
 
+namespace mu
+{
+struct ShadowProjection;
+}
+
 struct BITMAP_t;
 
 extern const float (*g_pActiveBoneTransform)[3][4];
@@ -479,21 +484,21 @@ private:
     // The shadow streams the renderer keeps for the meshes of this slot.
     void ReleaseShadowStreams();
 
-    void AddClothesShadowTriangles(void* pClothes, int clothesCount, const float* origin, float sx, float sy,
+    void AddClothesShadowTriangles(void* pClothes, int clothesCount, const mu::ShadowProjection& projection,
                                    std::uint32_t color) const;
-    void AddMeshShadowTriangles(int blendMesh, int hiddenMesh, int startMesh, int endMesh, const float* origin,
-                                float sx, float sy, std::uint32_t color) const;
+    void AddMeshShadowTriangles(int blendMesh, int hiddenMesh, int startMesh, int endMesh,
+                                const mu::ShadowProjection& projection, std::uint32_t color) const;
     // The same shadow from a cached rest-pose stream skinned on the GPU; false leaves it to the CPU.
     [[nodiscard]] bool RenderGpuMeshShadow(const Render::ModelDrawing::ShadowDraw& draw, int startMesh, int endMesh,
-                                           float sx, float sy, std::uint32_t color) const;
+                                           const mu::ShadowProjection& projection, std::uint32_t color) const;
     // AddMeshShadowTriangles of a model file: the meshes' shadows
     // (ProjectWeightedShadowMesh) drawn indexed, in mesh and triangle order.
     void AddWeightedMeshShadowTriangles(const Render::ModelDrawing::ShadowDraw& draw, int startMesh, int endMesh,
-                                        float sx, float sy, std::uint32_t color) const;
+                                        const mu::ShadowProjection& projection, std::uint32_t color) const;
     // A model file's shadow, each mesh from the mesh its body draw caches on the GPU; a mesh the GPU cannot
     // draw gets its CPU shadow (AddWeightedMeshShadowTriangles).
-    void RenderWeightedMeshShadow(const Render::ModelDrawing::ShadowDraw& draw, int startMesh, int endMesh, float sx,
-                                  float sy, std::uint32_t color) const;
+    void RenderWeightedMeshShadow(const Render::ModelDrawing::ShadowDraw& draw, int startMesh, int endMesh,
+                                  const mu::ShadowProjection& projection, std::uint32_t color) const;
 };
 
 extern BMD* Models;
