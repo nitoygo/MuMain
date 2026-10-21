@@ -16,6 +16,7 @@ struct EffectDynamicLight
     // the brightness, so a flickering light keeps flickering.
     std::optional<std::array<float, 3>> color;
     bool shadows = true; // false: the light casts no character shadow
+    float shaft = 1.f;   // multiplies the shaft of its light (Enhanced light shafts), on top of the intensity
 
     bool operator==(const EffectDynamicLight&) const = default;
 };
@@ -24,4 +25,6 @@ inline constexpr float MinEffectLightIntensity = 0.f;
 inline constexpr float MaxEffectLightIntensity = 4.f;
 inline constexpr float MinEffectLightRadius = 0.25f;
 inline constexpr float MaxEffectLightRadius = 4.f;
+inline constexpr float MinEffectLightShaft = 0.f;
+inline constexpr float MaxEffectLightShaft = 4.f;
 } // namespace Data::Effects

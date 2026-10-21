@@ -446,40 +446,45 @@ DynamicLightHistory& FrameLightHistory()
 
 namespace
 {
-std::optional<int> s_effectType;
+const Data::Effects::EffectDynamicLight* s_effectLight = nullptr;
 } // namespace
 
-EffectLightScope::EffectLightScope(int type) : m_previous(s_effectType)
+EffectLightScope::EffectLightScope(const Data::Effects::EffectDynamicLight* light) : m_previous(s_effectLight)
 {
-    s_effectType = type;
+    s_effectLight = light;
 }
 
 EffectLightScope::~EffectLightScope()
 {
-    s_effectType = m_previous;
+    s_effectLight = m_previous;
 }
 
-std::optional<int> CurrentEffectType()
+const Data::Effects::EffectDynamicLight* CurrentEffectLight()
 {
-    return s_effectType;
+    return s_effectLight;
 }
 
-void ApplyEffectDynamicLight(const Data::Effects::EffectDynamicLight& light, LightCall& call)
+void ApplyEffectLightColor(const Data::Effects::EffectDynamicLight& light, float (&color)[3])
 {
     if (light.color)
     {
-        const float strongest = std::max({call.color[0], call.color[1], call.color[2]});
+        const float strongest = std::max({color[0], color[1], color[2]});
         const std::array<float, 3>& hue = *light.color;
         const float hueStrongest = std::max({hue[0], hue[1], hue[2]});
         for (int k = 0; k < 3; ++k)
         {
-            call.color[k] = hue[k] / hueStrongest * strongest;
+            color[k] = hue[k] / hueStrongest * strongest;
         }
     }
-    for (float& channel : call.color)
+    for (float& channel : color)
     {
         channel *= light.intensity;
     }
+}
+
+void ApplyEffectDynamicLight(const Data::Effects::EffectDynamicLight& light, LightCall& call)
+{
+    ApplyEffectLightColor(light, call.color);
     call.range = std::max(1, static_cast<int>(std::lround(static_cast<float>(call.range) * light.radius)));
     call.castsShadows = light.shadows;
 }

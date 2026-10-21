@@ -1196,9 +1196,9 @@ TEST_CASE("An effect's dynamic light values are read, checked, written and looke
 {
     const ReadResult result = Read(R"({"formatVersion": 1, "kind": "effect", "types": [
         {"name": "aquaBeam", "code": "BITMAP_BOSS_LASER",
-         "dynamicLight": {"intensity": 2, "radius": 0.5, "color": [0.5, 0.7, 1], "shadows": false}},
+         "dynamicLight": {"intensity": 2, "radius": 0.5, "color": [0.5, 0.7, 1], "shadows": false, "shaft": 3}},
         {"name": "bad", "code": "BITMAP_SMOKE",
-         "dynamicLight": {"intensity": 9, "radius": "wide", "color": [0, 0, 0], "shadows": 1, "hue": 3}}]})",
+         "dynamicLight": {"intensity": 9, "radius": "wide", "color": [0, 0, 0], "shadows": 1, "shaft": -1, "hue": 3}}]})",
                                    EffectKind::Effect);
     REQUIRE(result.types.size() == 2);
     REQUIRE(result.types[0].dynamicLight);
@@ -1208,13 +1208,14 @@ TEST_CASE("An effect's dynamic light values are read, checked, written and looke
     REQUIRE(light.color);
     CHECK((*light.color)[1] == doctest::Approx(0.7f));
     CHECK_FALSE(light.shadows);
+    CHECK(light.shaft == doctest::Approx(3.f));
 
     // Bad values are warnings and keep the effect's own; the entry still loads.
     REQUIRE(result.types[1].dynamicLight);
     CHECK(*result.types[1].dynamicLight == EffectDynamicLight{});
     for (const char* field :
          {"types[1].dynamicLight.intensity", "types[1].dynamicLight.radius", "types[1].dynamicLight.color",
-          "types[1].dynamicLight.shadows", "types[1].dynamicLight.hue"})
+          "types[1].dynamicLight.shadows", "types[1].dynamicLight.shaft", "types[1].dynamicLight.hue"})
     {
         CAPTURE(field);
         CHECK(HasIssue(result.issues, ItemDataIssueSeverity::Warning, field));

@@ -1073,19 +1073,21 @@ TEST_CASE("an effect's dynamic light values scale its light calls [render][dynam
     CHECK_FALSE(call.castsShadows);
 }
 
-TEST_CASE("the effect light scope names the running effect and nests [render][dynamic_lights][history]")
+TEST_CASE("the effect light scope holds the running effect's light values and nests [render][dynamic_lights][history]")
 {
-    CHECK_FALSE(Render::Lighting::CurrentEffectType());
+    const Data::Effects::EffectDynamicLight outerLight;
+    CHECK(Render::Lighting::CurrentEffectLight() == nullptr);
     {
-        const Render::Lighting::EffectLightScope outer(7);
-        CHECK(Render::Lighting::CurrentEffectType() == 7);
+        const Render::Lighting::EffectLightScope outer(&outerLight);
+        CHECK(Render::Lighting::CurrentEffectLight() == &outerLight);
         {
-            const Render::Lighting::EffectLightScope inner(9);
-            CHECK(Render::Lighting::CurrentEffectType() == 9);
+            // An effect without values inside one with them takes none.
+            const Render::Lighting::EffectLightScope inner(nullptr);
+            CHECK(Render::Lighting::CurrentEffectLight() == nullptr);
         }
-        CHECK(Render::Lighting::CurrentEffectType() == 7);
+        CHECK(Render::Lighting::CurrentEffectLight() == &outerLight);
     }
-    CHECK_FALSE(Render::Lighting::CurrentEffectType());
+    CHECK(Render::Lighting::CurrentEffectLight() == nullptr);
 }
 
 TEST_CASE("a light that casts no shadow keeps that through the history [render][lighthistory]")

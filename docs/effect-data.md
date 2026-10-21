@@ -232,8 +232,9 @@ in `Data/Render/Look.json`) still apply on top.
 | `radius` | Multiplies the light's reach in terrain cells, 0.25 to 4 (default 1); never below one cell. |
 | `color` | The light's hue, `[red, green, blue]`, none below 0 and not all 0. The effect's own strongest channel keeps the brightness, so a flickering light keeps flickering. |
 | `shadows` | `false`: the light casts no character shadow (default `true`). |
+| `shaft` | Multiplies the light shaft the effect adds (Enhanced light shafts), 0 to 4 (default 1). The shaft takes the intensity and colour too; 0 leaves the effect without one. |
 
-Only lights the effect's own move and draw code adds take these values; lights
+Only lights and shafts the effect's own move and draw code adds take these values; lights
 of the particles, lightning and characters it creates keep theirs. A value out
 of range is a warning, and the effect's own value is kept.
 

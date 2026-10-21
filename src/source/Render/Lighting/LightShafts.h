@@ -1,6 +1,7 @@
 // LightShafts.h: the frame's light-shaft lights (mu::LightShaftLight) and where they fall on screen.
 #pragma once
 
+#include "Render/Lighting/DynamicLight.h"
 #include "Render/Renderer/SceneLighting.h"
 
 #include <array>
@@ -50,11 +51,9 @@ private:
 
 [[nodiscard]] LightShaftList& FrameLightShafts();
 
-// Adds a shaft light to the frame's list (Enhanced light shafts): a segment from `start` to `end`.
+// Adds a shaft light to the frame's list (Enhanced light shafts): a segment from `start` to `end`. Its
+// colour takes the running effect's light values (CurrentEffectLight): its intensity, hue and shaft.
 void AddShaftLight(LightShaftKind kind, const float* start, const float* end, const float* color);
-
-// How bright a shaft light is: the sum of its colour.
-[[nodiscard]] float ShaftBrightness(const float (&color)[3]);
 
 // A shaft light on screen: its segment in UV (0..1, y down), its colour scaled by its kind's factor.
 struct ScreenShaft

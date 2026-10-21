@@ -1,5 +1,8 @@
 #include "Render/Lighting/LightShafts.h"
 
+#include "Data/GameData/EffectData/EffectDynamicLight.h"
+#include "Render/Lighting/DynamicLightHistory.h"
+
 #include <algorithm>
 
 namespace Render::Lighting
@@ -57,8 +60,8 @@ void LightShaftList::Add(const LightShaftLight& light)
         // Full: the new light replaces the dimmest, if it is brighter.
         const auto dimmest = std::min_element(m_lights.begin(), m_lights.end(),
                                               [](const LightShaftLight& left, const LightShaftLight& right)
-                                              { return ShaftBrightness(left.color) < ShaftBrightness(right.color); });
-        if (ShaftBrightness(dimmest->color) >= ShaftBrightness(light.color))
+                                              { return LightBrightness(left.color) < LightBrightness(right.color); });
+        if (LightBrightness(dimmest->color) >= LightBrightness(light.color))
         {
             return;
         }
@@ -119,12 +122,15 @@ void AddShaftLight(LightShaftKind kind, const float* start, const float* end, co
     std::copy(end, end + 3, light.end);
     std::copy(color, color + 3, light.color);
     light.kind = kind;
+    if (const Data::Effects::EffectDynamicLight* effect = CurrentEffectLight())
+    {
+        ApplyEffectLightColor(*effect, light.color);
+        for (float& channel : light.color)
+        {
+            channel *= effect->shaft;
+        }
+    }
     FrameLightShafts().Add(light);
-}
-
-float ShaftBrightness(const float (&color)[3])
-{
-    return std::max(color[0], 0.f) + std::max(color[1], 0.f) + std::max(color[2], 0.f);
 }
 
 bool ProjectShaft(const LightShaftLight& light, const float (&viewProjection)[16], float margin, ScreenShaft& screen)
@@ -192,7 +198,7 @@ std::size_t SelectScreenShafts(std::span<const LightShaftLight> lights, const fl
         {
             channel *= factor;
         }
-        const float bright = ShaftBrightness(scaled.color);
+        const float bright = LightBrightness(scaled.color);
         ScreenShaft screen;
         if (bright <= 0.f || !ProjectShaft(scaled, viewProjection, margin, screen))
         {

@@ -24,6 +24,7 @@
 #include "UI/Core/WindowSystem.h"
 #include "Engine/Object/ZzzInterface.h"
 #include "Scenes/MainScene.h"
+#include "Data/GameData/EffectData/EffectTypeCatalogue.h"
 #include "Render/Lighting/DynamicLightHistory.h"
 #include "Render/Lighting/LightShafts.h"
 
@@ -7644,7 +7645,7 @@ void MoveEffects()
         OBJECT* o = &Effects[i];
         if (o->Live)
         {
-            const Render::Lighting::EffectLightScope effectLight(o->Type);
+            const Render::Lighting::EffectLightScope effectLight(g_EffectTypeCatalogue.GetDynamicLight(o->Type));
             MoveEffect(o, i);
         }
     }
@@ -7753,7 +7754,7 @@ void RenderEffects(bool bRenderBlendMesh)
 
         if (o->Live)
         {
-            const Render::Lighting::EffectLightScope effectLight(o->Type);
+            const Render::Lighting::EffectLightScope effectLight(g_EffectTypeCatalogue.GetDynamicLight(o->Type));
             o->Visible = TestFrustrum(o->Position, 400.f);
 
             if (gMapManager.WorldActive == WD_39KANTURU_3RD)

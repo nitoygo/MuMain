@@ -90,7 +90,8 @@ void PinWorldDynamicLights()
     }
     float reference[3];
     SelectionReference(reference);
-    Render::Lighting::FrameWorldDynamicLights().Pin(Render::Lighting::FrameDynamicLights(), reference);
+    Render::Lighting::FrameWorldDynamicLights().Pin(Render::Lighting::FrameDynamicLights(), reference,
+                                                    Render::Look::Value(Data::Maps::LookValue::DynamicPhysicalFalloff));
 }
 
 void SubmitDynamicLights()
@@ -110,9 +111,11 @@ void SubmitDynamicLights()
     const Render::Lighting::WorldDynamicLights& world = Render::Lighting::FrameWorldDynamicLights();
     float reference[3];
     SelectionReference(reference);
+    const float falloff = Render::Look::Value(Data::Maps::LookValue::DynamicPhysicalFalloff);
     Render::Lighting::DynamicLightSelection selection =
-        world.IsPinned() ? Render::Lighting::SelectDynamicLights(world.Selection(), lights.LightsSinceMark(), reference)
-                         : Render::Lighting::SelectDynamicLights(lights.Lights(), reference);
+        world.IsPinned()
+            ? Render::Lighting::SelectDynamicLights(world.Selection(), lights.LightsSinceMark(), reference, falloff)
+            : Render::Lighting::SelectDynamicLights(lights.Lights(), reference, falloff);
     selection.uniform.wrap = Render::Look::Value(Data::Maps::LookValue::DynamicWrap);
     selection.uniform.groundShadowOpacity = Render::Look::Value(Data::Maps::LookValue::GroundShadowOpacity);
     mu::GetRenderer().SetDynamicLights(selection.uniform);

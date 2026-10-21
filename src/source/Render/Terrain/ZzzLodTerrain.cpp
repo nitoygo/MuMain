@@ -22,7 +22,7 @@
 #include "Engine/Object/ZzzObject.h"
 #include "Engine/Object/ZzzCharacter.h"
 #include "Engine/Object/ZzzInterface.h"
-#include "Data/GameData/EffectData/EffectTypeCatalogue.h"
+#include "Data/GameData/EffectData/EffectDynamicLight.h"
 #include "Render/Effects/ZzzEffect.h"
 #include "Render/Renderer/MuRenderer.h"
 #include "Render/Renderer/RenderUtils.h"
@@ -1095,12 +1095,9 @@ static void AddTerrainLightFrom(float xf, float yf, std::optional<float> z, vec3
         call.source = Render::Lighting::CurrentLightSource();
         call.z = z;
         // An effect's own light values (EffectTypes.json), before the history and the global effect boost.
-        if (const std::optional<int> effect = Render::Lighting::CurrentEffectType())
+        if (const Data::Effects::EffectDynamicLight* light = Render::Lighting::CurrentEffectLight())
         {
-            if (const Data::Effects::EffectDynamicLight* light = g_EffectTypeCatalogue.GetDynamicLight(*effect))
-            {
-                Render::Lighting::ApplyEffectDynamicLight(*light, call);
-            }
+            Render::Lighting::ApplyEffectDynamicLight(*light, call);
         }
         Render::Terrain::LightGrid::RecordFrameLight(FrameLightTarget(), call);
         return;
