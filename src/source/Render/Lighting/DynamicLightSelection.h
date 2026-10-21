@@ -21,22 +21,22 @@ struct DynamicLightSelection
     std::size_t dropped = 0;
 };
 
-// How much a light adds at a position: the sum of its positive colour components times its
-// falloff over the horizontal distance; 0 at or beyond its radius.
-[[nodiscard]] float ContributionAt(const DynamicLight& light, const float (&position)[3]);
+// How much a light adds at a position: its LightBrightness times its falloff as the shaders weigh it
+// (mu::PointLightFalloff with `physicalFalloff`); 0 at or beyond its radius.
+[[nodiscard]] float ContributionAt(const DynamicLight& light, const float (&position)[3], float physicalFalloff = 0.f);
 
 // Packs the brightening lights for the shader, at most mu::kMaxDynamicLights of them. With more,
 // the ones contributing most at the reference position (the player's character) win; equal
 // contributions go to the nearer light, then to the earlier one. Negative colour components are
 // zeroed: darkening is part of the models' base light (RequestStaticTerrainLight).
 [[nodiscard]] DynamicLightSelection SelectDynamicLights(std::span<const DynamicLight> lights,
-                                                        const float (&reference)[3]);
+                                                        const float (&reference)[3], float physicalFalloff = 0.f);
 
 // The pinned selection's lights first, as its worldLightCount lights, then the selection of the
 // lights added after it in the slots left.
 [[nodiscard]] DynamicLightSelection SelectDynamicLights(const DynamicLightSelection& pinned,
                                                         std::span<const DynamicLight> laterLights,
-                                                        const float (&reference)[3]);
+                                                        const float (&reference)[3], float physicalFalloff = 0.f);
 
 // Shortest time between two log lines about dropped lights.
 inline constexpr std::chrono::minutes kDroppedLightReportInterval{1};

@@ -67,21 +67,22 @@ private:
 
 [[nodiscard]] LightSource CurrentLightSource();
 
-// The effect type whose code runs while it is alive (MoveEffects, RenderEffects): its light calls
-// take the effect's dynamicLight values (EffectTypes.json). Scopes nest.
+// The dynamicLight values (EffectTypes.json) of the effect whose code runs while it is alive
+// (MoveEffects, RenderEffects), null when it has none: its light calls and its shafts take them.
+// Scopes nest.
 class EffectLightScope
 {
 public:
-    explicit EffectLightScope(int type);
+    explicit EffectLightScope(const Data::Effects::EffectDynamicLight* light);
     ~EffectLightScope();
     EffectLightScope(const EffectLightScope&) = delete;
     EffectLightScope& operator=(const EffectLightScope&) = delete;
 
 private:
-    std::optional<int> m_previous;
+    const Data::Effects::EffectDynamicLight* m_previous;
 };
 
-[[nodiscard]] std::optional<int> CurrentEffectType();
+[[nodiscard]] const Data::Effects::EffectDynamicLight* CurrentEffectLight();
 
 struct LightHistorySettings
 {
@@ -124,6 +125,8 @@ struct LightCall
 // replaced, keeping the strongest channel), its range scaled by the radius (at least 1 cell), and
 // its shadows switch.
 void ApplyEffectDynamicLight(const Data::Effects::EffectDynamicLight& light, LightCall& call);
+// `color` scaled by the intensity, its hue replaced keeping the strongest channel.
+void ApplyEffectLightColor(const Data::Effects::EffectDynamicLight& light, float (&color)[3]);
 
 // Refused history calls since the last clear, and which clear that was (ordered Classic fallback).
 struct DropCount

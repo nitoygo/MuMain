@@ -1,5 +1,7 @@
 #include <doctest.h>
 
+#include "Data/GameData/EffectData/EffectDynamicLight.h"
+#include "Render/Lighting/DynamicLightHistory.h"
 #include "Render/Lighting/LightShafts.h"
 
 #include <array>
@@ -89,15 +91,15 @@ TEST_CASE("the brightest shaft lights on screen are kept, scaled by their kind's
     std::array<ScreenShaft, mu::kMaxLightShafts> shafts{};
 
     REQUIRE(Render::Lighting::SelectScreenShafts(lights, kView, 0.25f, 1.f, 1.f, shafts) == 4);
-    CHECK(Render::Lighting::ShaftBrightness(shafts[0].color) == doctest::Approx(3.f));
-    CHECK(Render::Lighting::ShaftBrightness(shafts[1].color) == doctest::Approx(2.f));
-    CHECK(Render::Lighting::ShaftBrightness(shafts[2].color) == doctest::Approx(1.5f));
-    CHECK(Render::Lighting::ShaftBrightness(shafts[3].color) == doctest::Approx(1.f));
+    CHECK(Render::Lighting::LightBrightness(shafts[0].color) == doctest::Approx(3.f));
+    CHECK(Render::Lighting::LightBrightness(shafts[1].color) == doctest::Approx(2.f));
+    CHECK(Render::Lighting::LightBrightness(shafts[2].color) == doctest::Approx(1.5f));
+    CHECK(Render::Lighting::LightBrightness(shafts[3].color) == doctest::Approx(1.f));
 
     // Map shafts off, skills doubled.
     REQUIRE(Render::Lighting::SelectScreenShafts(lights, kView, 0.25f, 2.f, 0.f, shafts) == 2);
-    CHECK(Render::Lighting::ShaftBrightness(shafts[0].color) == doctest::Approx(6.f));
-    CHECK(Render::Lighting::ShaftBrightness(shafts[1].color) == doctest::Approx(1.f));
+    CHECK(Render::Lighting::LightBrightness(shafts[0].color) == doctest::Approx(6.f));
+    CHECK(Render::Lighting::LightBrightness(shafts[1].color) == doctest::Approx(1.f));
 }
 
 TEST_CASE("a full shaft list keeps the brightest lights [render][shafts]")
@@ -114,8 +116,8 @@ TEST_CASE("a full shaft list keeps the brightest lights [render][shafts]")
     float brightest = 0.f;
     for (const LightShaftLight& light : list.Lights())
     {
-        brightest = std::max(brightest, Render::Lighting::ShaftBrightness(light.color));
-        CHECK(Render::Lighting::ShaftBrightness(light.color) >= 1.f - 1e-6f);
+        brightest = std::max(brightest, Render::Lighting::LightBrightness(light.color));
+        CHECK(Render::Lighting::LightBrightness(light.color) >= 1.f - 1e-6f);
     }
     CHECK(brightest == doctest::Approx(5.f));
     list.Clear();
@@ -184,4 +186,31 @@ TEST_CASE("a map light's shaft fades in, and fades out before another takes its 
     CHECK(weightOf(torches[0]) == -1.f);
     CHECK(weightOf(torches.back()) == doctest::Approx(0.5f));
     CHECK(weightOf(torches[1]) == doctest::Approx(1.f));
+}
+
+TEST_CASE("a shaft takes the light values of the effect adding it [render][shafts]")
+{
+    Render::Lighting::LightShaftList& frame = Render::Lighting::FrameLightShafts();
+    frame.Clear();
+    const float start[3]{};
+    const float end[3] = {50.f, 0.f, 0.f};
+    const float color[3] = {0.2f, 0.4f, 0.1f};
+    Render::Lighting::AddShaftLight(LightShaftKind::Skill, start, end, color);
+
+    // A new hue keeps the strongest channel (0.4), then intensity 2 and shaft 1.5.
+    Data::Effects::EffectDynamicLight light;
+    light.intensity = 2.f;
+    light.shaft = 1.5f;
+    light.color = std::array<float, 3>{1.f, 0.5f, 0.f};
+    {
+        const Render::Lighting::EffectLightScope effect(&light);
+        Render::Lighting::AddShaftLight(LightShaftKind::Skill, end, start, color);
+    }
+
+    REQUIRE(frame.Lights().size() == 2);
+    CHECK(frame.Lights()[0].color[1] == doctest::Approx(0.4f));
+    CHECK(frame.Lights()[1].color[0] == doctest::Approx(1.2f));
+    CHECK(frame.Lights()[1].color[1] == doctest::Approx(0.6f));
+    CHECK(frame.Lights()[1].color[2] == doctest::Approx(0.f));
+    frame.Clear();
 }

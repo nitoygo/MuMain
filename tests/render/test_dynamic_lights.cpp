@@ -386,6 +386,22 @@ TEST_CASE("the ground's lights are pinned once per frame [render][dynamic_lights
     CHECK_FALSE(world.IsPinned());
 }
 
+TEST_CASE("lights are ranked by what they add as the shaders weigh them [render][dynamic_lights]")
+{
+    const float hero[3] = {1000.f, 1000.f, 0.f};
+    DynamicLight wide{{1100.f, 1000.f, 100.f}, {1.f, 0.f, 0.f}, 1, 1000.f};
+    DynamicLight close{{1020.f, 1000.f, 100.f}, {1.2f, 0.f, 0.f}, 1, 200.f};
+    const float toWide[3] = {100.f, 0.f, 100.f};
+    CHECK(Render::Lighting::ContributionAt(wide, hero, 1.f) ==
+          doctest::Approx(mu::PointLightFalloff(toWide, 1000.f, 1.f)));
+
+    // Linear: both 0.9 of the way in, the brighter close light first. Physical: the close light lies
+    // well outside its own core, the wide one inside its, which wins.
+    const std::vector<DynamicLight> lights = {wide, close};
+    CHECK(Render::Lighting::SelectDynamicLights(lights, hero).uniform.positionAndRadius[0][3] == 200.f);
+    CHECK(Render::Lighting::SelectDynamicLights(lights, hero, 1.f).uniform.positionAndRadius[0][3] == 1000.f);
+}
+
 TEST_CASE("point lights cast a character's shadow away from them by their share of its light [render][dynamic_lights]")
 {
     const float hero[3] = {1000.f, 1000.f, 0.f};

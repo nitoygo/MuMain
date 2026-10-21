@@ -3,6 +3,7 @@
 //////////////////////////////////////////////////////////////////////
 
 #include "stdafx.h"
+#include "Data/GameData/EffectData/EffectTypeCatalogue.h"
 #include "Render/Lighting/DynamicLightHistory.h"
 #include "SkillEffectMgr.h"
 #include "Render/Terrain/ZzzLodTerrain.h"
@@ -188,7 +189,7 @@ void CSkillEffectMgr::MoveEffects()
         OBJECT* o = &m_SkillEffects[i];
         if (o->Live)
         {
-            const Render::Lighting::EffectLightScope effectLight(o->Type);
+            const Render::Lighting::EffectLightScope effectLight(g_EffectTypeCatalogue.GetDynamicLight(o->Type));
             MoveEffect(o, i);
         }
     }

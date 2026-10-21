@@ -1,8 +1,17 @@
 // DynamicLight.h: one dynamic terrain light of the current frame, as a point light.
 #pragma once
 
+#include <algorithm>
+
 namespace Render::Lighting
 {
+
+// How bright a light is: the sum of its brightening (positive) colour channels. Dynamic lights and
+// shaft lights are ranked by it.
+[[nodiscard]] inline float LightBrightness(const float (&color)[3])
+{
+    return (std::max)(color[0], 0.f) + (std::max)(color[1], 0.f) + (std::max)(color[2], 0.f);
+}
 
 // Height of a dynamic light above the terrain under it, in world units: about the chest of a
 // standing character. The game's light calls carry no height.

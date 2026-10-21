@@ -34,6 +34,7 @@ constexpr const char* Intensity = "intensity";
 constexpr const char* Radius = "radius";
 constexpr const char* Color = "color";
 constexpr const char* Shadows = "shadows";
+constexpr const char* Shaft = "shaft";
 } // namespace Keys
 
 constexpr const char* UnknownField = "unknown field, ignored";
@@ -160,6 +161,8 @@ void ReadDynamicLight(const OrderedJson& json, const std::string& entryField, co
                     values.intensity, issues);
     ReadLightNumber(*light, Keys::Radius, MinEffectLightRadius, MaxEffectLightRadius, "0.25 to 4", field, source,
                     values.radius, issues);
+    ReadLightNumber(*light, Keys::Shaft, MinEffectLightShaft, MaxEffectLightShaft, "0 to 4", field, source,
+                    values.shaft, issues);
     if (const auto color = light->find(Keys::Color); color != light->end())
     {
         const bool valid = color->is_array() && color->size() == 3 &&
@@ -192,7 +195,8 @@ void ReadDynamicLight(const OrderedJson& json, const std::string& entryField, co
     }
     for (const auto& [key, value] : light->items())
     {
-        if (key != Keys::Intensity && key != Keys::Radius && key != Keys::Color && key != Keys::Shadows)
+        if (key != Keys::Intensity && key != Keys::Radius && key != Keys::Color && key != Keys::Shadows &&
+            key != Keys::Shaft)
         {
             AddIssue(issues, ItemDataIssueSeverity::Warning, source, field + "." + key, UnknownField);
         }
@@ -227,6 +231,10 @@ OrderedJson WriteDynamicLight(const EffectDynamicLight& light)
     if (light.shadows != defaults.shadows)
     {
         json[Keys::Shadows] = light.shadows;
+    }
+    if (light.shaft != defaults.shaft)
+    {
+        json[Keys::Shaft] = Items::ModelJson::WriteNumber(Rounded(light.shaft));
     }
     return json;
 }
