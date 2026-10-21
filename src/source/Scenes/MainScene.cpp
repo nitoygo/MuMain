@@ -575,7 +575,12 @@ static void RenderGameWorld(BYTE& byWaterMap, int width, int height)
         RenderBoids();
     }
 
-    { FRAME_PROFILE(Characters); RenderCharactersClient(); }
+    {
+        FRAME_PROFILE(Characters);
+        // Characters block light shafts; the world's objects do not.
+        mu::ScopedShaftOccluders shaftOccluders;
+        RenderCharactersClient();
+    }
 
     if (EditFlag != EDIT_NONE && renderTerrain)
     {

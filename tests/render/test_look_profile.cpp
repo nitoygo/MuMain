@@ -67,6 +67,10 @@ TEST_CASE("the look profile's built-in values are the renderer's values before i
     // Ambient occlusion: off, at the renderer's default reach.
     CHECK(BuiltIn(LookValue::AmbientOcclusionStrength) == 0.0);
     CHECK(BuiltInFloat(LookValue::AmbientOcclusionRadius) == mu::PostProcessingLook{}.ambientOcclusionRadius);
+    // Light shafts: off, every kind of light at its full share.
+    CHECK(BuiltIn(LookValue::LightShaftStrength) == 0.0);
+    CHECK(BuiltInFloat(LookValue::LightShaftSkills) == mu::PostProcessingLook{}.lightShaftSkills);
+    CHECK(BuiltInFloat(LookValue::LightShaftMap) == mu::PostProcessingLook{}.lightShaftMap);
 }
 
 TEST_CASE("dynamic.wrap: the point-light diffuse from Lambert to half-Lambert [render][look]")
@@ -207,7 +211,8 @@ TEST_CASE(
     // The strength replaces the former gradingEnabled flag in the last register lane.
     CHECK(offsetof(mu::SdlGpuCompositeUniform, bloomScale) == 8);
     CHECK(offsetof(mu::SdlGpuCompositeUniform, gradingStrength) == 12);
-    CHECK(sizeof(mu::SdlGpuCompositeUniform) == 32);
+    CHECK(offsetof(mu::SdlGpuCompositeUniform, lightShaftStrength) == 32);
+    CHECK(sizeof(mu::SdlGpuCompositeUniform) == 48);
 }
 
 TEST_CASE("the developer tuning commands name their look values [render][look]")
@@ -235,6 +240,9 @@ TEST_CASE("the developer tuning commands name their look values [render][look]")
     single(L"$bloom 0.9", LookValue::BloomStrength, 0.9);
     single(L"$ao radius 80", LookValue::AmbientOcclusionRadius, 80.0);
     single(L"$ao 0.5", LookValue::AmbientOcclusionStrength, 0.5);
+    single(L"$shafts skills 0.5", LookValue::LightShaftSkills, 0.5);
+    single(L"$shafts map 1.5", LookValue::LightShaftMap, 1.5);
+    single(L"$shafts 0.7", LookValue::LightShaftStrength, 0.7);
 
     const std::optional<Render::Look::LookTuningCommand> diffuse =
         ParseLookTuningCommand(L"$lighting diffuse 1.0 0.3 0.15");

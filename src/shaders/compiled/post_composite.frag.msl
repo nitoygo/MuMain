@@ -12,6 +12,8 @@ struct CompositeUniforms
     float ditherAmount;
     float ambientOcclusionStrength;
     float ambientOcclusionEffects;
+    float lightShaftStrength;
+    packed_float3 padding;
 };
 
 struct main0_out
@@ -19,76 +21,86 @@ struct main0_out
     float4 _entryPointOutput [[color(0)]];
 };
 
-fragment main0_out main0(constant CompositeUniforms& _38 [[buffer(0)]], texture2d<float> scene [[texture(0)]], texture2d<float> bloom [[texture(1)]], texture2d<float> grading [[texture(2)]], texture2d<float> ambientOcclusion [[texture(3)]], texture2d<float> bloomSource [[texture(4)]], sampler sceneSampler [[sampler(0)]], sampler bloomSampler [[sampler(1)]], sampler gradingSampler [[sampler(2)]], sampler ambientOcclusionSampler [[sampler(3)]], sampler bloomSourceSampler [[sampler(4)]], float4 gl_FragCoord [[position]])
+fragment main0_out main0(constant CompositeUniforms& _38 [[buffer(0)]], texture2d<float> scene [[texture(0)]], texture2d<float> bloom [[texture(1)]], texture2d<float> grading [[texture(2)]], texture2d<float> ambientOcclusion [[texture(3)]], texture2d<float> bloomSource [[texture(4)]], texture2d<float> lightShafts [[texture(5)]], sampler sceneSampler [[sampler(0)]], sampler bloomSampler [[sampler(1)]], sampler gradingSampler [[sampler(2)]], sampler ambientOcclusionSampler [[sampler(3)]], sampler bloomSourceSampler [[sampler(4)]], sampler lightShaftsSampler [[sampler(5)]], float4 gl_FragCoord [[position]])
 {
     main0_out out = {};
-    float2 _385 = gl_FragCoord.xy * _38.inverseTargetSize;
-    float4 _370 = scene.sample(sceneSampler, _385);
+    float2 _423 = gl_FragCoord.xy * _38.inverseTargetSize;
+    float4 _407 = scene.sample(sceneSampler, _423);
     if (_38.ambientOcclusionStrength > 0.0)
     {
-        float4 _522 = ambientOcclusion.sample(ambientOcclusionSampler, _385);
-        float _523 = _522.x;
-        float _699;
+        float4 _592 = ambientOcclusion.sample(ambientOcclusionSampler, _423);
+        float _593 = _592.x;
+        float _769;
         if (_38.ambientOcclusionEffects > 0.0)
         {
-            _699 = mix(_523, 1.0, fast::clamp(dot(bloomSource.sample(bloomSourceSampler, _385).xyz, float3(0.2125999927520751953125, 0.715200006961822509765625, 0.072200000286102294921875)) * 4.0, 0.0, 1.0));
+            _769 = mix(_593, 1.0, fast::clamp(dot(bloomSource.sample(bloomSourceSampler, _423).xyz, float3(0.2125999927520751953125, 0.715200006961822509765625, 0.072200000286102294921875)) * 4.0, 0.0, 1.0));
         }
         else
         {
-            _699 = _523;
+            _769 = _593;
         }
-        float4 _397 = _370;
-        float3 _399 = _397.xyz * fast::max(1.0 - ((1.0 - _699) * _38.ambientOcclusionStrength), 0.0);
-        _370.x = _399.x;
-        _370.y = _399.y;
-        _370.z = _399.z;
+        float4 _435 = _407;
+        float3 _437 = _435.xyz * fast::max(1.0 - ((1.0 - _769) * _38.ambientOcclusionStrength), 0.0);
+        _407.x = _437.x;
+        _407.y = _437.y;
+        _407.z = _437.z;
+    }
+    if (_38.lightShaftStrength > 0.0)
+    {
+        float4 _453 = lightShafts.sample(lightShaftsSampler, _423);
+        float4 _409 = _453;
+        float4 _454 = _407;
+        float3 _469 = (_454.xyz * fast::clamp(1.0 - (_409.w * _38.lightShaftStrength), 0.0, 1.0)) + (_453.xyz * _38.lightShaftStrength);
+        _407.x = _469.x;
+        _407.y = _469.y;
+        _407.z = _469.z;
     }
     if (_38.toneMapKnee < 1.0)
     {
-        float4 _411 = _370;
-        float3 _413 = fast::max(_411.xyz, float3(0.0));
-        _370.x = _413.x;
-        _370.y = _413.y;
-        _370.z = _413.z;
-        float _553 = 1.0 - _38.toneMapKnee;
-        float _424 = _370.y;
-        float _579 = 1.0 - _38.toneMapKnee;
-        float _427 = _370.z;
-        float _605 = 1.0 - _38.toneMapKnee;
-        _370.x = (_370.x > _38.toneMapKnee) ? (_38.toneMapKnee + (_553 * (1.0 - exp((-(_370.x - _38.toneMapKnee)) / _553)))) : _370.x;
-        _370.y = (_424 > _38.toneMapKnee) ? (_38.toneMapKnee + (_579 * (1.0 - exp((-(_424 - _38.toneMapKnee)) / _579)))) : _424;
-        _370.z = (_427 > _38.toneMapKnee) ? (_38.toneMapKnee + (_605 * (1.0 - exp((-(_427 - _38.toneMapKnee)) / _605)))) : _427;
+        float4 _481 = _407;
+        float3 _483 = fast::max(_481.xyz, float3(0.0));
+        _407.x = _483.x;
+        _407.y = _483.y;
+        _407.z = _483.z;
+        float _623 = 1.0 - _38.toneMapKnee;
+        float _494 = _407.y;
+        float _649 = 1.0 - _38.toneMapKnee;
+        float _497 = _407.z;
+        float _675 = 1.0 - _38.toneMapKnee;
+        _407.x = (_407.x > _38.toneMapKnee) ? (_38.toneMapKnee + (_623 * (1.0 - exp((-(_407.x - _38.toneMapKnee)) / _623)))) : _407.x;
+        _407.y = (_494 > _38.toneMapKnee) ? (_38.toneMapKnee + (_649 * (1.0 - exp((-(_494 - _38.toneMapKnee)) / _649)))) : _494;
+        _407.z = (_497 > _38.toneMapKnee) ? (_38.toneMapKnee + (_675 * (1.0 - exp((-(_497 - _38.toneMapKnee)) / _675)))) : _497;
     }
     if (_38.bloomScale > 0.0)
     {
-        float4 _453 = _370;
-        float3 _462 = float3(1.0) - ((float3(1.0) - _453.xyz) * (float3(1.0) - fast::clamp(bloom.sample(bloomSampler, _385).xyz * _38.bloomScale, float3(0.0), float3(1.0))));
-        _370.x = _462.x;
-        _370.y = _462.y;
-        _370.z = _462.z;
+        float4 _523 = _407;
+        float3 _532 = float3(1.0) - ((float3(1.0) - _523.xyz) * (float3(1.0) - fast::clamp(bloom.sample(bloomSampler, _423).xyz * _38.bloomScale, float3(0.0), float3(1.0))));
+        _407.x = _532.x;
+        _407.y = _532.y;
+        _407.z = _532.z;
     }
     if (_38.gradingStrength > 0.0)
     {
-        float4 _474 = _370;
-        float3 _376 = _474.xyz;
-        float _638 = _376.z * 31.0;
-        float _640 = floor(_638);
-        float _651 = ((_376.x * 31.0) + 0.5) * 0.0009765625;
-        float _656 = ((_376.y * 31.0) + 0.5) * 0.03125;
-        float3 _482 = mix(_474.xyz, mix(grading.sample(gradingSampler, float2(_651 + (_640 * 0.03125), _656)).xyz, grading.sample(gradingSampler, float2(_651 + (fast::min(_640 + 1.0, 31.0) * 0.03125), _656)).xyz, float3(_638 - _640)), float3(_38.gradingStrength));
-        _370.x = _482.x;
-        _370.y = _482.y;
-        _370.z = _482.z;
+        float4 _544 = _407;
+        float3 _414 = _544.xyz;
+        float _708 = _414.z * 31.0;
+        float _710 = floor(_708);
+        float _721 = ((_414.x * 31.0) + 0.5) * 0.0009765625;
+        float _726 = ((_414.y * 31.0) + 0.5) * 0.03125;
+        float3 _552 = mix(_544.xyz, mix(grading.sample(gradingSampler, float2(_721 + (_710 * 0.03125), _726)).xyz, grading.sample(gradingSampler, float2(_721 + (fast::min(_710 + 1.0, 31.0) * 0.03125), _726)).xyz, float3(_708 - _710)), float3(_38.gradingStrength));
+        _407.x = _552.x;
+        _407.y = _552.y;
+        _407.z = _552.z;
     }
     if (_38.ditherAmount > 0.0)
     {
-        float4 _502 = _370;
-        float3 _505 = _502.xyz + float3((fract(52.98291778564453125 * fract(dot(gl_FragCoord.xy, float2(0.067110560834407806396484375, 0.005837149918079376220703125)))) - 0.5) * _38.ditherAmount);
-        _370.x = _505.x;
-        _370.y = _505.y;
-        _370.z = _505.z;
+        float4 _572 = _407;
+        float3 _575 = _572.xyz + float3((fract(52.98291778564453125 * fract(dot(gl_FragCoord.xy, float2(0.067110560834407806396484375, 0.005837149918079376220703125)))) - 0.5) * _38.ditherAmount);
+        _407.x = _575.x;
+        _407.y = _575.y;
+        _407.z = _575.z;
     }
-    out._entryPointOutput = _370;
+    out._entryPointOutput = _407;
     return out;
 }
 

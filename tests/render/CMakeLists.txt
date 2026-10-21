@@ -150,7 +150,9 @@ mu_add_test(
     SOURCES
         test_dynamic_lights.cpp
         test_dynamic_light_history.cpp
+        test_light_shafts.cpp
         ${CMAKE_SOURCE_DIR}/src/source/Render/Lighting/DynamicLightHistory.cpp
+        ${CMAKE_SOURCE_DIR}/src/source/Render/Lighting/LightShafts.cpp
         ${CMAKE_SOURCE_DIR}/src/source/Render/Lighting/DynamicLightList.cpp
         ${CMAKE_SOURCE_DIR}/src/source/Render/Lighting/DynamicLightSelection.cpp
         ${CMAKE_SOURCE_DIR}/src/source/Render/Lighting/WorldDynamicLights.cpp

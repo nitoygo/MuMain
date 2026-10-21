@@ -71,6 +71,10 @@ struct PostProcessingLook
     // Ambient occlusion: how much it darkens (0: none) and how far it looks, in world units.
     float ambientOcclusionStrength = 0.0f;
     float ambientOcclusionRadius = 60.0f;
+    // Light shafts: how much they add (0: none), and how much skill and map lights cast them.
+    float lightShaftStrength = 0.0f;
+    float lightShaftSkills = 1.0f;
+    float lightShaftMap = 1.0f;
 };
 
 // ---------------------------------------------------------------------------
@@ -336,6 +340,8 @@ public:
     // The frame's point lights for Enhanced-lit draws (Enhanced dynamic lights). The last set in a
     // frame is the one all of that frame's draws use; set an empty block to turn them off.
     virtual void SetDynamicLights(const DynamicLightsUniform& /*lights*/) {}
+    // The frame's light-shaft lights (Enhanced light shafts), applied when the frame is replayed.
+    virtual void SetLightShafts(std::span<const LightShaftLight> /*lights*/) {}
 
     // Select Enhanced (per-pixel lighting and fog) or Classic pipelines for the following frames.
     // Returns false when Enhanced lighting was requested but this backend could not build it; the
@@ -389,6 +395,10 @@ public:
     // Scopes nest; use ScopedGroundShadow.
     virtual void BeginGroundShadow(GroundShadowSource /*source*/) {}
     virtual void EndGroundShadow(GroundShadowSource /*source*/) {}
+    // Draws between BeginShaftOccluders and EndShaftOccluders (characters) block light shafts.
+    // Scopes nest; use ScopedShaftOccluders.
+    virtual void BeginShaftOccluders() {}
+    virtual void EndShaftOccluders() {}
     // True while a bloom exclusion is open: what is queued now and drawn later
     // (a character's glow sprites) can be drawn inside one too.
     [[nodiscard]] virtual bool IsBloomExcluded() const
@@ -829,6 +839,20 @@ public:
     }
     ScopedWorldLitGeometry(const ScopedWorldLitGeometry&) = delete;
     ScopedWorldLitGeometry& operator=(const ScopedWorldLitGeometry&) = delete;
+};
+class ScopedShaftOccluders
+{
+public:
+    ScopedShaftOccluders()
+    {
+        GetRenderer().BeginShaftOccluders();
+    }
+    ~ScopedShaftOccluders()
+    {
+        GetRenderer().EndShaftOccluders();
+    }
+    ScopedShaftOccluders(const ScopedShaftOccluders&) = delete;
+    ScopedShaftOccluders& operator=(const ScopedShaftOccluders&) = delete;
 };
 class ScopedGroundShadow
 {

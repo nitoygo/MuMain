@@ -49,11 +49,15 @@ struct SdlGpuCompositeUniform
     float ambientOcclusionStrength;
     // 1 when the bloom source holds this frame's additive light, which the occlusion leaves alone.
     float ambientOcclusionEffects;
+    // How much the light shafts add to the scene; 0 for none.
+    float lightShaftStrength;
+    float padding[3];
 };
 static_assert(offsetof(SdlGpuCompositeUniform, bloomScale) == 8);
 static_assert(offsetof(SdlGpuCompositeUniform, gradingStrength) == 12);
 static_assert(offsetof(SdlGpuCompositeUniform, toneMapKnee) == 16);
-static_assert(sizeof(SdlGpuCompositeUniform) == 32);
+static_assert(offsetof(SdlGpuCompositeUniform, lightShaftStrength) == 32);
+static_assert(sizeof(SdlGpuCompositeUniform) == 48);
 
 // Where the HDR scene's tone map starts rolling channels off: below it the scene is unchanged.
 inline constexpr float HdrToneMapKnee = 0.9f;
@@ -101,7 +105,8 @@ public:
     // `ambientOcclusion` (SdlGpuAmbientOcclusion, or null for none) darkens the scene at the look's
     // strength.
     void DrawComposite(SDL_GPUCommandBuffer* commandBuffer, SDL_GPURenderPass* pass, SdlGpuTargetSize size,
-                       const PostProcessingLook& look, PostProcessingView view, SDL_GPUTexture* ambientOcclusion);
+                       const PostProcessingLook& look, PostProcessingView view, SDL_GPUTexture* ambientOcclusion,
+                       SDL_GPUTexture* lightShafts);
 
     // Replaces the grading table (Render::PostProcessing::LoadGradingTable's
     // RGBA8 texels), or empty for none. False (and no table) when it cannot be uploaded.

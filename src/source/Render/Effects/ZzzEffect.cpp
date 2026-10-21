@@ -24,6 +24,7 @@
 #include "UI/Core/WindowSystem.h"
 #include "Engine/Object/ZzzInterface.h"
 #include "Scenes/MainScene.h"
+#include "Render/Lighting/LightShafts.h"
 
 PARTICLE  Particles[MAX_PARTICLES];
 #ifdef DEVIAS_XMAS_EVENT
@@ -8039,6 +8040,7 @@ void RenderEffects(bool bRenderBlendMesh)
                         }
                         AddTerrainLight(Position[0], Position[1], o->Light, 2, PrimaryTerrainLight);
                     }
+                    Render::Lighting::AddShaftLight(mu::LightShaftKind::Skill, o->Position, Position, o->Light);
                 }
                 break;
 

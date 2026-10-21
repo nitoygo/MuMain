@@ -78,6 +78,12 @@ ControlTexts TextsOf(TuningControlId id)
         return {I18N::Game::TuningContactShadows, I18N::Game::TuningContactShadowsHelp};
     case TuningControlId::AmbientOcclusionRadius:
         return {I18N::Game::TuningContactShadowReach, I18N::Game::TuningContactShadowReachHelp};
+    case TuningControlId::LightShaftStrength:
+        return {I18N::Game::TuningLightShafts, I18N::Game::TuningLightShaftsHelp};
+    case TuningControlId::LightShaftSkills:
+        return {I18N::Game::TuningLightShaftsFromSkills, I18N::Game::TuningLightShaftsFromSkillsHelp};
+    case TuningControlId::LightShaftMap:
+        return {I18N::Game::TuningLightShaftsFromMapLights, I18N::Game::TuningLightShaftsFromMapLightsHelp};
     case TuningControlId::Count:
         break;
     }

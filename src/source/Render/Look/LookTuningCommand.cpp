@@ -33,6 +33,9 @@ const CommandForm CommandForms[] = {
     {L"$bloom falloff ", {LookValue::BloomLevelFalloff}},
     {L"$ao radius ", {LookValue::AmbientOcclusionRadius}},
     {L"$ao ", {LookValue::AmbientOcclusionStrength}},
+    {L"$shafts skills ", {LookValue::LightShaftSkills}},
+    {L"$shafts map ", {LookValue::LightShaftMap}},
+    {L"$shafts ", {LookValue::LightShaftStrength}},
     {L"$bloom ", {LookValue::BloomStrength}},
 };
 

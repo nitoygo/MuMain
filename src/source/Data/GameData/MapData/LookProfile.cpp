@@ -49,6 +49,9 @@ constexpr std::array<LookValueInfo, LookValueCount> Infos = {{
     {LookValue::GradingStrength, "grading.strength", 1.0, 0.0, 1.0},
     {LookValue::AmbientOcclusionStrength, "ao.strength", 0.0, 0.0, 2.0},
     {LookValue::AmbientOcclusionRadius, "ao.radius", 60.0, 10.0, 300.0},
+    {LookValue::LightShaftStrength, "shafts.strength", 0.0, 0.0, 2.0},
+    {LookValue::LightShaftSkills, "shafts.skills", 1.0, 0.0, 2.0},
+    {LookValue::LightShaftMap, "shafts.map", 1.0, 0.0, 2.0},
 }};
 
 constexpr bool InfosFollowLookValueOrder()

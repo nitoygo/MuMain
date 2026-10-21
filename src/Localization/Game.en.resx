@@ -1619,6 +1619,24 @@
   <data name="Tuning Contact Shadow Reach Help" xml:space="preserve">
     <value>How far from a surface nearby geometry still darkens it, in world units (a terrain cell is 100).</value>
   </data>
+  <data name="Tuning Light Shafts" xml:space="preserve">
+    <value>Light shafts</value>
+  </data>
+  <data name="Tuning Light Shafts Help" xml:space="preserve">
+    <value>How brightly strong lights (skills such as Aqua Beam, bonfires) light the air around them; characters in that light leave a dark streak behind them. 0 turns it off; not drawn while anti-aliasing is on.</value>
+  </data>
+  <data name="Tuning Light Shafts From Skills" xml:space="preserve">
+    <value>Light shafts from skills</value>
+  </data>
+  <data name="Tuning Light Shafts From Skills Help" xml:space="preserve">
+    <value>How much skill and spell lights cast light shafts.</value>
+  </data>
+  <data name="Tuning Light Shafts From Map Lights" xml:space="preserve">
+    <value>Light shafts from map lights</value>
+  </data>
+  <data name="Tuning Light Shafts From Map Lights Help" xml:space="preserve">
+    <value>How much fires and bonfires cast light shafts.</value>
+  </data>
   <data name="Tuning Colour Grading Strength Help" xml:space="preserve">
     <value>How much of the map's colour grading applies. 0 % applies none, while bloom stays on.</value>
   </data>

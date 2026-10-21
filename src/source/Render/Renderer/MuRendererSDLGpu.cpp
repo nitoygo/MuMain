@@ -39,6 +39,7 @@
 #include "RangeAllocator.h"
 #include "SdlGpuPixelFormat.h"
 #include "SdlGpuAmbientOcclusion.h"
+#include "SdlGpuLightShafts.h"
 #include "SdlGpuPostProcessing.h"
 #include "SdlGpuReplayState.h"
 #include "SdlGpuValidation.h"
@@ -613,6 +614,8 @@ static Render::PostProcessing::SceneBoundary s_sceneBoundary;
 static int s_bloomExclusionDepth = 0;
 static int s_worldLitGeometryDepth = 0;
 static int s_groundShadowDepth = 0;
+// Draws recorded inside a ScopedShaftOccluders (characters) block light shafts.
+static int s_shaftOccluderDepth = 0;
 static int s_lightShadowDepth = 0;
 // Ground shadows (BeginGroundShadow) are drawn into a coverage mask the world-lit ground samples, in
 // a frame that recorded world-lit draws; until the mask holds the frame's shadows they draw as before.
@@ -808,6 +811,7 @@ struct RenderCmd
     bool bloomExcluded{}; // recorded inside a ScopedBloomExclusion: never a bloom source
     bool groundShadow{};  // recorded inside a ScopedGroundShadow
     bool lightShadow{};   // a point light's (GroundShadowSource::PointLight)
+    bool shaftOccluder{}; // recorded inside a ScopedShaftOccluders
     // Set once this command has been replayed into an offscreen capture (see
     // BeginOffscreenCapture/EndOffscreenCapture); the main frame's replay pass then
     // skips it instead of drawing it a second time into the frame.
@@ -843,7 +847,7 @@ static Render::DrawCommandHistory s_previousDrawCommands;
     }
     if (previous.blendEnabled != command.blendEnabled || previous.blendMode != command.blendMode ||
         previous.bloomExcluded != command.bloomExcluded || previous.groundShadow != command.groundShadow ||
-        previous.lightShadow != command.lightShadow)
+        previous.lightShadow != command.lightShadow || previous.shaftOccluder != command.shaftOccluder)
     {
         return Counter::BatchBreakBlend;
     }
@@ -1184,9 +1188,10 @@ static SDL_GPUShader* s_vertShaderSkinned = nullptr; // skinned_textured.vert
 static SDL_GPUShader* s_vertShaderSkinnedShadow = nullptr; // skinned_shadow.vert
 static SDL_GPUShader* s_fragShaderTexFog = nullptr;  // basic_textured_fog.frag (Enhanced, optional)
 static SDL_GPUShader* s_fragShaderLit = nullptr;     // skinned_lit.frag (Enhanced, optional)
-static SDL_GPUShader* s_vertShaderWorldLit = nullptr;   // world_lit.vert (Enhanced, optional)
-static SDL_GPUShader* s_fragShaderWorldLit = nullptr;   // world_lit.frag (Enhanced, optional)
-static SDL_GPUShader* s_fragShaderShadowMask = nullptr; // shadow_mask.frag (optional)
+static SDL_GPUShader* s_vertShaderWorldLit = nullptr;      // world_lit.vert (Enhanced, optional)
+static SDL_GPUShader* s_fragShaderWorldLit = nullptr;      // world_lit.frag (Enhanced, optional)
+static SDL_GPUShader* s_fragShaderShadowMask = nullptr;    // shadow_mask.frag (optional)
+static SDL_GPUShader* s_fragShaderShaftOccluder = nullptr; // shaft_occluder.frag (optional)
 // Post-processing (optional): without them post-processing is unavailable.
 static SDL_GPUShader* s_vertShaderPostFullscreen = nullptr; // post_fullscreen.vert
 static SDL_GPUShader* s_fragShaderBloomDown = nullptr;      // post_bloom_down.frag
@@ -1194,9 +1199,16 @@ static SDL_GPUShader* s_fragShaderBloomUp = nullptr;        // post_bloom_up.fra
 static SDL_GPUShader* s_fragShaderComposite = nullptr;      // post_composite.frag
 static SDL_GPUShader* s_fragShaderAmbientOcclusion = nullptr;     // post_ao.frag
 static SDL_GPUShader* s_fragShaderAmbientOcclusionBlur = nullptr; // post_ao_blur.frag
+static SDL_GPUShader* s_fragShaderLightShafts = nullptr;          // post_shafts.frag
 // The scene's ambient occlusion (one sample only), and the scene's projection it reconstructs from.
 static mu::SdlGpuAmbientOcclusion s_ambientOcclusion;
 static float s_sceneProjection[16]{};
+// The scene's light shafts (one sample only): the frame's shaft lights, the scene's view-projection
+// they are projected with, and the pipeline that replays skinned models into the occluder mask.
+static mu::SdlGpuLightShafts s_lightShafts;
+static std::vector<mu::LightShaftLight> s_lightShaftLights;
+static float s_sceneViewProjection[16]{};
+static SDL_GPUGraphicsPipeline* s_shaftOccluderPipeline = nullptr;
 
 // Depth buffer texture for correct 3D depth testing.
 // Created in Init() at swapchain dimensions, recreated on window resize.
@@ -2111,6 +2123,7 @@ public:
         ReleaseShaders();
         ReleaseGroundShadowMask();
         s_ambientOcclusion.Release();
+        s_lightShafts.Release();
         s_postProcessing.Release();
 
         SDL_ReleaseWindowFromGPUDevice(s_device, s_window);
@@ -2176,6 +2189,7 @@ public:
         }
         s_worldLitGeometryDepth = 0;
         s_groundShadowDepth = 0;
+        s_shaftOccluderDepth = 0;
         s_lightShadowDepth = 0;
         s_frameHasWorldLit = false;
         s_groundShadowMaskReady = false;
@@ -2287,7 +2301,8 @@ public:
     {
         AllCommands,
         BloomSources,
-        GroundShadows, // the ground shadows, into the ground shadow mask
+        GroundShadows,  // the ground shadows, into the ground shadow mask
+        ShaftOccluders, // opaque skinned models, into the light-shaft occluder mask
     };
 
     [[nodiscard]] static ReplayView FullFrameView()
@@ -2345,6 +2360,12 @@ public:
         if (selection == ReplaySelection::GroundShadows)
         {
             return command.groundShadow ? GetGroundShadowMaskPipeline(command) : nullptr;
+        }
+        if (selection == ReplaySelection::ShaftOccluders)
+        {
+            const bool opaqueModel = command.shaftOccluder && command.type == RenderCmdType::DrawSkinnedTriangles &&
+                                     !command.groundShadow && !command.blendEnabled;
+            return opaqueModel ? s_shaftOccluderPipeline : nullptr;
         }
         if (command.lightShadow || (command.groundShadow && s_groundShadowMaskReady))
         {
@@ -2539,6 +2560,39 @@ public:
         s_groundShadowMaskReady = true;
     }
 
+    // The frame's light shafts: the opaque skinned models [0, end) into the occluder mask, then the
+    // shafts of the brightest shaft lights on screen through it. Null when there are none.
+    [[nodiscard]] static SDL_GPUTexture* RenderLightShafts(std::size_t end, bool boneDataReady)
+    {
+        std::array<Render::Lighting::ScreenShaft, mu::kMaxLightShafts> shafts{};
+        const std::size_t count = Render::Lighting::SelectScreenShafts(
+            s_lightShaftLights, s_sceneViewProjection, Render::Lighting::kShaftScreenMargin,
+            s_postProcessingLook.lightShaftSkills, s_postProcessingLook.lightShaftMap, shafts);
+        SDL_GPUTexture* const occluders = count > 0 && s_shaftOccluderPipeline && s_lightShafts.IsAvailable()
+                                              ? s_lightShafts.OccluderTarget({s_swapW, s_swapH})
+                                              : nullptr;
+        if (!occluders)
+        {
+            return nullptr;
+        }
+        SDL_GPUColorTargetInfo maskTarget{};
+        maskTarget.texture = occluders;
+        maskTarget.clear_color = {0.0f, 0.0f, 0.0f, 0.0f};
+        maskTarget.load_op = SDL_GPU_LOADOP_CLEAR;
+        maskTarget.store_op = SDL_GPU_STOREOP_STORE;
+        maskTarget.cycle = true;
+        s_renderPass = SDL_BeginGPURenderPass(s_cmdBuf, &maskTarget, 1, nullptr);
+        if (!s_renderPass)
+        {
+            return nullptr;
+        }
+        ReplayView view = FullFrameView();
+        ReplayCommands(0u, end, boneDataReady, ReplaySelection::ShaftOccluders, view);
+        EndReplayPass();
+        return s_lightShafts.Render(s_cmdBuf, std::span(shafts.data(), count), Render::Lighting::kShaftGlowWidth,
+                                    Render::Lighting::kShaftDecay, Render::Lighting::kShaftLength);
+    }
+
     static void EndReplayPass()
     {
         SDL_EndGPURenderPass(s_renderPass);
@@ -2700,6 +2754,11 @@ public:
                                             s_postProcessingLook.ambientOcclusionRadius)
                 : nullptr;
 
+        SDL_GPUTexture* const lightShafts = s_postProcessingLook.lightShaftStrength > 0.0f && !IsMultisampled() &&
+                                                    s_postProcessingView == mu::PostProcessingView::Scene
+                                                ? RenderLightShafts(sceneEnd, boneDataReady)
+                                                : nullptr;
+
         // The composite covers every pixel: the target's old content is not loaded.
         // A diagnostic view without its image this frame leaves black instead.
         constexpr SDL_FColor black{0.0f, 0.0f, 0.0f, 1.0f};
@@ -2713,7 +2772,7 @@ public:
             return false;
         }
         s_postProcessing.DrawComposite(s_cmdBuf, s_renderPass, {s_swapW, s_swapH}, s_postProcessingLook,
-                                       s_postProcessingView, ambientOcclusion);
+                                       s_postProcessingView, ambientOcclusion, lightShafts);
         ReplayCommands(sceneEnd, s_renderCmds.size(), boneDataReady, ReplaySelection::AllCommands, view);
         EndReplayPass();
         return true;
@@ -3766,6 +3825,19 @@ public:
         if (s_worldLitGeometryDepth > 0)
         {
             --s_worldLitGeometryDepth;
+        }
+    }
+
+    void BeginShaftOccluders() override
+    {
+        ++s_shaftOccluderDepth;
+    }
+
+    void EndShaftOccluders() override
+    {
+        if (s_shaftOccluderDepth > 0)
+        {
+            --s_shaftOccluderDepth;
         }
     }
 
@@ -5032,6 +5104,13 @@ public:
         // projection the scene's.
         m_worldFromViewMatrix = glm::inverse(m_modelViewMatrix);
         std::memcpy(s_sceneProjection, glm::value_ptr(m_projMatrix), sizeof(s_sceneProjection));
+        const glm::mat4 viewProjection = m_projMatrix * m_modelViewMatrix;
+        std::memcpy(s_sceneViewProjection, glm::value_ptr(viewProjection), sizeof(s_sceneViewProjection));
+    }
+
+    void SetLightShafts(std::span<const mu::LightShaftLight> lights) override
+    {
+        s_lightShaftLights.assign(lights.begin(), lights.end());
     }
 
     void SetDynamicLights(const DynamicLightsUniform& lights) override
@@ -5373,6 +5452,7 @@ private:
         command.bloomExcluded = s_bloomExclusionDepth > 0;
         command.lightShadow = s_lightShadowDepth > 0;
         command.groundShadow = s_groundShadowDepth > 0 || command.lightShadow;
+        command.shaftOccluder = s_shaftOccluderDepth > 0;
         if (s_worldLitGeometryDepth > 0)
         {
             s_frameHasWorldLit = true;
@@ -5684,6 +5764,9 @@ private:
             createShader("world_lit", "frag", SDL_GPU_SHADERSTAGE_FRAGMENT, 2, 0, 3, /*fatal=*/false);
         s_fragShaderShadowMask =
             createShader("shadow_mask", "frag", SDL_GPU_SHADERSTAGE_FRAGMENT, 0, 0, 0, /*fatal=*/false);
+        // Light shafts: models' texture (t0) into the occluder mask.
+        s_fragShaderShaftOccluder =
+            createShader("shaft_occluder", "frag", SDL_GPU_SHADERSTAGE_FRAGMENT, 1, 0, 0, /*fatal=*/false);
 
         // Post-processing — non-fatal: without them post-processing is unavailable.
         // Bloom passes: source texture (t0) and BloomUniforms (b0); composite: scene, bloom and
@@ -5694,14 +5777,17 @@ private:
             createShader("post_bloom_down", "frag", SDL_GPU_SHADERSTAGE_FRAGMENT, 1, 0, 1, /*fatal=*/false);
         s_fragShaderBloomUp =
             createShader("post_bloom_up", "frag", SDL_GPU_SHADERSTAGE_FRAGMENT, 1, 0, 1, /*fatal=*/false);
-        // The composite also reads the ambient occlusion and the bloom source (t3, t4).
+        // The composite also reads the ambient occlusion, the bloom source and the light shafts (t3-t5).
         s_fragShaderComposite =
-            createShader("post_composite", "frag", SDL_GPU_SHADERSTAGE_FRAGMENT, 5, 0, 1, /*fatal=*/false);
+            createShader("post_composite", "frag", SDL_GPU_SHADERSTAGE_FRAGMENT, 6, 0, 1, /*fatal=*/false);
         // Ambient occlusion: the depth (t0), and for the blur the occlusion (t1); AmbientOcclusion (b0).
         s_fragShaderAmbientOcclusion =
             createShader("post_ao", "frag", SDL_GPU_SHADERSTAGE_FRAGMENT, 1, 0, 1, /*fatal=*/false);
         s_fragShaderAmbientOcclusionBlur =
             createShader("post_ao_blur", "frag", SDL_GPU_SHADERSTAGE_FRAGMENT, 2, 0, 1, /*fatal=*/false);
+        // Light shafts: the occluder mask (t0) and LightShafts (b0).
+        s_fragShaderLightShafts =
+            createShader("post_shafts", "frag", SDL_GPU_SHADERSTAGE_FRAGMENT, 1, 0, 1, /*fatal=*/false);
 
         mu::log::Get("render")->info("SDL_gpu -- shaders loaded for driver: {}", driverName ? driverName : "unknown");
         return true;
@@ -5761,7 +5847,7 @@ private:
         for (SDL_GPUShader** shader :
              {&s_vertShaderWorldLit, &s_fragShaderWorldLit, &s_fragShaderShadowMask, &s_vertShaderPostFullscreen,
               &s_fragShaderBloomDown, &s_fragShaderBloomUp, &s_fragShaderComposite, &s_fragShaderAmbientOcclusion,
-              &s_fragShaderAmbientOcclusionBlur})
+              &s_fragShaderAmbientOcclusionBlur, &s_fragShaderShaftOccluder, &s_fragShaderLightShafts})
         {
             if (*shader)
             {
@@ -5791,6 +5877,7 @@ private:
         SkinnedLit,
         WorldLit,
         ShadowMask,
+        ShaftOccluder,
     };
 
     struct PipelineBuildDescription
@@ -5806,6 +5893,8 @@ private:
         bool alphaToCoverage = false;
         // Into the ground shadow mask: one sample, no depth, instead of the frame's targets.
         bool groundShadowMaskTarget = false;
+        // Into the light-shaft occluder mask (R8): one sample, no depth.
+        bool shaftOccluderTarget = false;
     };
 
     // The world sets built together, and what a failed pipeline means for them.
@@ -5894,6 +5983,8 @@ private:
             return s_fragShaderWorldLit;
         case FragmentShader::ShadowMask:
             return s_fragShaderShadowMask;
+        case FragmentShader::ShaftOccluder:
+            return s_fragShaderShaftOccluder;
         case FragmentShader::Textured:
             break;
         }
@@ -5912,6 +6003,8 @@ private:
             return "world_lit.frag";
         case FragmentShader::ShadowMask:
             return "shadow_mask.frag";
+        case FragmentShader::ShaftOccluder:
+            return "shaft_occluder.frag";
         case FragmentShader::Textured:
             break;
         }
@@ -5951,6 +6044,7 @@ private:
 
         SDL_GPUColorTargetDescription colorTargetDesc{};
         colorTargetDesc.format = description.groundShadowMaskTarget ? SDL_GPU_TEXTUREFORMAT_R8G8_UNORM
+                                 : description.shaftOccluderTarget  ? mu::SdlGpuLightShafts::OccluderFormat
                                  : s_pipelineFormatOverride != SDL_GPU_TEXTUREFORMAT_INVALID ? s_pipelineFormatOverride
                                                                                              : swapchainFmt;
         colorTargetDesc.blend_state = blendState;
@@ -6076,7 +6170,7 @@ private:
         targetInfo.num_color_targets = 1;
         // Enable depth-stencil target so pipelines match
         // the render pass that now includes a depth buffer.
-        targetInfo.has_depth_stencil_target = !description.groundShadowMaskTarget;
+        targetInfo.has_depth_stencil_target = !description.groundShadowMaskTarget && !description.shaftOccluderTarget;
         targetInfo.depth_stencil_format = mu::SdlGpuDepthFormat;
 
         // Back-face culling as the descriptor asks: on for opaque 3D geometry (depth write ON),
@@ -6101,7 +6195,7 @@ private:
         pipelineInfo.props = 0;
 
         pipelineInfo.multisample_state.sample_count =
-            description.groundShadowMaskTarget
+            description.groundShadowMaskTarget || description.shaftOccluderTarget
                 ? SDL_GPU_SAMPLECOUNT_1
                 : mu::GetSdlGpuSampleCount(s_sampleCount).value_or(SDL_GPU_SAMPLECOUNT_1);
         pipelineInfo.multisample_state.enable_alpha_to_coverage = description.alphaToCoverage;
@@ -6365,6 +6459,11 @@ private:
                 }
             }
         }
+        if (s_shaftOccluderPipeline)
+        {
+            SDL_ReleaseGPUGraphicsPipeline(s_device, s_shaftOccluderPipeline);
+            s_shaftOccluderPipeline = nullptr;
+        }
         DestroyAlphaCoveragePipelines();
         s_postProcessing.DestroyPipelines();
     }
@@ -6487,6 +6586,7 @@ private:
         }
         CreateAlphaCoveragePipelines();
         CreateGroundShadowMaskPipelines();
+        CreateShaftOccluderPipeline();
         CreatePostProcessingPipelines();
         if (!CreateSingleSamplePipelines())
         {
@@ -6502,6 +6602,7 @@ private:
                 return false;
             }
             CreateGroundShadowMaskPipelines();
+            CreateShaftOccluderPipeline();
             CreatePostProcessingPipelines();
         }
         s_pipelinesMultisampled = s_sampleCount != Render::Antialiasing::OffSampleCount;
@@ -6753,6 +6854,28 @@ private:
                                      s_sampleCount);
         (void)s_ambientOcclusion.CreatePipelines(
             s_device, {s_vertShaderPostFullscreen, s_fragShaderAmbientOcclusion, s_fragShaderAmbientOcclusionBlur});
+        (void)s_lightShafts.CreatePipelines(s_device, s_vertShaderPostFullscreen, s_fragShaderLightShafts);
+    }
+
+    // The pipeline replaying skinned models into the light-shaft occluder mask (one sample). Optional:
+    // without it there are no light shafts.
+    static void CreateShaftOccluderPipeline()
+    {
+        if (!s_fragShaderShaftOccluder || !s_vertShaderSkinned)
+        {
+            return;
+        }
+        PipelineBuildDescription description{
+            "shaft-occluders",     "opaque", k_PipelineDisabled,           false, false,
+            VertexLayout::Skinned, false,    FragmentShader::ShaftOccluder};
+        description.shaftOccluderTarget = true;
+        const PipelineBuildResult result = BuildBlendPipeline(SDL_GPUColorTargetBlendState{}, description);
+        s_shaftOccluderPipeline = result.pipeline;
+        if (!result.pipeline)
+        {
+            const char* driver = SDL_GetGPUDeviceDriver(s_device);
+            LogPipelineFailure(driver ? driver : "unknown", result, false);
+        }
     }
 
     // The ground shadow mask's pipelines (one sample, whatever s_sampleCount is). Optional: without them
