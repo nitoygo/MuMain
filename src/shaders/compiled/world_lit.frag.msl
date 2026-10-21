@@ -1,7 +1,33 @@
+#pragma clang diagnostic ignored "-Wmissing-prototypes"
+
 #include <metal_stdlib>
 #include <simd/simd.h>
 
 using namespace metal;
+
+template <typename T>
+static inline depth2d<T> spvDepthCast(texture2d<T> t)
+{
+    return reinterpret_cast<thread const depth2d<T> &>(t);
+}
+
+template <typename T>
+static inline depth2d_array<T> spvDepthCast(texture2d_array<T> t)
+{
+    return reinterpret_cast<thread const depth2d_array<T> &>(t);
+}
+
+template <typename T>
+static inline depthcube<T> spvDepthCast(texturecube<T> t)
+{
+    return reinterpret_cast<thread const depthcube<T> &>(t);
+}
+
+template <typename T>
+static inline depthcube_array<T> spvDepthCast(texturecube_array<T> t)
+{
+    return reinterpret_cast<thread const depthcube_array<T> &>(t);
+}
 
 struct SceneLighting
 {
@@ -13,6 +39,9 @@ struct SceneLighting
     float4 sceneFogColor;
     float4 sceneFogParameters;
     float4 cameraPosition;
+    float4x4 sunViewProjection;
+    float4 sunShadowParameters;
+    float4 lightingParameters;
 };
 
 struct DynamicLights
@@ -49,56 +78,95 @@ struct main0_in
     float3 input_worldPosition [[user(locn4)]];
 };
 
-fragment main0_out main0(main0_in in [[stage_in]], constant FogUniforms& _214 [[buffer(0)]], constant SceneLighting& _30 [[buffer(1)]], constant DynamicLights& _64 [[buffer(2)]], texture2d<float> tex [[texture(0)]], texture2d<float> groundShadowMask [[texture(1)]], sampler s [[sampler(0)]], sampler groundShadowSampler [[sampler(1)]], float4 gl_FragCoord [[position]])
+fragment main0_out main0(main0_in in [[stage_in]], constant FogUniforms& _417 [[buffer(0)]], constant SceneLighting& _41 [[buffer(1)]], constant DynamicLights& _272 [[buffer(2)]], texture2d<float> tex [[texture(0)]], texture2d<float> sunShadowMap [[texture(1)]], texture2d<float> groundShadowMask [[texture(2)]], sampler s [[sampler(0)]], sampler sunShadowSampler [[sampler(1)]], sampler groundShadowSampler [[sampler(2)]], float4 gl_FragCoord [[position]])
 {
     main0_out out = {};
-    float4 _334 = tex.sample(s, in.input_uv);
-    float4 _316 = _334;
-    uint2 _317 = uint2(groundShadowMask.get_width(), groundShadowMask.get_height());
-    float2 _321 = float2(1.0) - ((float2(1.0) - groundShadowMask.sample(groundShadowSampler, (gl_FragCoord.xy / float2(float(_317.x), float(_317.y)))).xy) * _64.groundShadowOpacity);
-    uint _471 = min(min(_64.dynamicWorldLightCount, _64.dynamicLightCount), 32u);
-    float3 _555;
-    _555 = float3(0.0);
-    float3 _557;
-    for (uint _554 = 0u; _554 < _471; _555 = _557, _554++)
+    float4 _551 = tex.sample(s, in.input_uv);
+    float4 _531 = _551;
+    uint2 _532 = uint2(groundShadowMask.get_width(), groundShadowMask.get_height());
+    float2 _536 = float2(1.0) - ((float2(1.0) - groundShadowMask.sample(groundShadowSampler, (gl_FragCoord.xy / float2(float(_532.x), float(_532.y)))).xy) * _272.groundShadowOpacity);
+    float _953;
+    do
     {
-        float4 _461 = _64.dynamicLightPositionAndRadius[_554];
-        float _488 = length(_64.dynamicLightPositionAndRadius[_554].xy - in.input_worldPosition.xy);
-        if (_488 < _461.w)
+        if (_41.sunShadowParameters.x <= 0.0)
         {
-            _557 = _555 + (_64.dynamicLightColor[_554].xyz * ((_461.w - _488) / _461.w));
+            _953 = 1.0;
+            break;
         }
-        else
+        float4 _719 = _41.sunViewProjection * float4(in.input_worldPosition + (float3(0.0, 0.0, 1.0) * (1.5 * _41.sunShadowParameters.w)), 1.0);
+        float4 _690 = _719;
+        float3 _691 = _719.xyz / float3(_690.w);
+        float _729 = (_691.x * 0.5) + 0.5;
+        float _733 = 0.5 - (_691.y * 0.5);
+        float2 _734 = float2(_729, _733);
+        if ((any(_734 < float2(0.0)) || any(_734 > float2(1.0))) || (_691.z >= 1.0))
         {
-            _557 = _555;
+            _953 = 1.0;
+            break;
         }
+        float2 _753 = _41.sunShadowParameters.zz * _41.sunShadowParameters.y;
+        float _1156 = (((((((spvDepthCast(sunShadowMap).sample_compare(sunShadowSampler, float3(_734 + (float2(-1.0) * _753), _691.z).xy, _691.z, level(0.0)) + spvDepthCast(sunShadowMap).sample_compare(sunShadowSampler, float3(_734 + (float2(0.0, -1.0) * _753), _691.z).xy, _691.z, level(0.0))) + spvDepthCast(sunShadowMap).sample_compare(sunShadowSampler, float3(_734 + (float2(1.0, -1.0) * _753), _691.z).xy, _691.z, level(0.0))) + spvDepthCast(sunShadowMap).sample_compare(sunShadowSampler, float3(_734 + (float2(-1.0, 0.0) * _753), _691.z).xy, _691.z, level(0.0))) + spvDepthCast(sunShadowMap).sample_compare(sunShadowSampler, float3(_729, _733, _691.z).xy, _691.z, level(0.0))) + spvDepthCast(sunShadowMap).sample_compare(sunShadowSampler, float3(_734 + (float2(1.0, 0.0) * _753), _691.z).xy, _691.z, level(0.0))) + spvDepthCast(sunShadowMap).sample_compare(sunShadowSampler, float3(_734 + (float2(-1.0, 1.0) * _753), _691.z).xy, _691.z, level(0.0))) + spvDepthCast(sunShadowMap).sample_compare(sunShadowSampler, float3(_734 + (float2(0.0, 1.0) * _753), _691.z).xy, _691.z, level(0.0))) + spvDepthCast(sunShadowMap).sample_compare(sunShadowSampler, float3(_734 + _753, _691.z).xy, _691.z, level(0.0));
+        _953 = _1156 * 0.111111111938953399658203125;
+        break;
+    } while(false);
+    _536.x *= (1.0 - (_41.sunShadowParameters.x * (1.0 - _953)));
+    uint _810 = min(min(_272.dynamicWorldLightCount, _272.dynamicLightCount), 32u);
+    float3 _955;
+    _955 = float3(0.0);
+    float3 _833;
+    for (uint _954 = 0u; _954 < _810; _955 = _833, _954++)
+    {
+        float4 _800 = _272.dynamicLightPositionAndRadius[_954];
+        float3 _827 = _272.dynamicLightPositionAndRadius[_954].xyz - in.input_worldPosition;
+        float _956;
+        do
+        {
+            float _853 = length(_827.xy);
+            if (_853 >= _800.w)
+            {
+                _956 = 0.0;
+                break;
+            }
+            float _863 = (_800.w - _853) / _800.w;
+            if (_41.lightingParameters.x <= 0.0)
+            {
+                _956 = _863;
+                break;
+            }
+            float _872 = dot(_827, _827);
+            float _879 = _872 / (_800.w * _800.w);
+            float _884 = fast::clamp(1.0 - (_879 * _879), 0.0, 1.0);
+            _956 = mix(_863, (((0.16000001132488250732421875 * (_800.w * _800.w)) / (_872 + (0.16000001132488250732421875 * (_800.w * _800.w)))) * _884) * _884, _41.lightingParameters.x);
+            break;
+        } while(false);
+        _833 = _955 + (_272.dynamicLightColor[_954].xyz * _956);
     }
-    float4 _324 = float4(_334.xyz * fast::clamp((in.input_color.xyz * _321.x) + (_555 * _321.y), float3(0.0), float3(1.0)), _316.w * in.input_color.w);
-    if (_214.alphaToCoverage != 0u)
+    float4 _541 = float4(_551.xyz * fast::clamp((in.input_color.xyz * _536.x) + (_955 * _536.y), float3(0.0), float3(1.0)), _531.w * in.input_color.w);
+    if (_417.alphaToCoverage != 0u)
     {
-        _324.w *= fast::clamp(((_324.w - _214.alphaThreshold) / fast::max(fwidth(_324.w), 9.9999997473787516355514526367188e-05)) + 0.5, 0.0, 1.0);
-        if (_324.w <= 0.0)
+        _541.w *= fast::clamp(((_541.w - _417.alphaThreshold) / fast::max(fwidth(_541.w), 9.9999997473787516355514526367188e-05)) + 0.5, 0.0, 1.0);
+        if (_541.w <= 0.0)
         {
             discard_fragment();
         }
     }
     else
     {
-        if ((_214.alphaDiscardEnabled != 0u) && (_324.w <= _214.alphaThreshold))
+        if ((_417.alphaDiscardEnabled != 0u) && (_541.w <= _417.alphaThreshold))
         {
             discard_fragment();
         }
     }
-    if ((_214.fogEnabled != 0u) && (_30.sceneFogColor.w > 0.0))
+    if ((_417.fogEnabled != 0u) && (_41.sceneFogColor.w > 0.0))
     {
-        float4 _439 = _324;
-        float _521 = fast::max(in.input_eyeDepth - _30.sceneFogParameters.x, 0.0) * _30.sceneFogParameters.z;
-        float3 _448 = mix(_439.xyz, _30.sceneFogColor.xyz, float3(fast::clamp(1.0 - exp((-_521) * _521), 0.0, 1.0)));
-        _324.x = _448.x;
-        _324.y = _448.y;
-        _324.z = _448.z;
+        float4 _668 = _541;
+        float _915 = fast::max(in.input_eyeDepth - _41.sceneFogParameters.x, 0.0) * _41.sceneFogParameters.z;
+        float3 _677 = mix(_668.xyz, _41.sceneFogColor.xyz, float3(fast::clamp(1.0 - exp((-_915) * _915), 0.0, 1.0)));
+        _541.x = _677.x;
+        _541.y = _677.y;
+        _541.z = _677.z;
     }
-    out._entryPointOutput = _324;
+    out._entryPointOutput = _541;
     return out;
 }
 

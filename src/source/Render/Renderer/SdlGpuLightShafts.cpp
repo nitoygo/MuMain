@@ -124,7 +124,7 @@ SDL_GPUTexture* SdlGpuLightShafts::OccluderTarget(SdlGpuTargetSize size)
 
 SDL_GPUTexture* SdlGpuLightShafts::Render(SDL_GPUCommandBuffer* commandBuffer,
                                           std::span<const Render::Lighting::ScreenShaft> shafts, float glowWidth,
-                                          float decay, float length)
+                                          float decay)
 {
     if (!IsAvailable() || !m_occluders || !m_shafts || shafts.empty())
     {
@@ -145,7 +145,6 @@ SDL_GPUTexture* SdlGpuLightShafts::Render(SDL_GPUCommandBuffer* commandBuffer,
     uniform.aspect = static_cast<float>(m_size.width) / static_cast<float>(std::max(m_size.height, 1u));
     uniform.glowWidth = glowWidth;
     uniform.decay = decay;
-    uniform.length = length;
 
     SDL_GPUColorTargetInfo colorTarget{};
     colorTarget.texture = m_shafts;

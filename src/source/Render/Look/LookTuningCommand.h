@@ -38,6 +38,10 @@
 //   $shafts skills <f>             shafts.skills
 //   $shafts map <f>                shafts.map
 //   $shafts <v>                    shafts.strength
+//   $sun softness <f>              sun.softness
+//   $sun resolution <texels>       sun.resolution
+//   $sun <v>                       sun.shadow
+//   $dynlights falloff <f>         dynamic.physicalFalloff
 namespace Render::Look
 {
 

@@ -49,6 +49,7 @@
 #include "Core/Utilities/Log/MuLogger.h"
 #include "Render/PostProcessing/BloomSource.h"
 #include "Render/PostProcessing/SceneBoundary.h"
+#include "Render/Lighting/SunShadow.h"
 #include "Render/Terrain/TerrainHeightGrid.h"
 #include "Render/Text/SdlTtfFontSet.h"
 #ifdef _EDITOR
@@ -1075,6 +1076,55 @@ static SDL_GPUTextureFormat s_pipelineFormatOverride = SDL_GPU_TEXTUREFORMAT_INV
 // Whether the built pipelines are multisampled; set by CreatePipelinesForSampleCount.
 static bool s_pipelinesMultisampled = false;
 
+// Enhanced sun shadows: while s_sunShadowPass replays the scene into the shadow map, each draw's recorded
+// scene matrix is turned into the sun's by s_sunFromScene.
+static bool s_sunShadowPass = false;
+static glm::mat4 s_sunFromScene{1.0f};
+
+// How a draw covers the sun shadow map (sun_depth.frag's coverageMode): solid with its alpha test,
+// or a blended character part (wings, capes, auras) dithered by its alpha or, glowing, by its
+// brightness, so the shadow's blur turns it into a partial shadow. Darkening blends cast none.
+enum class SunCoverage : std::uint32_t
+{
+    None,
+    Solid,
+    Alpha,
+    Brightness,
+};
+
+[[nodiscard]] static SunCoverage GetSunCoverage(const RenderCmd& command)
+{
+    if (!command.blendEnabled)
+        return SunCoverage::Solid;
+    switch (command.blendMode)
+    {
+    case BlendMode::Alpha:
+    case BlendMode::Mixed:
+        return SunCoverage::Alpha;
+    case BlendMode::Additive:
+    case BlendMode::Glow:
+    case BlendMode::Luminance:
+        return SunCoverage::Brightness;
+    default:
+        return SunCoverage::None;
+    }
+}
+
+// A draw's vertex uniforms in the sun shadow pass: its own, with the sun's matrix.
+static void PushSunShadowVertexUniforms(const RenderCmd& command, bool skinned, Render::SdlGpuReplayState& state)
+{
+    if (skinned)
+    {
+        SkinningVertexUniforms uniforms = s_skinningUniforms[command.skinningIndex];
+        uniforms.mvp = s_sunFromScene * uniforms.mvp;
+        PushReplayVertexUniforms(0, &uniforms, sizeof(uniforms), state);
+        return;
+    }
+    VertexUniforms uniforms = command.vu;
+    uniforms.mvp = s_sunFromScene * uniforms.mvp;
+    PushReplayVertexUniforms(0, &uniforms, sizeof(uniforms), state);
+}
+
 // Replays a recorded draw with `pipeline`: its own, or a variant of it for another pass.
 static void ReplayDrawCommand(const RenderCmd& command, SDL_GPUGraphicsPipeline* pipeline, bool boneDataReady,
                               const SDL_Rect& scissor, Render::SdlGpuReplayState& state)
@@ -1100,7 +1150,9 @@ static void ReplayDrawCommand(const RenderCmd& command, SDL_GPUGraphicsPipeline*
         return;
     }
 
-    if (skinned)
+    if (s_sunShadowPass)
+        PushSunShadowVertexUniforms(command, skinned, state);
+    else if (skinned)
         PushReplayVertexUniforms(0, &s_skinningUniforms[command.skinningIndex], sizeof(SkinningVertexUniforms), state);
     else
         PushReplayVertexUniforms(0, &command.vu, sizeof(command.vu), state);
@@ -1145,7 +1197,15 @@ static void ReplayDrawCommand(const RenderCmd& command, SDL_GPUGraphicsPipeline*
     }
 
     BindReplayFragmentSampler(command, state);
-    PushReplayFragmentUniforms(command.fogUniform, state);
+    if (s_sunShadowPass)
+    {
+        // sun_depth.frag reads fogEnabled's slot as its coverage mode.
+        FogUniform coverage = command.fogUniform;
+        coverage.fogEnabled = static_cast<std::uint32_t>(GetSunCoverage(command)) - 1u;
+        PushReplayFragmentUniforms(coverage, state);
+    }
+    else
+        PushReplayFragmentUniforms(command.fogUniform, state);
 
     if (command.type == RenderCmdType::DrawIndexedQuads || command.type == RenderCmdType::DrawIndexedStrip)
         SDL_DrawGPUIndexedPrimitives(s_renderPass, command.idxCount, 1, firstIndex, static_cast<Sint32>(firstVertex), 0);
@@ -1207,8 +1267,26 @@ static float s_sceneProjection[16]{};
 // they are projected with, and the pipeline that replays skinned models into the occluder mask.
 static mu::SdlGpuLightShafts s_lightShafts;
 static std::vector<mu::LightShaftLight> s_lightShaftLights;
+// SelectFrameShafts' working lists, its result, and the map lights shown fading.
+static std::vector<mu::LightShaftLight> s_skillShaftLights;
+static std::vector<mu::LightShaftLight> s_mapShaftLights;
+static std::array<Render::Lighting::ScreenShaft, mu::kMaxLightShafts> s_frameShafts{};
+static Render::Lighting::MapShaftSlots s_mapShaftSlots;
 static float s_sceneViewProjection[16]{};
 static SDL_GPUGraphicsPipeline* s_shaftOccluderPipeline = nullptr;
+// Enhanced sun shadows (one sample): the shadow map's pipelines for 3D and skinned draws, the map and
+// its size, the far 1x1 map bound while there is none, the comparison sampler, whether this frame asks
+// for the map (SetSceneLighting) and whether it holds this frame's.
+static SDL_GPUGraphicsPipeline* s_sunShadowPipelines[2]{}; // [skinned]
+static SDL_GPUShader* s_fragShaderSunDepth = nullptr;      // sun_depth.frag
+static SDL_GPUTexture* s_sunShadowMap = nullptr;
+static Uint32 s_sunShadowMapSize = 0u;
+static SDL_GPUTexture* s_sunShadowFallback = nullptr;
+static bool s_sunShadowFallbackCleared = false;
+static SDL_GPUSampler* s_sunShadowSampler = nullptr;
+static bool s_sunShadowRequested = false;
+static Uint32 s_sunShadowResolution = 0u;
+static bool s_sunShadowMapReady = false;
 
 // Depth buffer texture for correct 3D depth testing.
 // Created in Init() at swapchain dimensions, recreated on window resize.
@@ -2063,6 +2141,8 @@ public:
                                           s_bitmapGpuResources.LastStage(), s_bitmapGpuResources.LastError());
         }
 
+        ReleaseSunShadowResources();
+
         // Release the independently owned white fallback texture.
         if (s_whiteTexture)
         {
@@ -2301,8 +2381,9 @@ public:
     {
         AllCommands,
         BloomSources,
-        GroundShadows,  // the ground shadows, into the ground shadow mask
-        ShaftOccluders, // opaque skinned models, into the light-shaft occluder mask
+        GroundShadows,    // the ground shadows, into the ground shadow mask
+        ShaftOccluders,   // opaque skinned models, into the light-shaft occluder mask
+        SunShadowCasters, // solid world draws, into the sun shadow map
     };
 
     [[nodiscard]] static ReplayView FullFrameView()
@@ -2353,6 +2434,31 @@ public:
                                           [command.type == RenderCmdType::DrawSkinnedTriangles ? 1 : 0];
     }
 
+    // A solid draw of the scene's world: depth-tested and depth-writing, not blended, not a ground shadow,
+    // not 2D; or a character's blended part (GetSunCoverage). Models drawn for the UI (their own view,
+    // Enhanced without the point lights) are left out.
+    [[nodiscard]] static bool IsSunShadowCaster(const RenderCmd& command)
+    {
+        if (command.groundShadow || !command.depthTestEnabled)
+        {
+            return false;
+        }
+        if (command.blendEnabled || !command.depthMaskEnabled)
+        {
+            const bool characterPart = command.shaftOccluder && command.type == RenderCmdType::DrawSkinnedTriangles &&
+                                       command.blendEnabled && GetSunCoverage(command) != SunCoverage::None;
+            if (!characterPart)
+            {
+                return false;
+            }
+        }
+        if (command.type == RenderCmdType::DrawSkinnedTriangles)
+        {
+            return s_skinningUniforms[command.skinningIndex].palette[3] != k_SkinningLightingEnhanced;
+        }
+        return command.type != RenderCmdType::DrawTriangles2D && command.vtxStride == sizeof(Vertex3D);
+    }
+
     // The pipeline `command` replays with in a pass of `selection`, or null when it is not drawn there.
     // Once the mask holds the ground shadows, the other passes leave them out.
     [[nodiscard]] static SDL_GPUGraphicsPipeline* GetReplayPipeline(const RenderCmd& command, ReplaySelection selection)
@@ -2366,6 +2472,12 @@ public:
             const bool opaqueModel = command.shaftOccluder && command.type == RenderCmdType::DrawSkinnedTriangles &&
                                      !command.groundShadow && !command.blendEnabled;
             return opaqueModel ? s_shaftOccluderPipeline : nullptr;
+        }
+        if (selection == ReplaySelection::SunShadowCasters)
+        {
+            return IsSunShadowCaster(command)
+                       ? s_sunShadowPipelines[command.type == RenderCmdType::DrawSkinnedTriangles ? 1 : 0]
+                       : nullptr;
         }
         if (command.lightShadow || (command.groundShadow && s_groundShadowMaskReady))
         {
@@ -2388,6 +2500,8 @@ public:
             SDL_SetGPUScissor(s_renderPass, &view.scissor);
 
         const bool allCommands = selection == ReplaySelection::AllCommands;
+        // The shadow map keeps its own viewport and scissor.
+        const bool ownView = selection == ReplaySelection::SunShadowCasters;
         for (std::size_t index = begin; index < end; ++index)
         {
             const RenderCmd& cmd = s_renderCmds[index];
@@ -2404,6 +2518,10 @@ public:
             if (allCommands)
             {
                 ++s_dbgRenderCmdsReplayedThisFrame;
+            }
+            if (ownView && !IsDrawCommand(cmd.type))
+            {
+                continue;
             }
 
             switch (cmd.type)
@@ -2482,17 +2600,22 @@ public:
             return false;
         }
         PushSceneLightingUniforms();
-        BindGroundShadowMask();
+        BindLitSamplers();
         return true;
     }
 
-    // The world-lit ground's shadow mask (fragment sampler slot 1): this frame's once it holds its
-    // shadows, otherwise white, which leaves the ground unshadowed.
-    static void BindGroundShadowMask()
+    // The Enhanced-lit shaders' other textures. Slot 1, the sun shadow map: this frame's once drawn,
+    // otherwise the far 1x1 map. Slot 2, the world-lit ground's shadow mask: this frame's once it holds
+    // its shadows, otherwise white, which leaves the ground unshadowed.
+    static void BindLitSamplers()
     {
+        SDL_GPUTexture* const sunShadow = s_sunShadowMapReady ? s_sunShadowMap : s_sunShadowFallback;
         SDL_GPUTexture* const mask = s_groundShadowMaskReady ? s_groundShadowMask : s_whiteTexture;
-        const SDL_GPUTextureSamplerBinding binding{mask, s_defaultSampler};
-        SDL_BindGPUFragmentSamplers(s_renderPass, 1, &binding, 1);
+        const SDL_GPUTextureSamplerBinding bindings[] = {{sunShadow, s_sunShadowSampler}, {mask, s_defaultSampler}};
+        if (sunShadow && s_sunShadowSampler)
+            SDL_BindGPUFragmentSamplers(s_renderPass, 1, bindings, 2);
+        else
+            SDL_BindGPUFragmentSamplers(s_renderPass, 2, &bindings[1], 1);
     }
 
     // The ground shadow mask at the frame's size, recreated when that changed. Null when it fails.
@@ -2560,14 +2683,142 @@ public:
         s_groundShadowMaskReady = true;
     }
 
+    // A depth-only pass into `depth`, cleared to the far plane. Null when it cannot begin.
+    [[nodiscard]] static SDL_GPURenderPass* BeginDepthOnlyPass(SDL_GPUTexture* depth)
+    {
+        SDL_GPUDepthStencilTargetInfo target{};
+        target.texture = depth;
+        target.clear_depth = 1.0f;
+        target.load_op = SDL_GPU_LOADOP_CLEAR;
+        target.store_op = SDL_GPU_STOREOP_STORE;
+        target.stencil_load_op = SDL_GPU_LOADOP_DONT_CARE;
+        target.stencil_store_op = SDL_GPU_STOREOP_DONT_CARE;
+        target.cycle = true;
+        return SDL_BeginGPURenderPass(s_cmdBuf, nullptr, 0, &target);
+    }
+
+    [[nodiscard]] static SDL_GPUTexture* CreateSunShadowDepth(Uint32 size)
+    {
+        SDL_GPUTextureCreateInfo info{};
+        info.type = SDL_GPU_TEXTURETYPE_2D;
+        info.format = mu::SdlGpuDepthFormat;
+        info.width = size;
+        info.height = size;
+        info.layer_count_or_depth = 1;
+        info.num_levels = 1;
+        info.sample_count = SDL_GPU_SAMPLECOUNT_1;
+        info.usage = SDL_GPU_TEXTUREUSAGE_DEPTH_STENCIL_TARGET | SDL_GPU_TEXTUREUSAGE_SAMPLER;
+        SDL_GPUTexture* const texture = SDL_CreateGPUTexture(s_device, &info);
+        if (!texture)
+        {
+            mu::log::Get("render")->error("SDL_gpu -- sun shadow map creation failed ({0}x{0}): {1}", size,
+                                          SDL_GetError());
+        }
+        return texture;
+    }
+
+    static void ReleaseSunShadowMap()
+    {
+        if (s_sunShadowMap)
+        {
+            SDL_ReleaseGPUTexture(s_device, s_sunShadowMap);
+            s_sunShadowMap = nullptr;
+        }
+        s_sunShadowMapSize = 0u;
+    }
+
+    // The frame's sun shadow map: the scene's solid draws [0, end) seen from the sun. Without a request
+    // (SetSceneLighting) the map is released and the lit shaders read the far 1x1 one.
+    // shortcut: every solid draw is drawn again each frame, the map's still parts too; cache them
+    // apart from the characters if the pass shows up in the profile.
+    static void RenderSunShadowMap(std::size_t end, bool boneDataReady)
+    {
+        FRAME_PROFILE(SunShadow);
+        s_sunShadowMapReady = false;
+        if (s_sunShadowFallback && !s_sunShadowFallbackCleared)
+        {
+            if ((s_renderPass = BeginDepthOnlyPass(s_sunShadowFallback)) != nullptr)
+            {
+                EndReplayPass();
+                s_sunShadowFallbackCleared = true;
+            }
+        }
+        if (!s_sunShadowRequested)
+        {
+            ReleaseSunShadowMap();
+            return;
+        }
+        if (s_sunShadowMapSize != s_sunShadowResolution)
+        {
+            ReleaseSunShadowMap();
+            s_sunShadowMap = CreateSunShadowDepth(s_sunShadowResolution);
+            s_sunShadowMapSize = s_sunShadowMap ? s_sunShadowResolution : 0u;
+        }
+        if (!s_sunShadowMap || (s_renderPass = BeginDepthOnlyPass(s_sunShadowMap)) == nullptr)
+        {
+            return;
+        }
+        const float size = static_cast<float>(s_sunShadowMapSize);
+        ReplayView view{{0.0f, 0.0f, size, size, 0.0f, 1.0f},
+                        {0, 0, static_cast<int>(s_sunShadowMapSize), static_cast<int>(s_sunShadowMapSize)}};
+        s_sunShadowPass = true;
+        ReplayCommands(0u, end, boneDataReady, ReplaySelection::SunShadowCasters, view);
+        s_sunShadowPass = false;
+        EndReplayPass();
+        s_sunShadowMapReady = true;
+    }
+
+    // The frame's shafts into s_frameShafts: the brightest skill light's at once, the map lights' fading
+    // in and out through s_mapShaftSlots as they join or leave the brightest on screen. Their count.
+    [[nodiscard]] static std::size_t SelectFrameShafts()
+    {
+        using namespace Render::Lighting;
+        s_skillShaftLights.clear();
+        s_mapShaftLights.clear();
+        for (const mu::LightShaftLight& light : s_lightShaftLights)
+        {
+            (light.kind == LightShaftKind::Map ? s_mapShaftLights : s_skillShaftLights).push_back(light);
+        }
+        const float skills = s_postProcessingLook.lightShaftSkills;
+        const float map = s_postProcessingLook.lightShaftMap;
+        std::size_t count = SelectScreenShafts(s_skillShaftLights, s_sceneViewProjection, kShaftScreenMargin, skills,
+                                               map, std::span(s_frameShafts).first(1));
+
+        std::array<ScreenShaft, kMapShaftSlots> ranked{};
+        const std::size_t rankedCount =
+            SelectScreenShafts(s_mapShaftLights, s_sceneViewProjection, kShaftScreenMargin, skills, map, ranked);
+        std::array<LightShaftLight, kMapShaftSlots> wanted{};
+        for (std::size_t i = 0; i < rankedCount; ++i)
+        {
+            wanted[i] = s_mapShaftLights[ranked[i].light];
+        }
+        using Clock = std::chrono::steady_clock;
+        static Clock::time_point last = Clock::now();
+        const Clock::time_point now = Clock::now();
+        const float seconds = std::clamp(std::chrono::duration<float>(now - last).count(), 0.f, kShaftFadeSeconds);
+        last = now;
+        s_mapShaftSlots.Update(std::span(wanted).first(rankedCount), seconds);
+        for (const MapShaftSlots::Slot& slot : s_mapShaftSlots.Slots())
+        {
+            LightShaftLight light = slot.light;
+            for (float& channel : light.color)
+            {
+                channel *= map * slot.weight;
+            }
+            if (slot.used && ProjectShaft(light, s_sceneViewProjection, kShaftScreenMargin, s_frameShafts[count]))
+            {
+                ++count;
+            }
+        }
+        return count;
+    }
+
     // The frame's light shafts: the opaque skinned models [0, end) into the occluder mask, then the
     // shafts of the brightest shaft lights on screen through it. Null when there are none.
     [[nodiscard]] static SDL_GPUTexture* RenderLightShafts(std::size_t end, bool boneDataReady)
     {
-        std::array<Render::Lighting::ScreenShaft, mu::kMaxLightShafts> shafts{};
-        const std::size_t count = Render::Lighting::SelectScreenShafts(
-            s_lightShaftLights, s_sceneViewProjection, Render::Lighting::kShaftScreenMargin,
-            s_postProcessingLook.lightShaftSkills, s_postProcessingLook.lightShaftMap, shafts);
+        const std::size_t count = SelectFrameShafts();
+        const std::span<const Render::Lighting::ScreenShaft> shafts(s_frameShafts.data(), count);
         SDL_GPUTexture* const occluders = count > 0 && s_shaftOccluderPipeline && s_lightShafts.IsAvailable()
                                               ? s_lightShafts.OccluderTarget({s_swapW, s_swapH})
                                               : nullptr;
@@ -2590,7 +2841,7 @@ public:
         ReplayCommands(0u, end, boneDataReady, ReplaySelection::ShaftOccluders, view);
         EndReplayPass();
         return s_lightShafts.Render(s_cmdBuf, std::span(shafts.data(), count), Render::Lighting::kShaftGlowWidth,
-                                    Render::Lighting::kShaftDecay, Render::Lighting::kShaftLength);
+                                    Render::Lighting::kShaftDecay);
     }
 
     static void EndReplayPass()
@@ -2608,6 +2859,7 @@ public:
         // Nothing reads depth after the pass; skip storing every sample of it.
         const SDL_GPUDepthStencilTargetInfo depthTarget =
             MakeDepthTarget(SDL_GPU_LOADOP_CLEAR, IsMultisampled() ? SDL_GPU_STOREOP_DONT_CARE : SDL_GPU_STOREOP_STORE);
+        RenderSunShadowMap(s_renderCmds.size(), boneDataReady);
         RenderGroundShadowMask(s_renderCmds.size(), boneDataReady);
         if (!BeginReplayPass(colorTarget, depthTarget))
         {
@@ -2724,6 +2976,7 @@ public:
     {
         SDL_GPUTexture* const multisampled = IsMultisampled() ? s_multisampleColorTexture : nullptr;
         ReplayView view = FullFrameView();
+        RenderSunShadowMap(sceneEnd, boneDataReady);
         RenderGroundShadowMask(sceneEnd, boneDataReady);
         // The scene texture's format says whether this frame's scene is HDR (EnsureTargets).
         s_hdrScenePass = s_postProcessing.IsHdrScene();
@@ -2994,7 +3247,7 @@ public:
     {
         // These passes render into single-sample textures (see s_singleSamplePipelines).
         PushSceneLightingUniforms();
-        BindGroundShadowMask();
+        BindLitSamplers();
         s_singleSamplePass = true;
         ReplayView view = FullFrameView();
         ReplayCommands(startIdx, endIdx, boneDataReady, ReplaySelection::AllCommands, view);
@@ -5106,6 +5359,32 @@ public:
         std::memcpy(s_sceneProjection, glm::value_ptr(m_projMatrix), sizeof(s_sceneProjection));
         const glm::mat4 viewProjection = m_projMatrix * m_modelViewMatrix;
         std::memcpy(s_sceneViewProjection, glm::value_ptr(viewProjection), sizeof(s_sceneViewProjection));
+
+        s_sunShadowRequested = lighting.sunShadowDarkness > 0.0f && SunShadowsAvailable();
+        if (s_sunShadowRequested)
+        {
+            const Uint32 resolution = lighting.sunShadowResolution < 1536u   ? 1024u
+                                      : lighting.sunShadowResolution < 3072u ? 2048u
+                                                                             : 4096u;
+            const glm::vec3 toSun(lighting.sunDirection[0], lighting.sunDirection[1], lighting.sunDirection[2]);
+            const Render::Lighting::SunShadowView sun = Render::Lighting::BuildSunShadowView(
+                toSun, viewProjection, lighting.groundLow, lighting.groundHigh, resolution);
+            s_sunShadowResolution = resolution;
+            s_sunFromScene = sun.sunFromScene;
+            std::memcpy(s_sceneLightingUniform.sunViewProjection, glm::value_ptr(sun.viewProjection),
+                        sizeof(s_sceneLightingUniform.sunViewProjection));
+            const float texel = 1.0f / static_cast<float>(resolution);
+            s_sceneLightingUniform.sunShadowParameters[0] = lighting.sunShadowDarkness;
+            s_sceneLightingUniform.sunShadowParameters[1] = lighting.sunShadowSoftness;
+            s_sceneLightingUniform.sunShadowParameters[2] = texel;
+            s_sceneLightingUniform.sunShadowParameters[3] = sun.box.size * texel;
+        }
+    }
+
+    [[nodiscard]] bool SunShadowsAvailable() const override
+    {
+        return s_enhancedLightingAvailable && s_sunShadowPipelines[0] && s_sunShadowPipelines[1] &&
+               s_sunShadowSampler && s_sunShadowFallback;
     }
 
     void SetLightShafts(std::span<const mu::LightShaftLight> lights) override
@@ -5756,17 +6035,21 @@ private:
         s_fragShaderTexFog =
             createShader("basic_textured_fog", "frag", SDL_GPU_SHADERSTAGE_FRAGMENT, 1, 0, 2, /*fatal=*/false);
         // skinned_lit.frag also reads the frame's point lights, DynamicLights (b2).
-        s_fragShaderLit = createShader("skinned_lit", "frag", SDL_GPU_SHADERSTAGE_FRAGMENT, 1, 0, 3, /*fatal=*/false);
+        // It also samples the sun shadow map (s1).
+        s_fragShaderLit = createShader("skinned_lit", "frag", SDL_GPU_SHADERSTAGE_FRAGMENT, 2, 0, 3, /*fatal=*/false);
         // The ground lit per pixel: the Transform (b0) of basic_textured.vert, and the uniforms of skinned_lit.frag.
         s_vertShaderWorldLit = createShader("world_lit", "vert", SDL_GPU_SHADERSTAGE_VERTEX, 0, 0, 1, /*fatal=*/false);
-        // world_lit.frag also samples the ground shadow mask (s1).
+        // world_lit.frag also samples the sun shadow map (s1) and the ground shadow mask (s2).
         s_fragShaderWorldLit =
-            createShader("world_lit", "frag", SDL_GPU_SHADERSTAGE_FRAGMENT, 2, 0, 3, /*fatal=*/false);
+            createShader("world_lit", "frag", SDL_GPU_SHADERSTAGE_FRAGMENT, 3, 0, 3, /*fatal=*/false);
         s_fragShaderShadowMask =
             createShader("shadow_mask", "frag", SDL_GPU_SHADERSTAGE_FRAGMENT, 0, 0, 0, /*fatal=*/false);
         // Light shafts: models' texture (t0) into the occluder mask.
         s_fragShaderShaftOccluder =
             createShader("shaft_occluder", "frag", SDL_GPU_SHADERSTAGE_FRAGMENT, 1, 0, 0, /*fatal=*/false);
+        // Sun shadows: the draw's texture (t0) for its alpha test, FogUniforms (b0).
+        s_fragShaderSunDepth =
+            createShader("sun_depth", "frag", SDL_GPU_SHADERSTAGE_FRAGMENT, 1, 0, 1, /*fatal=*/false);
 
         // Post-processing — non-fatal: without them post-processing is unavailable.
         // Bloom passes: source texture (t0) and BloomUniforms (b0); composite: scene, bloom and
@@ -5847,7 +6130,8 @@ private:
         for (SDL_GPUShader** shader :
              {&s_vertShaderWorldLit, &s_fragShaderWorldLit, &s_fragShaderShadowMask, &s_vertShaderPostFullscreen,
               &s_fragShaderBloomDown, &s_fragShaderBloomUp, &s_fragShaderComposite, &s_fragShaderAmbientOcclusion,
-              &s_fragShaderAmbientOcclusionBlur, &s_fragShaderShaftOccluder, &s_fragShaderLightShafts})
+              &s_fragShaderAmbientOcclusionBlur, &s_fragShaderShaftOccluder, &s_fragShaderLightShafts,
+              &s_fragShaderSunDepth})
         {
             if (*shader)
             {
@@ -5878,6 +6162,7 @@ private:
         WorldLit,
         ShadowMask,
         ShaftOccluder,
+        SunDepth,
     };
 
     struct PipelineBuildDescription
@@ -5895,6 +6180,8 @@ private:
         bool groundShadowMaskTarget = false;
         // Into the light-shaft occluder mask (R8): one sample, no depth.
         bool shaftOccluderTarget = false;
+        // Into the sun shadow map: depth only, one sample, biased against self-shadowing.
+        bool sunShadowTarget = false;
     };
 
     // The world sets built together, and what a failed pipeline means for them.
@@ -5985,6 +6272,8 @@ private:
             return s_fragShaderShadowMask;
         case FragmentShader::ShaftOccluder:
             return s_fragShaderShaftOccluder;
+        case FragmentShader::SunDepth:
+            return s_fragShaderSunDepth;
         case FragmentShader::Textured:
             break;
         }
@@ -6005,6 +6294,8 @@ private:
             return "shadow_mask.frag";
         case FragmentShader::ShaftOccluder:
             return "shaft_occluder.frag";
+        case FragmentShader::SunDepth:
+            return "sun_depth.frag";
         case FragmentShader::Textured:
             break;
         }
@@ -6166,8 +6457,8 @@ private:
         vtxInputState.num_vertex_attributes = numAttribs;
 
         SDL_GPUGraphicsPipelineTargetInfo targetInfo{};
-        targetInfo.color_target_descriptions = &colorTargetDesc;
-        targetInfo.num_color_targets = 1;
+        targetInfo.color_target_descriptions = description.sunShadowTarget ? nullptr : &colorTargetDesc;
+        targetInfo.num_color_targets = description.sunShadowTarget ? 0u : 1u;
         // Enable depth-stencil target so pipelines match
         // the render pass that now includes a depth buffer.
         targetInfo.has_depth_stencil_target = !description.groundShadowMaskTarget && !description.shaftOccluderTarget;
@@ -6179,6 +6470,12 @@ private:
         rasterState.fill_mode = SDL_GPU_FILLMODE_FILL;
         rasterState.cull_mode = description.cullFaceEnabled ? SDL_GPU_CULLMODE_BACK : SDL_GPU_CULLMODE_NONE;
         rasterState.front_face = SDL_GPU_FRONTFACE_COUNTER_CLOCKWISE;
+        if (description.sunShadowTarget)
+        {
+            rasterState.enable_depth_bias = true;
+            rasterState.depth_bias_constant_factor = 2.0f;
+            rasterState.depth_bias_slope_factor = 2.0f;
+        }
 
         SDL_GPUGraphicsPipelineCreateInfo pipelineInfo{};
         pipelineInfo.vertex_shader =
@@ -6195,7 +6492,7 @@ private:
         pipelineInfo.props = 0;
 
         pipelineInfo.multisample_state.sample_count =
-            description.groundShadowMaskTarget || description.shaftOccluderTarget
+            description.groundShadowMaskTarget || description.shaftOccluderTarget || description.sunShadowTarget
                 ? SDL_GPU_SAMPLECOUNT_1
                 : mu::GetSdlGpuSampleCount(s_sampleCount).value_or(SDL_GPU_SAMPLECOUNT_1);
         pipelineInfo.multisample_state.enable_alpha_to_coverage = description.alphaToCoverage;
@@ -6464,6 +6761,14 @@ private:
             SDL_ReleaseGPUGraphicsPipeline(s_device, s_shaftOccluderPipeline);
             s_shaftOccluderPipeline = nullptr;
         }
+        for (SDL_GPUGraphicsPipeline*& pipeline : s_sunShadowPipelines)
+        {
+            if (pipeline)
+            {
+                SDL_ReleaseGPUGraphicsPipeline(s_device, pipeline);
+                pipeline = nullptr;
+            }
+        }
         DestroyAlphaCoveragePipelines();
         s_postProcessing.DestroyPipelines();
     }
@@ -6587,6 +6892,7 @@ private:
         CreateAlphaCoveragePipelines();
         CreateGroundShadowMaskPipelines();
         CreateShaftOccluderPipeline();
+        CreateSunShadowPipelines();
         CreatePostProcessingPipelines();
         if (!CreateSingleSamplePipelines())
         {
@@ -6603,6 +6909,7 @@ private:
             }
             CreateGroundShadowMaskPipelines();
             CreateShaftOccluderPipeline();
+            CreateSunShadowPipelines();
             CreatePostProcessingPipelines();
         }
         s_pipelinesMultisampled = s_sampleCount != Render::Antialiasing::OffSampleCount;
@@ -6855,6 +7162,64 @@ private:
         (void)s_ambientOcclusion.CreatePipelines(
             s_device, {s_vertShaderPostFullscreen, s_fragShaderAmbientOcclusion, s_fragShaderAmbientOcclusionBlur});
         (void)s_lightShafts.CreatePipelines(s_device, s_vertShaderPostFullscreen, s_fragShaderLightShafts);
+    }
+
+    // The pipelines replaying solid draws into the sun shadow map, with its comparison sampler and far
+    // 1x1 map. Optional: without them there are no sun shadows.
+    static void CreateSunShadowPipelines()
+    {
+        if (!s_fragShaderSunDepth)
+        {
+            return;
+        }
+        const VertexLayout layouts[] = {VertexLayout::ThreeDimensional, VertexLayout::Skinned};
+        for (std::size_t skinned = 0; skinned < 2; ++skinned)
+        {
+            PipelineBuildDescription description{"sun-shadow",     "opaque", k_PipelineDisabled,      true, true,
+                                                 layouts[skinned], false,    FragmentShader::SunDepth};
+            description.sunShadowTarget = true;
+            const PipelineBuildResult result = BuildBlendPipeline(SDL_GPUColorTargetBlendState{}, description);
+            s_sunShadowPipelines[skinned] = result.pipeline;
+            if (!result.pipeline)
+            {
+                const char* driver = SDL_GetGPUDeviceDriver(s_device);
+                LogPipelineFailure(driver ? driver : "unknown", result, false);
+            }
+        }
+        if (!s_sunShadowSampler)
+        {
+            SDL_GPUSamplerCreateInfo samplerInfo{};
+            samplerInfo.min_filter = SDL_GPU_FILTER_LINEAR;
+            samplerInfo.mag_filter = SDL_GPU_FILTER_LINEAR;
+            samplerInfo.mipmap_mode = SDL_GPU_SAMPLERMIPMAPMODE_NEAREST;
+            samplerInfo.address_mode_u = SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE;
+            samplerInfo.address_mode_v = SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE;
+            samplerInfo.address_mode_w = SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE;
+            samplerInfo.enable_compare = true;
+            // Lit where the surface is no further from the sun than what the map saw first.
+            samplerInfo.compare_op = SDL_GPU_COMPAREOP_LESS_OR_EQUAL;
+            s_sunShadowSampler = SDL_CreateGPUSampler(s_device, &samplerInfo);
+        }
+        if (!s_sunShadowFallback)
+        {
+            s_sunShadowFallback = CreateSunShadowDepth(1u);
+            s_sunShadowFallbackCleared = false;
+        }
+    }
+
+    static void ReleaseSunShadowResources()
+    {
+        ReleaseSunShadowMap();
+        if (s_sunShadowFallback)
+        {
+            SDL_ReleaseGPUTexture(s_device, s_sunShadowFallback);
+            s_sunShadowFallback = nullptr;
+        }
+        if (s_sunShadowSampler)
+        {
+            SDL_ReleaseGPUSampler(s_device, s_sunShadowSampler);
+            s_sunShadowSampler = nullptr;
+        }
     }
 
     // The pipeline replaying skinned models into the light-shaft occluder mask (one sample). Optional:
@@ -7247,7 +7612,7 @@ private:
             const SDL_Rect scissor{0, 0, static_cast<int>(capture.width), static_cast<int>(capture.height)};
             SDL_SetGPUScissor(s_renderPass, &scissor);
             PushSceneLightingUniforms();
-            BindGroundShadowMask();
+            BindLitSamplers();
 
             s_singleSamplePass = true;
             Render::SdlGpuReplayState replayState;

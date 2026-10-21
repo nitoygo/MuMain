@@ -13,7 +13,7 @@ float PointLightShadowHeight(float height)
 }
 
 LightShadowCasters SelectLightShadowCasters(const mu::DynamicLightsUniform& lights, const float (&position)[3],
-                                            std::size_t maxCasters)
+                                            std::size_t maxCasters, float physicalFalloff)
 {
     struct Candidate
     {
@@ -33,12 +33,13 @@ LightShadowCasters SelectLightShadowCasters(const mu::DynamicLightsUniform& ligh
         const float dx = position[0] - lights.positionAndRadius[i][0];
         const float dy = position[1] - lights.positionAndRadius[i][1];
         const float distance = std::sqrt(dx * dx + dy * dy);
-        if (radius <= 0.f || distance >= radius)
+        const float toLight[3] = {-dx, -dy, lights.positionAndRadius[i][2] - position[2]};
+        const float falloff = mu::PointLightFalloff(toLight, radius, physicalFalloff);
+        if (falloff <= 0.f)
         {
             continue;
         }
-        const float contribution =
-            (lights.color[i][0] + lights.color[i][1] + lights.color[i][2]) * (radius - distance) / radius;
+        const float contribution = (lights.color[i][0] + lights.color[i][1] + lights.color[i][2]) * falloff;
         total += contribution;
         if (distance >= kOwnLightDistance && lights.color[i][3] > 0.f)
         {

@@ -64,9 +64,8 @@ float4 main(FSInput input) : SV_Target
         color.rgb *= AmbientOcclusion(uv);
     if (lightShaftStrength > 0.0)
     {
-        // The glow the light shafts leave, over the scene darkened where models block them.
-        const float4 shafts = lightShafts.Sample(lightShaftsSampler, uv);
-        color.rgb = color.rgb * saturate(1.0 - shafts.a * lightShaftStrength) + shafts.rgb * lightShaftStrength;
+        // The glowing air the light shafts leave, with the streaks the models cut into it.
+        color.rgb += lightShafts.Sample(lightShaftsSampler, uv).rgb * lightShaftStrength;
     }
     if (toneMapKnee < 1.0)
     {

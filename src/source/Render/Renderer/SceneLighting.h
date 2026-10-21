@@ -45,6 +45,18 @@ struct SceneLighting
     float specularPower = kDefaultSpecularPower;
     // World-space camera position.
     float cameraPosition[3]{};
+    // Enhanced sun shadows: the direction towards the sun, how much a shadow darkens (0: no shadow
+    // map), how many texels its edges blur over, the map's size in texels, and the heights between
+    // which the camera's view meets the ground.
+    float sunDirection[3]{0.0f, 0.0f, 1.0f};
+    float sunShadowDarkness = 0.0f;
+    float sunShadowSoftness = 1.0f;
+    std::uint32_t sunShadowResolution = 2048;
+    float groundLow = 0.0f;
+    float groundHigh = 0.0f;
+    // How physically point lights fade: 0 the terrain light's linear fade over the horizontal
+    // distance, 1 inverse-square over the full distance (PointLightFalloff).
+    float physicalFalloff = 0.0f;
 };
 
 // The frame's fog as configured through IMuRenderer::SetFog() when the scene lighting was set.
@@ -68,6 +80,9 @@ struct SceneLightingUniform
     float fogColor[4];           // rgb, w = 1 when the scene has fog
     float fogParameters[4];      // start, end, Enhanced density, unused
     float cameraPosition[4];     // xyz world space, w unused
+    float sunViewProjection[16]; // column-major, world to the sun shadow map's clip space
+    float sunShadowParameters[4]; // darkness (0: no shadow map), softness in texels, 1 / map size, texel size
+    float lightingParameters[4];  // physical falloff, unused, unused, unused
 };
 
 inline constexpr std::size_t kSceneLightingRegisterSize = 16;
@@ -79,7 +94,10 @@ static_assert(offsetof(SceneLightingUniform, specularParameters) == 4 * kSceneLi
 static_assert(offsetof(SceneLightingUniform, fogColor) == 5 * kSceneLightingRegisterSize);
 static_assert(offsetof(SceneLightingUniform, fogParameters) == 6 * kSceneLightingRegisterSize);
 static_assert(offsetof(SceneLightingUniform, cameraPosition) == 7 * kSceneLightingRegisterSize);
-static_assert(sizeof(SceneLightingUniform) == 8 * kSceneLightingRegisterSize);
+static_assert(offsetof(SceneLightingUniform, sunViewProjection) == 8 * kSceneLightingRegisterSize);
+static_assert(offsetof(SceneLightingUniform, sunShadowParameters) == 12 * kSceneLightingRegisterSize);
+static_assert(offsetof(SceneLightingUniform, lightingParameters) == 13 * kSceneLightingRegisterSize);
+static_assert(sizeof(SceneLightingUniform) == 14 * kSceneLightingRegisterSize);
 
 [[nodiscard]] SceneLightingUniform PackSceneLightingUniform(const SceneLighting& lighting, const SceneFog& fog);
 
@@ -93,6 +111,12 @@ inline constexpr float kClassicGroundShadowAngle = 180.0f;
 // CPU mirror of the wrapped diffuse in skinned_lit.frag.hlsl's DynamicLighting(); the shader is the
 // implementation.
 [[nodiscard]] float WrappedDiffuse(float normalDotLight, float wrap);
+
+// How much of a point light of `radius` reaches a point `toLight` away from it, 1 at the light: the
+// terrain light's linear fade over the horizontal distance, blended by `physical` (0 to 1) towards
+// inverse-square over the full distance, which ends smoothly at the radius. CPU mirror of
+// PointLightFalloff() in skinned_lit.frag.hlsl and world_lit.frag.hlsl.
+[[nodiscard]] float PointLightFalloff(const float (&toLight)[3], float radius, float physical);
 
 // Most point lights an Enhanced-lit draw applies per frame.
 inline constexpr std::size_t kMaxDynamicLights = 32;

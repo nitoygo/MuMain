@@ -26,6 +26,13 @@
 
 #include <cmath>
 
+namespace
+{
+// A flame's light shaft shines with its average colour: the flicker re-rolled every frame would make
+// the haze flicker and change which flames get shafts.
+const float FlameShaftColor[3] = {0.85f, 0.85f * 0.6f, 0.85f * 0.4f};
+} // namespace
+
 // DevEditor forward declarations (must be at global scope)
 #ifdef _EDITOR
 extern "C" bool DevEditor_ShouldRenderWeatherEffects();
@@ -45,6 +52,9 @@ static  float RainPosition = 0.f;
 
 void CreateBonfire(vec3_t Position, vec3_t Angle)
 {
+    // The shaft stays where the fire is; only the flame and its light wobble.
+    vec3_t ShaftPosition;
+    VectorCopy(Position, ShaftPosition);
     Position[0] += Random::RangeFloat(-8, 7);
     Position[1] += Random::RangeFloat(-8, 7);
     Position[2] += Random::RangeFloat(-8, 7);
@@ -61,7 +71,7 @@ void CreateBonfire(vec3_t Position, vec3_t Angle)
     const float Luminosity = Random::RangeFloat(6, 11) * 0.1f;
     Vector(Luminosity, Luminosity * 0.6f, Luminosity * 0.4f, Light);
     AddTerrainLightAt(Position[0], Position[1], Position[2], Light, 4, PrimaryTerrainLight);
-    Render::Lighting::AddShaftLight(mu::LightShaftKind::Map, Position, Position, Light);
+    Render::Lighting::AddShaftLight(mu::LightShaftKind::Map, ShaftPosition, ShaftPosition, FlameShaftColor);
 }
 
 void CreateFire(int Type, OBJECT* o, float x, float y, float z)
@@ -74,6 +84,9 @@ void CreateFire(int Type, OBJECT* o, float x, float y, float z)
     Vector(x, y, z, p);
     VectorRotate(p, Matrix, Position);
     VectorAdd(Position, o->Position, Position);
+    // The shaft stays where the fire is; only the flame and its light wobble.
+    vec3_t ShaftPosition;
+    VectorCopy(Position, ShaftPosition);
     Position[0] += Random::RangeFloat(-8, 7);
     Position[1] += Random::RangeFloat(-8, 7);
     Position[2] += Random::RangeFloat(-8, 7);
@@ -85,7 +98,7 @@ void CreateFire(int Type, OBJECT* o, float x, float y, float z)
         if (rand_fps_check(2))
             CreateParticle(BITMAP_FIRE, Position, o->Angle, Light, Random::RangeInt(0, 3));
         AddTerrainLightAt(Position[0], Position[1], Position[2], Light, 4, PrimaryTerrainLight);
-        Render::Lighting::AddShaftLight(mu::LightShaftKind::Map, Position, Position, Light);
+        Render::Lighting::AddShaftLight(mu::LightShaftKind::Map, ShaftPosition, ShaftPosition, FlameShaftColor);
         break;
     case 1:
         if (rand_fps_check(2))

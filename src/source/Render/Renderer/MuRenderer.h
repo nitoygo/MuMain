@@ -397,6 +397,11 @@ public:
     virtual void EndGroundShadow(GroundShadowSource /*source*/) {}
     // Draws between BeginShaftOccluders and EndShaftOccluders (characters) block light shafts.
     // Scopes nest; use ScopedShaftOccluders.
+    // Whether SetSceneLighting's sun shadow settings draw a shadow map.
+    [[nodiscard]] virtual bool SunShadowsAvailable() const
+    {
+        return false;
+    }
     virtual void BeginShaftOccluders() {}
     virtual void EndShaftOccluders() {}
     // True while a bloom exclusion is open: what is queued now and drawn later

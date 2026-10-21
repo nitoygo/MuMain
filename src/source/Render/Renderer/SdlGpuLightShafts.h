@@ -22,12 +22,10 @@ struct SdlGpuLightShaftsUniform
     float aspect;
     float glowWidth;
     float decay;
-    float length; // how far the dark streaks reach from the light, in screen heights
-    float padding[3];
 };
 static_assert(offsetof(SdlGpuLightShaftsUniform, colors) == 64);
 static_assert(offsetof(SdlGpuLightShaftsUniform, shaftCount) == 128);
-static_assert(sizeof(SdlGpuLightShaftsUniform) == 160);
+static_assert(sizeof(SdlGpuLightShaftsUniform) == 144);
 
 // The occluder mask (R8, the frame's size, which the models are replayed into) and the shaft pass
 // that reads it into an RGBA16F texture at half the frame's size.
@@ -47,7 +45,7 @@ public:
     // rendered.
     [[nodiscard]] SDL_GPUTexture* Render(SDL_GPUCommandBuffer* commandBuffer,
                                          std::span<const Render::Lighting::ScreenShaft> shafts, float glowWidth,
-                                         float decay, float length);
+                                         float decay);
 
     // Everything, at shutdown.
     void Release();

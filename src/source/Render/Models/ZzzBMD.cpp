@@ -2989,6 +2989,8 @@ void BMD::RenderBodyShadow(const int blendMesh, const int hiddenMesh, const int 
             AddMeshShadowTriangles(blendMesh, hiddenMesh, startMesh, endMesh, projection, shadowColor);
         }
     };
+    // The sun shadow map shadows the ground itself; only the flat shadow is drawn without it.
+    if (!Render::Lighting::SunShadowsActive())
     {
         const mu::ScopedGroundShadow groundShadow;
         drawShadow(alpha);
@@ -3000,7 +3002,8 @@ void BMD::RenderBodyShadow(const int blendMesh, const int hiddenMesh, const int 
         const auto maxCasters =
             static_cast<std::size_t>(Render::Look::Value(Data::Maps::LookValue::GroundShadowLights));
         const Render::Lighting::LightShadowCasters casters = Render::Lighting::SelectLightShadowCasters(
-            worldLights.Selection().uniform, {BodyOrigin[0], BodyOrigin[1], BodyOrigin[2]}, maxCasters);
+            worldLights.Selection().uniform, {BodyOrigin[0], BodyOrigin[1], BodyOrigin[2]}, maxCasters,
+            Render::Look::Value(Data::Maps::LookValue::DynamicPhysicalFalloff));
         const mu::ScopedGroundShadow lightShadow(mu::GroundShadowSource::PointLight);
         projection.pointLight = true;
         for (std::size_t i = 0; i < casters.count; ++i)
