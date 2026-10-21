@@ -78,7 +78,9 @@ inline void ProjectShadow(float (&xy)[2], float height, const float (&axis)[2], 
 // Up to `maxCasters` (at most kMaxLightShadowCasters) of the ground's lights (the first
 // worldLightCount of `lights`) reaching `position`, strongest first. Every light reaching the
 // character counts towards the shares, its own and skill lights (color w 0, which cast none) too.
+// `physicalFalloff` weighs the lights as the shaders do (mu::PointLightFalloff).
 [[nodiscard]] LightShadowCasters SelectLightShadowCasters(const mu::DynamicLightsUniform& lights,
-                                                          const float (&position)[3], std::size_t maxCasters);
+                                                          const float (&position)[3], std::size_t maxCasters,
+                                                          float physicalFalloff = 0.f);
 
 } // namespace Render::Lighting

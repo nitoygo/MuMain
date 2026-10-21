@@ -54,6 +54,10 @@ enum class LookValue : std::uint8_t
     LightShaftStrength,
     LightShaftSkills,
     LightShaftMap,
+    SunShadowStrength,
+    SunShadowSoftness,
+    SunShadowResolution,
+    DynamicPhysicalFalloff,
     Count,
 };
 

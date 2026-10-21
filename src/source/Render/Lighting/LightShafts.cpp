@@ -37,24 +37,68 @@ void ToUv(const Clip& clip, float (&uv)[2])
 
 void LightShaftList::Add(const LightShaftLight& light)
 {
-    if (m_count < m_lights.size())
+    if (light.kind == LightShaftKind::Map)
     {
-        m_lights[m_count++] = light;
-        return;
+        for (std::size_t i = 0; i < m_count; ++i)
+        {
+            const LightShaftLight& held = m_lights[i];
+            if (held.kind == LightShaftKind::Map && std::equal(held.start, held.start + 3, light.start) &&
+                std::equal(held.end, held.end + 3, light.end))
+            {
+                m_lights[i] = light;
+                m_seen[i] = true;
+                return;
+            }
+        }
     }
-    // Full: the new light replaces the dimmest, if it is brighter.
-    const auto dimmest =
-        std::min_element(m_lights.begin(), m_lights.end(), [](const LightShaftLight& left, const LightShaftLight& right)
-                         { return ShaftBrightness(left.color) < ShaftBrightness(right.color); });
-    if (ShaftBrightness(dimmest->color) < ShaftBrightness(light.color))
+    std::size_t slot = m_count;
+    if (m_count == m_lights.size())
     {
-        *dimmest = light;
+        // Full: the new light replaces the dimmest, if it is brighter.
+        const auto dimmest = std::min_element(m_lights.begin(), m_lights.end(),
+                                              [](const LightShaftLight& left, const LightShaftLight& right)
+                                              { return ShaftBrightness(left.color) < ShaftBrightness(right.color); });
+        if (ShaftBrightness(dimmest->color) >= ShaftBrightness(light.color))
+        {
+            return;
+        }
+        slot = static_cast<std::size_t>(dimmest - m_lights.begin());
     }
+    else
+    {
+        ++m_count;
+    }
+    m_lights[slot] = light;
+    m_seen[slot] = true;
 }
 
 void LightShaftList::Clear()
 {
     m_count = 0;
+}
+
+void LightShaftList::EndFrame(double now)
+{
+    for (std::size_t i = m_count; i-- > 0;)
+    {
+        if (m_seen[i])
+        {
+            m_lastSeen[i] = now;
+            m_seen[i] = false;
+        }
+        if (m_lights[i].kind != LightShaftKind::Map || now - m_lastSeen[i] > kShaftHoldSeconds)
+        {
+            Remove(i);
+        }
+    }
+}
+
+void LightShaftList::Remove(std::size_t index)
+{
+    --m_count;
+    m_lights[index] = m_lights[m_count];
+    m_lastSeen[index] = m_lastSeen[m_count];
+    m_seen[index] = m_seen[m_count];
 }
 
 std::span<const LightShaftLight> LightShaftList::Lights() const
@@ -130,12 +174,18 @@ float ShaftDistanceSquared(const ScreenShaft& shaft, const float (&uv)[2], float
 }
 
 std::size_t SelectScreenShafts(std::span<const LightShaftLight> lights, const float (&viewProjection)[16], float margin,
-                               float skillFactor, float mapFactor, std::span<ScreenShaft, mu::kMaxLightShafts> shafts)
+                               float skillFactor, float mapFactor, std::span<ScreenShaft> shafts)
 {
+    // Ranked by brightness, then by nearness to the screen's centre: equally bright lights (the map's
+    // flames) keep the same order from frame to frame, whatever order they were added in.
+    // shortcut: ranks at most kMaxLightShafts; widen the arrays if a caller asks for more.
     std::array<float, mu::kMaxLightShafts> brightness{};
+    std::array<float, mu::kMaxLightShafts> offCentre{};
+    shafts = shafts.first(std::min(shafts.size(), brightness.size()));
     std::size_t count = 0;
-    for (const LightShaftLight& light : lights)
+    for (std::size_t index = 0; index < lights.size(); ++index)
     {
+        const LightShaftLight& light = lights[index];
         const float factor = light.kind == LightShaftKind::Map ? mapFactor : skillFactor;
         LightShaftLight scaled = light;
         for (float& channel : scaled.color)
@@ -148,9 +198,14 @@ std::size_t SelectScreenShafts(std::span<const LightShaftLight> lights, const fl
         {
             continue;
         }
+        screen.light = index;
+        const float dx = (screen.start[0] + screen.end[0]) * 0.5f - 0.5f;
+        const float dy = (screen.start[1] + screen.end[1]) * 0.5f - 0.5f;
+        const float centre = dx * dx + dy * dy;
         // Keep the brightest: insert in order, the dimmest falling off the end.
         std::size_t slot = count;
-        while (slot > 0 && brightness[slot - 1] < bright)
+        while (slot > 0 &&
+               (brightness[slot - 1] < bright || (brightness[slot - 1] == bright && offCentre[slot - 1] > centre)))
         {
             --slot;
         }
@@ -163,12 +218,62 @@ std::size_t SelectScreenShafts(std::span<const LightShaftLight> lights, const fl
         {
             shafts[i] = shafts[i - 1];
             brightness[i] = brightness[i - 1];
+            offCentre[i] = offCentre[i - 1];
         }
         shafts[slot] = screen;
         brightness[slot] = bright;
+        offCentre[slot] = centre;
         count = std::min(count + 1, shafts.size());
     }
     return count;
+}
+
+namespace
+{
+bool SamePlace(const LightShaftLight& left, const LightShaftLight& right)
+{
+    return left.kind == right.kind && std::equal(left.start, left.start + 3, right.start) &&
+           std::equal(left.end, left.end + 3, right.end);
+}
+} // namespace
+
+void MapShaftSlots::Update(std::span<const LightShaftLight> wanted, float seconds)
+{
+    wanted = wanted.first(std::min(wanted.size(), m_slots.size()));
+    const float step = seconds / kShaftFadeSeconds;
+    for (Slot& slot : m_slots)
+    {
+        if (!slot.used)
+        {
+            continue;
+        }
+        const auto still = std::find_if(wanted.begin(), wanted.end(),
+                                        [&](const LightShaftLight& light) { return SamePlace(light, slot.light); });
+        if (still != wanted.end())
+        {
+            slot.light = *still;
+            slot.weight = std::min(slot.weight + step, 1.f);
+        }
+        else if ((slot.weight -= step) <= 0.f)
+        {
+            slot = {};
+        }
+    }
+    for (const LightShaftLight& light : wanted)
+    {
+        const bool shown = std::any_of(m_slots.begin(), m_slots.end(),
+                                       [&](const Slot& slot) { return slot.used && SamePlace(slot.light, light); });
+        const auto free = std::find_if(m_slots.begin(), m_slots.end(), [](const Slot& slot) { return !slot.used; });
+        if (!shown && free != m_slots.end())
+        {
+            *free = {light, std::min(step, 1.f), true};
+        }
+    }
+}
+
+std::span<const MapShaftSlots::Slot> MapShaftSlots::Slots() const
+{
+    return m_slots;
 }
 
 } // namespace Render::Lighting

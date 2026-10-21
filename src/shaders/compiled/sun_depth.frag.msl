@@ -1,0 +1,43 @@
+#include <metal_stdlib>
+#include <simd/simd.h>
+
+using namespace metal;
+
+struct FogUniforms
+{
+    uint coverageMode;
+    uint alphaDiscardEnabled;
+    float alphaThreshold;
+    uint alphaToCoverage;
+    float fogStart;
+    float fogEnd;
+    float4 fogColor;
+};
+
+struct main0_in
+{
+    float2 input_uv [[user(locn0)]];
+    float4 input_color [[user(locn1)]];
+};
+
+fragment void main0(main0_in in [[stage_in]], constant FogUniforms& _55 [[buffer(0)]], texture2d<float> tex [[texture(0)]], sampler s [[sampler(0)]], float4 gl_FragCoord [[position]])
+{
+    do
+    {
+        float4 _138 = tex.sample(s, in.input_uv) * in.input_color;
+        if (_55.coverageMode == 0u)
+        {
+            if (((_55.alphaDiscardEnabled != 0u) || (_55.alphaToCoverage != 0u)) && (_138.w <= _55.alphaThreshold))
+            {
+                discard_fragment();
+            }
+            break;
+        }
+        if (((_55.coverageMode == 1u) ? _138.w : (fast::max(_138.x, fast::max(_138.y, _138.z)) * _138.w)) <= fract(52.98291778564453125 * fract(dot(gl_FragCoord.xy, float2(0.067110560834407806396484375, 0.005837149918079376220703125)))))
+        {
+            discard_fragment();
+        }
+        break;
+    } while(false);
+}
+

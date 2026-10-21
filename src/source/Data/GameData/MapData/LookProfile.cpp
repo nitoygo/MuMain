@@ -52,6 +52,10 @@ constexpr std::array<LookValueInfo, LookValueCount> Infos = {{
     {LookValue::LightShaftStrength, "shafts.strength", 0.0, 0.0, 2.0},
     {LookValue::LightShaftSkills, "shafts.skills", 1.0, 0.0, 2.0},
     {LookValue::LightShaftMap, "shafts.map", 1.0, 0.0, 2.0},
+    {LookValue::SunShadowStrength, "sun.shadow", 0.0, 0.0, 1.0},
+    {LookValue::SunShadowSoftness, "sun.softness", 1.0, 0.0, 2.0},
+    {LookValue::SunShadowResolution, "sun.resolution", 2048.0, 1024.0, 4096.0},
+    {LookValue::DynamicPhysicalFalloff, "dynamic.physicalFalloff", 0.0, 0.0, 1.0},
 }};
 
 constexpr bool InfosFollowLookValueOrder()

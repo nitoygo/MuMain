@@ -71,6 +71,8 @@ TEST_CASE("the look profile's built-in values are the renderer's values before i
     CHECK(BuiltIn(LookValue::LightShaftStrength) == 0.0);
     CHECK(BuiltInFloat(LookValue::LightShaftSkills) == mu::PostProcessingLook{}.lightShaftSkills);
     CHECK(BuiltInFloat(LookValue::LightShaftMap) == mu::PostProcessingLook{}.lightShaftMap);
+    // Sun shadows: off.
+    CHECK(BuiltIn(LookValue::SunShadowStrength) == 0.0);
 }
 
 TEST_CASE("dynamic.wrap: the point-light diffuse from Lambert to half-Lambert [render][look]")
@@ -243,6 +245,10 @@ TEST_CASE("the developer tuning commands name their look values [render][look]")
     single(L"$shafts skills 0.5", LookValue::LightShaftSkills, 0.5);
     single(L"$shafts map 1.5", LookValue::LightShaftMap, 1.5);
     single(L"$shafts 0.7", LookValue::LightShaftStrength, 0.7);
+    single(L"$sun softness 1.5", LookValue::SunShadowSoftness, 1.5);
+    single(L"$sun resolution 4096", LookValue::SunShadowResolution, 4096.0);
+    single(L"$sun 0.5", LookValue::SunShadowStrength, 0.5);
+    single(L"$dynlights falloff 0.25", LookValue::DynamicPhysicalFalloff, 0.25);
 
     const std::optional<Render::Look::LookTuningCommand> diffuse =
         ParseLookTuningCommand(L"$lighting diffuse 1.0 0.3 0.15");

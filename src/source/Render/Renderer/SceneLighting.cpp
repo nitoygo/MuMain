@@ -80,7 +80,28 @@ SceneLightingUniform PackSceneLightingUniform(const SceneLighting& lighting, con
     uniform.cameraPosition[0] = lighting.cameraPosition[0];
     uniform.cameraPosition[1] = lighting.cameraPosition[1];
     uniform.cameraPosition[2] = lighting.cameraPosition[2];
+    uniform.lightingParameters[0] = lighting.physicalFalloff;
     return uniform;
+}
+
+float PointLightFalloff(const float (&toLight)[3], float radius, float physical)
+{
+    const float horizontal = std::sqrt(toLight[0] * toLight[0] + toLight[1] * toLight[1]);
+    if (radius <= 0.0f || horizontal >= radius)
+    {
+        return 0.0f;
+    }
+    const float linearFade = (radius - horizontal) / radius;
+    if (physical <= 0.0f)
+    {
+        return linearFade;
+    }
+    const float distanceSquared = horizontal * horizontal + toLight[2] * toLight[2];
+    const float core = 0.4f * radius;
+    const float ratio = distanceSquared / (radius * radius);
+    const float window = std::clamp(1.0f - ratio * ratio, 0.0f, 1.0f);
+    const float inverseSquare = core * core / (distanceSquared + core * core) * window * window;
+    return linearFade + (inverseSquare - linearFade) * physical;
 }
 
 } // namespace mu

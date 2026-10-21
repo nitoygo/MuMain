@@ -6,7 +6,7 @@
 
 TEST_CASE("scene lighting uniform matches the HLSL cbuffer registers [render][scene_lighting]")
 {
-    CHECK(sizeof(mu::SceneLightingUniform) == 128);
+    CHECK(sizeof(mu::SceneLightingUniform) == 224);
     CHECK(offsetof(mu::SceneLightingUniform, lightDirection) == 0);
     CHECK(offsetof(mu::SceneLightingUniform, lightColor) == 16);
     CHECK(offsetof(mu::SceneLightingUniform, diffuseCurve) == 32);
@@ -121,4 +121,25 @@ TEST_CASE("a zero light direction packs as zero instead of NaN [render][scene_li
     CHECK(uniform.lightDirection[0] == 0.0f);
     CHECK(uniform.lightDirection[1] == 0.0f);
     CHECK(uniform.lightDirection[2] == 0.0f);
+}
+
+TEST_CASE("point lights fade linearly over the ground or with the square of the distance [render][lighting]")
+{
+    const float atLight[3] = {0.0f, 0.0f, 0.0f};
+    const float halfway[3] = {50.0f, 0.0f, 0.0f};
+    const float beyond[3] = {100.0f, 0.0f, 0.0f};
+    // Linear: the terrain light's fade over the horizontal distance, whatever the height.
+    const float high[3] = {50.0f, 0.0f, 80.0f};
+    CHECK(mu::PointLightFalloff(halfway, 100.0f, 0.0f) == doctest::Approx(0.5f));
+    CHECK(mu::PointLightFalloff(high, 100.0f, 0.0f) == doctest::Approx(0.5f));
+    CHECK(mu::PointLightFalloff(beyond, 100.0f, 0.0f) == 0.0f);
+    // Physical: full at the light, dimmer with height, nothing at the radius.
+    CHECK(mu::PointLightFalloff(atLight, 100.0f, 1.0f) == doctest::Approx(1.0f));
+    CHECK(mu::PointLightFalloff(halfway, 100.0f, 1.0f) < 0.5f);
+    CHECK(mu::PointLightFalloff(high, 100.0f, 1.0f) < mu::PointLightFalloff(halfway, 100.0f, 1.0f));
+    CHECK(mu::PointLightFalloff(beyond, 100.0f, 1.0f) == 0.0f);
+    // Between them, a blend.
+    const float blended = mu::PointLightFalloff(halfway, 100.0f, 0.5f);
+    CHECK(blended < 0.5f);
+    CHECK(blended > mu::PointLightFalloff(halfway, 100.0f, 1.0f));
 }

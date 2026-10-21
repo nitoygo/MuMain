@@ -105,7 +105,8 @@ TEST_CASE("a full shaft list keeps the brightest lights [render][shafts]")
     Render::Lighting::LightShaftList list;
     for (std::size_t i = 0; i < Render::Lighting::LightShaftList::kCapacity; ++i)
     {
-        list.Add(Light(0.f, 0.f, 0.f, 0.f, 1.f, LightShaftKind::Map));
+        const float x = static_cast<float>(i);
+        list.Add(Light(x, 0.f, x, 0.f, 1.f, LightShaftKind::Map));
     }
     list.Add(Light(0.f, 0.f, 0.f, 0.f, 5.f, LightShaftKind::Skill));
     list.Add(Light(0.f, 0.f, 0.f, 0.f, 0.5f, LightShaftKind::Skill));
@@ -119,4 +120,68 @@ TEST_CASE("a full shaft list keeps the brightest lights [render][shafts]")
     CHECK(brightest == doctest::Approx(5.f));
     list.Clear();
     CHECK(list.Lights().empty());
+}
+
+TEST_CASE("a map light keeps its shaft for a moment after it was last added; a skill light goes [render][shafts]")
+{
+    Render::Lighting::LightShaftList list;
+    const LightShaftLight torch = Light(10.f, 20.f, 10.f, 20.f, 1.f, LightShaftKind::Map);
+    list.Add(torch);
+    list.Add(Light(0.f, 0.f, 5.f, 0.f, 2.f, LightShaftKind::Skill));
+    list.EndFrame(1.0);
+    REQUIRE(list.Lights().size() == 1);
+    CHECK(list.Lights()[0].kind == LightShaftKind::Map);
+
+    // Added again at the same place: refreshed, not doubled.
+    list.Add(torch);
+    list.EndFrame(1.1);
+    CHECK(list.Lights().size() == 1);
+
+    // Missed on a few frames: still held.
+    list.EndFrame(1.1 + Render::Lighting::kShaftHoldSeconds * 0.5);
+    CHECK(list.Lights().size() == 1);
+    // Gone once not added for longer than the hold.
+    list.EndFrame(1.1 + Render::Lighting::kShaftHoldSeconds * 1.5);
+    CHECK(list.Lights().empty());
+}
+
+TEST_CASE("a map light's shaft fades in, and fades out before another takes its slot [render][shafts]")
+{
+    using Render::Lighting::kMapShaftSlots;
+    using Render::Lighting::kShaftFadeSeconds;
+    Render::Lighting::MapShaftSlots slots;
+    std::array<LightShaftLight, kMapShaftSlots + 1> torches{};
+    for (std::size_t i = 0; i < torches.size(); ++i)
+    {
+        const float x = static_cast<float>(i) * 100.f;
+        torches[i] = Light(x, 0.f, x, 0.f, 1.f, LightShaftKind::Map);
+    }
+    const auto weightOf = [&](const LightShaftLight& light)
+    {
+        for (const auto& slot : slots.Slots())
+        {
+            if (slot.used && slot.light.start[0] == light.start[0])
+            {
+                return slot.weight;
+            }
+        }
+        return -1.f;
+    };
+
+    // The first kMapShaftSlots fade in over kShaftFadeSeconds.
+    const std::span<const LightShaftLight> first(torches.data(), kMapShaftSlots);
+    slots.Update(first, kShaftFadeSeconds * 0.5f);
+    CHECK(weightOf(torches[0]) == doctest::Approx(0.5f));
+    slots.Update(first, kShaftFadeSeconds);
+    CHECK(weightOf(torches[0]) == doctest::Approx(1.f));
+
+    // The last torch replaces the first: the first fades out while the newcomer waits for its slot.
+    const std::span<const LightShaftLight> second(torches.data() + 1, kMapShaftSlots);
+    slots.Update(second, kShaftFadeSeconds * 0.5f);
+    CHECK(weightOf(torches[0]) == doctest::Approx(0.5f));
+    CHECK(weightOf(torches.back()) == -1.f);
+    slots.Update(second, kShaftFadeSeconds * 0.5f);
+    CHECK(weightOf(torches[0]) == -1.f);
+    CHECK(weightOf(torches.back()) == doctest::Approx(0.5f));
+    CHECK(weightOf(torches[1]) == doctest::Approx(1.f));
 }
