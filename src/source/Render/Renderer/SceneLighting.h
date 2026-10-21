@@ -97,6 +97,25 @@ inline constexpr float kClassicGroundShadowAngle = 180.0f;
 // Most point lights an Enhanced-lit draw applies per frame.
 inline constexpr std::size_t kMaxDynamicLights = 32;
 
+// Most light shafts the Enhanced post-processing draws per frame.
+inline constexpr std::size_t kMaxLightShafts = 4;
+
+enum class LightShaftKind : std::uint8_t
+{
+    Skill,
+    Map,
+};
+
+// A light that lights the air around it, leaving a dark streak behind the characters in it: a
+// segment in the world (a beam), a point when start equals end.
+struct LightShaftLight
+{
+    float start[3]{};
+    float end[3]{};
+    float color[3]{};
+    LightShaftKind kind = LightShaftKind::Skill;
+};
+
 // HLSL cbuffer layout of the frame's point lights (cbuffer DynamicLights, register(b2, space3) in
 // skinned_lit.frag.hlsl). Each light adds colour * (radius - d) / radius * wrapped diffuse, d being
 // the horizontal distance, like the terrain light it comes from.

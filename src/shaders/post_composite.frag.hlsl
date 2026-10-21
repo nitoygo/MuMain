@@ -1,5 +1,5 @@
 // post_composite.frag.hlsl — the processed 3D scene: the scene image darkened by its ambient
-// occlusion (an HDR scene then tone mapped),
+// occlusion and lit by its light shafts (an HDR scene then tone mapped),
 // with its bloom screen-blended on top, colour graded through the map's lookup table and dithered.
 // Draws into the frame's destination before the UI.
 // CompositeUniforms mirrors mu::SdlGpuCompositeUniform.
@@ -13,6 +13,8 @@ Texture2D ambientOcclusion : register(t3, space2);
 SamplerState ambientOcclusionSampler : register(s3, space2); // linear: half resolution
 Texture2D bloomSource : register(t4, space2);
 SamplerState bloomSourceSampler : register(s4, space2); // point
+Texture2D lightShafts : register(t5, space2);
+SamplerState lightShaftsSampler : register(s5, space2); // linear: half resolution
 cbuffer CompositeUniforms : register(b0, space3)
 {
     float2 inverseTargetSize;
@@ -22,6 +24,8 @@ cbuffer CompositeUniforms : register(b0, space3)
     float ditherAmount;    // 0: no dither
     float ambientOcclusionStrength; // 0: no ambient occlusion
     float ambientOcclusionEffects;  // 1: the bloom source holds this frame's additive light
+    float lightShaftStrength;       // 0: no light shafts
+    float3 padding;
 };
 struct FSInput
 {
@@ -58,6 +62,12 @@ float4 main(FSInput input) : SV_Target
     float4 color = scene.Sample(sceneSampler, uv);
     if (ambientOcclusionStrength > 0.0)
         color.rgb *= AmbientOcclusion(uv);
+    if (lightShaftStrength > 0.0)
+    {
+        // The glow the light shafts leave, over the scene darkened where models block them.
+        const float4 shafts = lightShafts.Sample(lightShaftsSampler, uv);
+        color.rgb = color.rgb * saturate(1.0 - shafts.a * lightShaftStrength) + shafts.rgb * lightShaftStrength;
+    }
     if (toneMapKnee < 1.0)
     {
         // Blending over light above 1 (inverse colour) can leave negative values: black.

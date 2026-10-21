@@ -92,6 +92,9 @@ window.
 | Bloom and colour grading | Colour grading strength | `grading.strength` | 0–100 % | 1 % | 100 % | common |
 | Bloom and colour grading | Contact shadows | `ao.strength` | 0–2 | 0.05 | 0.8 | common |
 | Bloom and colour grading | Contact shadow reach | `ao.radius` | 10–300 | 5 | 60 | common |
+| Bloom and colour grading | Light shafts | `shafts.strength` | 0–2 | 0.05 | 0.5 | common |
+| Bloom and colour grading | Light shafts from skills | `shafts.skills` | 0–200 % | 5 % | 100 % | common |
+| Bloom and colour grading | Light shafts from map lights | `shafts.map` | 0–200 % | 5 % | 100 % | common |
 
 The defaults are the shipped look profile's (and each map's own, where it has
 one); they are defaults, not a promise that every combination of extremes looks
@@ -215,6 +218,9 @@ for the whole file.
 | `grading.strength` | 1 | 1 | 0–1 | how much of a map's grading table applies; 0 grades nothing while the bloom stays |
 | `ao.strength` | 0.8 | 0 | 0–2 | how much screen-space ambient occlusion darkens corners, wall bases and the ground under objects; additive effects are left alone; not drawn while anti-aliasing is on |
 | `ao.radius` | 60 | 60 | 10–300 | how far, in world units, nearby geometry still darkens a surface |
+| `shafts.strength` | 0.5 | 0 | 0–2 | how brightly strong lights (skills such as Aqua Beam, fires and bonfires) light the air around them; characters and objects in that light leave a dark streak behind them, fading with distance. The 4 brightest lights on screen cast shafts; not drawn while anti-aliasing is on |
+| `shafts.skills` | 1 | 1 | 0–2 | how much skill and spell lights cast light shafts |
+| `shafts.map` | 1 | 1 | 0–2 | how much fires and bonfires cast light shafts |
 
 ## Developer commands
 
@@ -243,7 +249,7 @@ Shorter forms of `$look set`: `$lighting rim <v>`, `$lighting specular <v>`,
 `$lighting diffuse <scale> <ambient> <floor>`, `$lightmood knee <k>`,
 `$dynlights wrap <w>`, `$dynlights smooth <s>`,
 `$dynlights spell <gain> <range> <fade>`, `$dynlights cap <c>`,
-`$dynlights reach <cells>`, `$dynlights shadow <opacity>`, `$dynlights shadowangle <degrees>`, `$dynlights shadowlights <n>`, `$bloom falloff <f>`, `$bloom <strength>`, `$ao <strength>`, `$ao radius <r>`.
+`$dynlights reach <cells>`, `$dynlights shadow <opacity>`, `$dynlights shadowangle <degrees>`, `$dynlights shadowlights <n>`, `$bloom falloff <f>`, `$bloom <strength>`, `$ao <strength>`, `$ao radius <r>`, `$shafts <strength>`, `$shafts skills <f>`, `$shafts map <f>`.
 The DevEditor has the same values in its Look panel.
 
 Feature overrides, to compare one feature on and off. They last for the

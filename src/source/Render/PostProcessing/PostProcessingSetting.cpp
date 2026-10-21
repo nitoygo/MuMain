@@ -68,7 +68,8 @@ void SubmitPostProcessingLook()
     mu::GetRenderer().SetPostProcessingLook(
         {Render::Look::Value(LookValue::BloomStrength), Render::Look::Value(LookValue::BloomLevelFalloff),
          Render::Look::Value(LookValue::GradingStrength), Render::Look::Value(LookValue::AmbientOcclusionStrength),
-         Render::Look::Value(LookValue::AmbientOcclusionRadius)});
+         Render::Look::Value(LookValue::AmbientOcclusionRadius), Render::Look::Value(LookValue::LightShaftStrength),
+         Render::Look::Value(LookValue::LightShaftSkills), Render::Look::Value(LookValue::LightShaftMap)});
 }
 
 } // namespace Render::PostProcessing

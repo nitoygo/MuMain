@@ -8,6 +8,7 @@
 #include "Render/Lighting/DynamicLightList.h"
 #include "Render/Lighting/DynamicLightSelection.h"
 #include "Render/Lighting/DynamicLightsSetting.h"
+#include "Render/Lighting/LightShafts.h"
 #include "Render/Lighting/EnhancedLightingSetting.h"
 #include "Render/Lighting/LightMoodSetting.h"
 #include "Render/Lighting/WorldDynamicLights.h"
@@ -70,6 +71,11 @@ void PinWorldDynamicLights()
 
 void SubmitDynamicLights()
 {
+    // The frame's shaft lights (Enhanced light shafts), whatever the dynamic lights do.
+    Render::Lighting::LightShaftList& shaftLights = Render::Lighting::FrameLightShafts();
+    mu::GetRenderer().SetLightShafts(shaftLights.Lights());
+    shaftLights.Clear();
+
     if (!Render::Lighting::DynamicLightsActive())
     {
         mu::GetRenderer().SetDynamicLights({});

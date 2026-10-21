@@ -23,7 +23,10 @@
     "bloom.levelFalloff": 0.6,
     "grading.strength": 1,
     "ao.strength": 0.8,
-    "ao.radius": 60
+    "ao.radius": 60,
+    "shafts.strength": 0.5,
+    "shafts.skills": 1,
+    "shafts.map": 1
   },
   "maps": [
     {

@@ -1,0 +1,27 @@
+#include <metal_stdlib>
+#include <simd/simd.h>
+
+using namespace metal;
+
+struct main0_out
+{
+    float4 _entryPointOutput [[color(0)]];
+};
+
+struct main0_in
+{
+    float2 input_uv [[user(locn0)]];
+    float4 input_color [[user(locn1)]];
+};
+
+fragment main0_out main0(main0_in in [[stage_in]], texture2d<float> tex [[texture(0)]], sampler s [[sampler(0)]])
+{
+    main0_out out = {};
+    if ((tex.sample(s, in.input_uv).w * in.input_color.w) < 0.25)
+    {
+        discard_fragment();
+    }
+    out._entryPointOutput = float4(1.0);
+    return out;
+}
+

@@ -35,6 +35,9 @@
 //   $bloom <v>                     bloom.strength
 //   $ao radius <r>                 ao.radius
 //   $ao <v>                        ao.strength
+//   $shafts skills <f>             shafts.skills
+//   $shafts map <f>                shafts.map
+//   $shafts <v>                    shafts.strength
 namespace Render::Look
 {
 
