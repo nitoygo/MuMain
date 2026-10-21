@@ -3,6 +3,17 @@
 
 using namespace metal;
 
+struct FogUniforms
+{
+    uint coverageMode;
+    uint alphaDiscardEnabled;
+    float alphaThreshold;
+    uint alphaToCoverage;
+    float fogStart;
+    float fogEnd;
+    float4 fogColor;
+};
+
 struct main0_out
 {
     float4 _entryPointOutput [[color(0)]];
@@ -14,14 +25,26 @@ struct main0_in
     float4 input_color [[user(locn1)]];
 };
 
-fragment main0_out main0(main0_in in [[stage_in]], texture2d<float> tex [[texture(0)]], sampler s [[sampler(0)]])
+fragment main0_out main0(main0_in in [[stage_in]], constant FogUniforms& _40 [[buffer(0)]], texture2d<float> tex [[texture(0)]], sampler s [[sampler(0)]])
 {
     main0_out out = {};
-    if ((tex.sample(s, in.input_uv).w * in.input_color.w) < 0.25)
+    float4 _171;
+    do
     {
-        discard_fragment();
-    }
-    out._entryPointOutput = float4(1.0);
+        float4 _113 = tex.sample(s, in.input_uv) * in.input_color;
+        if (_40.coverageMode == 0u)
+        {
+            if (_113.w < 0.25)
+            {
+                discard_fragment();
+            }
+            _171 = float4(1.0);
+            break;
+        }
+        _171 = float4((_40.coverageMode == 1u) ? _113.w : (fast::max(_113.x, fast::max(_113.y, _113.z)) * _113.w));
+        break;
+    } while(false);
+    out._entryPointOutput = _171;
     return out;
 }
 

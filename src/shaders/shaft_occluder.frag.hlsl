@@ -1,8 +1,22 @@
-// shaft_occluder.frag.hlsl — a model into the light-shaft occluder mask (R8): 1 where its opaque
-// texels cover the pixel, so post_shafts.frag leaves a dark streak behind it. Pairs with
-// skinned_textured.vert.
+// shaft_occluder.frag.hlsl — a model into the light-shaft occluder mask (R8): how much of the pixel
+// its texels cover, so post_shafts.frag leaves a dark streak behind it; the mask keeps the most
+// (MAX blend). Pairs with skinned_textured.vert.
+// FogUniforms mirrors FogUniform, whose fogEnabled slot carries the coverage mode (SunCoverage - 1):
+// solid models cover fully where their texels pass the alpha test (hair, capes and leaves let the
+// light through their cut-outs); a character's blended parts (wings, capes, auras) cover by their
+// alpha, or glowing, their brightness.
 Texture2D tex : register(t0, space2);
 SamplerState s : register(s0, space2);
+cbuffer FogUniforms : register(b0, space3)
+{
+    uint coverageMode; // 0 solid, 1 by alpha, 2 by brightness
+    uint alphaDiscardEnabled;
+    float alphaThreshold;
+    uint alphaToCoverage;
+    float fogStart;
+    float fogEnd;
+    float4 fogColor;
+};
 struct FSInput
 {
     float4 pos : SV_Position;
@@ -12,8 +26,13 @@ struct FSInput
 
 float4 main(FSInput input) : SV_Target
 {
-    // Cut-out texels (hair, capes, leaves) let the light through, as the scene's alpha test does.
-    if (tex.Sample(s, input.uv).a * input.color.a < 0.25)
-        discard;
-    return float4(1.0, 1.0, 1.0, 1.0);
+    const float4 texel = tex.Sample(s, input.uv) * input.color;
+    if (coverageMode == 0)
+    {
+        if (texel.a < 0.25)
+            discard;
+        return float4(1.0, 1.0, 1.0, 1.0);
+    }
+    const float coverage = coverageMode == 1 ? texel.a : max(texel.r, max(texel.g, texel.b)) * texel.a;
+    return float4(coverage, coverage, coverage, coverage);
 }
