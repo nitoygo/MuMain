@@ -26,40 +26,40 @@ struct main0_in
 fragment main0_out main0(main0_in in [[stage_in]], constant LightShafts& _43 [[buffer(0)]], texture2d<float> occluders [[texture(0)]], sampler occluderSampler [[sampler(0)]], float4 gl_FragCoord [[position]])
 {
     main0_out out = {};
-    float _376 = fract(52.98291778564453125 * fract(dot(gl_FragCoord.xy, float2(0.067110560834407806396484375, 0.005837149918079376220703125))));
-    float3 _502;
-    _502 = float3(0.0);
-    float3 _360;
-    for (uint _501 = 0u; _501 < _43.shaftCount; _502 = _360, _501++)
+    float _373 = fract(52.98291778564453125 * fract(dot(gl_FragCoord.xy, float2(0.067110560834407806396484375, 0.005837149918079376220703125))));
+    float3 _499;
+    _499 = float3(0.0);
+    float3 _357;
+    for (uint _498 = 0u; _498 < _43.shaftCount; _499 = _357, _498++)
     {
-        float2 _391 = (_43.segments[_501].zw - _43.segments[_501].xy) * float2(_43.aspect, 1.0);
-        float _402 = dot(_391, _391);
-        float2 _306 = ((_43.segments[_501].xy + ((_43.segments[_501].zw - _43.segments[_501].xy) * ((_402 > 0.0) ? fast::clamp(dot((in.input_uv - _43.segments[_501].xy) * float2(_43.aspect, 1.0), _391) / _402, 0.0, 1.0) : 0.0))) - in.input_uv) * float2(0.02500000037252902984619140625);
-        float _505;
-        float _506;
-        float2 _508;
-        _508 = in.input_uv + (_306 * _376);
-        _506 = 0.0;
-        _505 = 0.0;
-        float _335;
-        float _338;
-        float _342;
-        float2 _345;
-        uint _503 = 0u;
-        float _509 = 1.0;
-        for (; _503 < 40u; _509 = _342, _508 = _345, _506 = _338, _505 = _335, _503++)
+        float2 _388 = (_43.segments[_498].zw - _43.segments[_498].xy) * float2(_43.aspect, 1.0);
+        float _399 = dot(_388, _388);
+        float2 _304 = ((_43.segments[_498].xy + ((_43.segments[_498].zw - _43.segments[_498].xy) * ((_399 > 0.0) ? fast::clamp(dot((in.input_uv - _43.segments[_498].xy) * float2(_43.aspect, 1.0), _388) / _399, 0.0, 1.0) : 0.0))) - in.input_uv) * float2(0.02500000037252902984619140625);
+        float _502;
+        float _503;
+        float2 _505;
+        _505 = in.input_uv + (_304 * _373);
+        _503 = 0.0;
+        _502 = 0.0;
+        float _333;
+        float _336;
+        float _340;
+        float2 _343;
+        uint _500 = 0u;
+        float _506 = 1.0;
+        for (; _500 < 40u; _506 = _340, _505 = _343, _503 = _336, _502 = _333, _500++)
         {
-            float2 _461 = (_43.segments[_501].zw - _43.segments[_501].xy) * float2(_43.aspect, 1.0);
-            float _472 = dot(_461, _461);
-            float2 _435 = (_508 - (_43.segments[_501].xy + ((_43.segments[_501].zw - _43.segments[_501].xy) * ((_472 > 0.0) ? fast::clamp(dot((_508 - _43.segments[_501].xy) * float2(_43.aspect, 1.0), _461) / _472, 0.0, 1.0) : 0.0)))) * float2(_43.aspect, 1.0);
-            _335 = _505 + ((exp((-dot(_435, _435)) / (_43.glowWidth * _43.glowWidth)) * _509) * (1.0 - occluders.sample(occluderSampler, _508, level(0.0)).x));
-            _338 = _506 + _509;
-            _342 = _509 * _43.decay;
-            _345 = _508 + _306;
+            float2 _458 = (_43.segments[_498].zw - _43.segments[_498].xy) * float2(_43.aspect, 1.0);
+            float _469 = dot(_458, _458);
+            float2 _432 = (_505 - (_43.segments[_498].xy + ((_43.segments[_498].zw - _43.segments[_498].xy) * ((_469 > 0.0) ? fast::clamp(dot((_505 - _43.segments[_498].xy) * float2(_43.aspect, 1.0), _458) / _469, 0.0, 1.0) : 0.0)))) * float2(_43.aspect, 1.0);
+            _333 = _502 + ((exp((-dot(_432, _432)) / (_43.glowWidth * _43.glowWidth)) * _506) * (1.0 - occluders.sample(occluderSampler, _505, level(0.0)).x));
+            _336 = _503 + _506;
+            _340 = _506 * _43.decay;
+            _343 = _505 + _304;
         }
-        _360 = _502 + (_43.colors[_501].xyz * ((0.25 * _505) / _506));
+        _357 = _499 + (_43.colors[_498].xyz * (_502 / _503));
     }
-    out._entryPointOutput = float4(_502, 0.0);
+    out._entryPointOutput = float4(_499, 0.0);
     return out;
 }
 

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Data/GameData/EffectData/EffectCreateParams.h"
+#include "Data/GameData/EffectData/EffectDynamicLight.h"
 #include "Data/GameData/EffectData/EffectKind.h"
 #include "Data/GameData/ItemData/ItemDataIssue.h"
 
@@ -18,7 +19,8 @@
 //
 // `code` is the type as the code writes it (EffectTypeSymbols.h). Names have
 // letters and digits, start with a letter and are unique in their kind.
-// Entries of effects can have creation values ("create", EffectCreateParams.h).
+// Entries of effects can have creation values ("create", EffectCreateParams.h) and how their point
+// lights shine ("dynamicLight", EffectDynamicLight.h).
 namespace Data::Effects
 {
 struct EffectTypeEntry
@@ -26,6 +28,7 @@ struct EffectTypeEntry
     std::string name;
     std::string code;
     std::optional<EffectCreateParams> create;
+    std::optional<EffectDynamicLight> dynamicLight;
 
     bool operator==(const EffectTypeEntry&) const = default;
 };

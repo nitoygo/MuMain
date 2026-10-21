@@ -149,7 +149,8 @@ void ApplyCall(const FrameLightTarget& target, const Lighting::LightCall& call)
         color[k] = call.color[k] > 0.f ? call.color[k] * target.dynamicGain : call.color[k];
     const float terrainHeight = target.height(call.x, call.y);
     const float aboveTerrain = call.z ? *call.z - terrainHeight : Lighting::DefaultLightHeight(call.source);
-    AddDynamicLight(target.grid, *target.frameLights, call.x, call.y, color, call.range, terrainHeight, aboveTerrain);
+    AddDynamicLight(target.grid, *target.frameLights, call.x, call.y, color, call.range, terrainHeight, aboveTerrain,
+                    call.castsShadows);
 }
 } // namespace
 

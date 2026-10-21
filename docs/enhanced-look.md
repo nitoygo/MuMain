@@ -98,7 +98,7 @@ window.
 | Bloom and colour grading | Contact shadow reach | `ao.radius` | 10–300 | 5 | 60 | common |
 | Bloom and colour grading | Light shafts | `shafts.strength` | 0–2 | 0.05 | 0.5 | common |
 | Bloom and colour grading | Light shafts from skills | `shafts.skills` | 0–200 % | 5 % | 100 % | common |
-| Bloom and colour grading | Light shafts from map lights | `shafts.map` | 0–200 % | 5 % | 100 % | common |
+| Bloom and colour grading | Light shafts from map lights | `shafts.map` | 0–200 % | 5 % | 25 % | common |
 
 The defaults are the shipped look profile's (and each map's own, where it has
 one); they are defaults, not a promise that every combination of extremes looks
@@ -209,7 +209,7 @@ for the whole file.
 | `lighting.specular.power` | 32 | 32 | 4–128 | how small the highlight is |
 | `dynamic.wrap` | 0.3 | 0.5 | 0–0.5 | how far a point light reaches round a model |
 | `dynamic.mapSmoothing` | 0.5 | 0 | 0–2 | seconds over which flickering map and character lights (candles, fires) ease to their new brightness |
-| `dynamic.effectGain` | 0.5 | 1 | 0–4 | brightness factor of spell and effect lights |
+| `dynamic.effectGain` | 0.5 | 1 | 0–4 | brightness factor of spell and effect lights; each effect can also set its own intensity, radius, colour and shadows (`dynamicLight` in `Data/Effects/EffectTypes.json`, docs/effect-data.md), on top of which this applies |
 | `dynamic.effectRange` | 2 | 1 | 0.5–4 | range factor of spell and effect lights |
 | `dynamic.effectRangeMax` | 8 | 0 (none) | 0–16 | the most terrain cells the range factor may widen a light to |
 | `dynamic.effectFade` | 0.5 | 0 | 0–2 | seconds over which a spell's light fades out after it ends |
@@ -224,7 +224,7 @@ for the whole file.
 | `ao.radius` | 60 | 60 | 10–300 | how far, in world units, nearby geometry still darkens a surface |
 | `shafts.strength` | 0.5 | 0 | 0–2 | how brightly strong lights (skills such as Aqua Beam, fires and bonfires) light the air around them; characters in that light block it, leaving a darker streak through the glowing air behind them. The air only adds light: a streak is glow that is missing, never darker than the scene. The 4 brightest lights on screen cast shafts; not drawn while anti-aliasing is on |
 | `shafts.skills` | 1 | 1 | 0–2 | how much skill and spell lights cast light shafts |
-| `shafts.map` | 1 | 1 | 0–2 | how much fires and bonfires cast light shafts |
+| `shafts.map` | 0.25 | 1 | 0–2 | how much fires and bonfires cast light shafts; shipped thinner than skills, so a spell's haze is thick enough to show the streak behind a character while torches only glow softly |
 | `sun.shadow` | 1 | 0 | 0–1 | how dark the sun's shadows are, on top of `dynamic.shadowOpacity`. Everything solid (the terrain, buildings, trees, characters) is drawn from the sun into a shadow map, so shadows fall onto slopes, walls and other characters. The sun stands opposite `dynamic.shadowAngle`, as high as the flat character shadows were long. On models it takes away only the direct sunlight, not the ambient light. Characters' see-through parts (wings, capes, auras) cast a lighter shadow by their opacity, or glowing, their brightness. Above 0, characters cast no flat sun shadow; point-light shadows stay flat. Needs dynamic lights; drawn with anti-aliasing too |
 | `sun.softness` | 1 | 1 | 0–2 | how many shadow-map texels the sun shadows' edges blur over |
 | `dynamic.physicalFalloff` | 0.5 | 0 | 0–1 | how point lights fade: 0 the terrain light's linear fade over the horizontal distance, 1 inverse-square over the full distance, height included, ending smoothly at the light's reach; in between, a blend. Ground, models and the point-light shadows' strength all fade the same way; lights baked into the ground's vertex colour (beyond the per-pixel ones) keep the linear fade |

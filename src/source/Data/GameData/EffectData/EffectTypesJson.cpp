@@ -5,10 +5,12 @@
 #include "Data/GameData/EffectData/EffectCreateParamsJson.h"
 #include "Data/GameData/EffectData/EffectTypeSymbols.h"
 #include "Data/GameData/ItemData/ItemJsonCommon.h"
+#include "Data/GameData/ItemData/ItemModelJsonValues.h"
 
 #include <algorithm>
 #include <array>
 #include <cctype>
+#include <cmath>
 #include <map>
 #include <set>
 #include <tuple>
@@ -27,6 +29,11 @@ constexpr const char* Kind = "kind";
 constexpr const char* Types = "types";
 constexpr const char* Name = "name";
 constexpr const char* Code = "code";
+constexpr const char* DynamicLight = "dynamicLight";
+constexpr const char* Intensity = "intensity";
+constexpr const char* Radius = "radius";
+constexpr const char* Color = "color";
+constexpr const char* Shadows = "shadows";
 } // namespace Keys
 
 constexpr const char* UnknownField = "unknown field, ignored";
@@ -114,8 +121,118 @@ void ReadCreateParams(const OrderedJson& json, const std::string& field, const s
     }
 }
 
+// A number of "dynamicLight" between `low` and `high`, or the default with an issue.
+void ReadLightNumber(const OrderedJson& light, const char* key, float low, float high, const char* range,
+                     const std::string& field, const std::string& source, float& value,
+                     std::vector<ItemDataIssue>& issues)
+{
+    const auto found = light.find(key);
+    if (found == light.end())
+    {
+        return;
+    }
+    if (!found->is_number() || found->get<double>() < low || found->get<double>() > high)
+    {
+        AddIssue(issues, ItemDataIssueSeverity::Warning, source, field + "." + key,
+                 std::string("must be a number from ") + range + "; the effect's own value is kept");
+        return;
+    }
+    value = found->get<float>();
+}
+
+// Reads how an effect entry's point lights shine, if it says.
+void ReadDynamicLight(const OrderedJson& json, const std::string& entryField, const std::string& source,
+                      EffectTypeEntry& entry, std::vector<ItemDataIssue>& issues)
+{
+    const auto light = json.find(Keys::DynamicLight);
+    if (light == json.end())
+    {
+        return;
+    }
+    const std::string field = entryField + "." + Keys::DynamicLight;
+    if (!light->is_object())
+    {
+        AddError(issues, source, field, "must be an object with the light's values");
+        return;
+    }
+    EffectDynamicLight values;
+    ReadLightNumber(*light, Keys::Intensity, MinEffectLightIntensity, MaxEffectLightIntensity, "0 to 4", field, source,
+                    values.intensity, issues);
+    ReadLightNumber(*light, Keys::Radius, MinEffectLightRadius, MaxEffectLightRadius, "0.25 to 4", field, source,
+                    values.radius, issues);
+    if (const auto color = light->find(Keys::Color); color != light->end())
+    {
+        const bool valid = color->is_array() && color->size() == 3 &&
+                           std::all_of(color->begin(), color->end(), [](const OrderedJson& channel)
+                                       { return channel.is_number() && channel.get<double>() >= 0.0; }) &&
+                           std::any_of(color->begin(), color->end(),
+                                       [](const OrderedJson& channel) { return channel.get<double>() > 0.0; });
+        if (valid)
+        {
+            values.color =
+                std::array<float, 3>{(*color)[0].get<float>(), (*color)[1].get<float>(), (*color)[2].get<float>()};
+        }
+        else
+        {
+            AddIssue(issues, ItemDataIssueSeverity::Warning, source, field + "." + Keys::Color,
+                     "must be [red, green, blue], none below 0 and not all 0; the effect's own colour is kept");
+        }
+    }
+    if (const auto shadows = light->find(Keys::Shadows); shadows != light->end())
+    {
+        if (shadows->is_boolean())
+        {
+            values.shadows = shadows->get<bool>();
+        }
+        else
+        {
+            AddIssue(issues, ItemDataIssueSeverity::Warning, source, field + "." + Keys::Shadows,
+                     "must be true or false; the light casts shadows");
+        }
+    }
+    for (const auto& [key, value] : light->items())
+    {
+        if (key != Keys::Intensity && key != Keys::Radius && key != Keys::Color && key != Keys::Shadows)
+        {
+            AddIssue(issues, ItemDataIssueSeverity::Warning, source, field + "." + key, UnknownField);
+        }
+    }
+    entry.dynamicLight = values;
+}
+
+// A light value as written: 4 decimals, so a float read from the file writes back as it was.
+double Rounded(float value)
+{
+    return std::round(static_cast<double>(value) * 1e4) / 1e4;
+}
+
+OrderedJson WriteDynamicLight(const EffectDynamicLight& light)
+{
+    OrderedJson json = OrderedJson::object();
+    const EffectDynamicLight defaults;
+    if (light.intensity != defaults.intensity)
+    {
+        json[Keys::Intensity] = Items::ModelJson::WriteNumber(Rounded(light.intensity));
+    }
+    if (light.radius != defaults.radius)
+    {
+        json[Keys::Radius] = Items::ModelJson::WriteNumber(Rounded(light.radius));
+    }
+    if (light.color)
+    {
+        const std::array<double, 3> color{Rounded((*light.color)[0]), Rounded((*light.color)[1]),
+                                          Rounded((*light.color)[2])};
+        json[Keys::Color] = Items::ModelJson::WriteNumbers(color);
+    }
+    if (light.shadows != defaults.shadows)
+    {
+        json[Keys::Shadows] = light.shadows;
+    }
+    return json;
+}
+
 // Reads entry `index` of "types"; false when it has no name or code. Only
-// effects have creation values.
+// effects have creation values and dynamic lights.
 bool ReadEntry(const OrderedJson& json, size_t index, const std::string& source, EffectKind kind,
                EffectTypeEntry& entry, std::vector<ItemDataIssue>& issues)
 {
@@ -140,10 +257,12 @@ bool ReadEntry(const OrderedJson& json, size_t index, const std::string& source,
     if (kindHasCreateParams)
     {
         ReadCreateParams(json, field, source, entry, issues);
+        ReadDynamicLight(json, field, source, entry, issues);
     }
     for (const auto& [key, value] : json.items())
     {
-        if (key != Keys::Name && key != Keys::Code && !(kindHasCreateParams && key == CreateKey))
+        if (key != Keys::Name && key != Keys::Code &&
+            !(kindHasCreateParams && (key == CreateKey || key == Keys::DynamicLight)))
         {
             AddIssue(issues, ItemDataIssueSeverity::Warning, source, field + "." + key, UnknownField);
         }
@@ -273,10 +392,15 @@ std::string WriteEffectTypesJson(EffectKind kind, std::span<const EffectTypeEntr
         {
             json[CreateKey] = WriteEffectCreateParams(*entry->create);
         }
+        if (entry->dynamicLight && kind == EffectKind::Effect)
+        {
+            json[Keys::DynamicLight] = WriteDynamicLight(*entry->dynamicLight);
+        }
         root[Keys::Types].push_back(std::move(json));
     }
     std::string text = root.dump(Items::Json::Indent, ' ', false, OrderedJson::error_handler_t::replace);
     text = Items::Json::PutListsOnOneLine(Items::Json::PutListsOnOneLine(text, CreateLightKey), CreateSubTypesKey);
+    text = Items::Json::PutListsOnOneLine(text, Keys::Color);
     for (const char* key : CreateVectorKeys)
     {
         text = Items::Json::PutObjectsOnOneLine(Items::Json::PutListsOnOneLine(text, key), key);
