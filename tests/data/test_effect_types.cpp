@@ -1191,3 +1191,54 @@ TEST_CASE("Every effect type of the registry is in the catalogue [data][effects]
         }
     }
 }
+
+TEST_CASE("An effect's dynamic light values are read, checked, written and looked up by type [data][effects]")
+{
+    const ReadResult result = Read(R"({"formatVersion": 1, "kind": "effect", "types": [
+        {"name": "aquaBeam", "code": "BITMAP_BOSS_LASER",
+         "dynamicLight": {"intensity": 2, "radius": 0.5, "color": [0.5, 0.7, 1], "shadows": false}},
+        {"name": "bad", "code": "BITMAP_SMOKE",
+         "dynamicLight": {"intensity": 9, "radius": "wide", "color": [0, 0, 0], "shadows": 1, "hue": 3}}]})",
+                                   EffectKind::Effect);
+    REQUIRE(result.types.size() == 2);
+    REQUIRE(result.types[0].dynamicLight);
+    const EffectDynamicLight& light = *result.types[0].dynamicLight;
+    CHECK(light.intensity == doctest::Approx(2.f));
+    CHECK(light.radius == doctest::Approx(0.5f));
+    REQUIRE(light.color);
+    CHECK((*light.color)[1] == doctest::Approx(0.7f));
+    CHECK_FALSE(light.shadows);
+
+    // Bad values are warnings and keep the effect's own; the entry still loads.
+    REQUIRE(result.types[1].dynamicLight);
+    CHECK(*result.types[1].dynamicLight == EffectDynamicLight{});
+    for (const char* field :
+         {"types[1].dynamicLight.intensity", "types[1].dynamicLight.radius", "types[1].dynamicLight.color",
+          "types[1].dynamicLight.shadows", "types[1].dynamicLight.hue"})
+    {
+        CAPTURE(field);
+        CHECK(HasIssue(result.issues, ItemDataIssueSeverity::Warning, field));
+    }
+    CHECK_FALSE(Data::Items::HasErrors(result.issues));
+
+    // Particles have none: the key is unknown there.
+    CHECK(HasIssue(Read(R"({"formatVersion": 1, "kind": "particle", "types": [
+        {"name": "smoke", "code": "BITMAP_SMOKE", "dynamicLight": {"intensity": 2}}]})")
+                       .issues,
+                   ItemDataIssueSeverity::Warning, "types[0].dynamicLight"));
+
+    // Written back with only the values set, and read the same.
+    const std::vector<EffectTypeEntry> written{result.types[0]};
+    const std::string text = WriteEffectTypesJson(EffectKind::Effect, written);
+    CHECK(text.find("\"color\": [0.5, 0.7, 1") != std::string::npos);
+    const ReadResult reread = Read(text, EffectKind::Effect);
+    REQUIRE(reread.types.size() == 1);
+    CHECK(reread.types[0].dynamicLight == result.types[0].dynamicLight);
+
+    EffectTypeCatalogue catalogue;
+    catalogue.Build(EffectKind::Effect, written);
+    REQUIRE(catalogue.GetDynamicLight(BITMAP_BOSS_LASER) != nullptr);
+    CHECK(catalogue.GetDynamicLight(BITMAP_BOSS_LASER)->radius == doctest::Approx(0.5f));
+    CHECK(catalogue.GetDynamicLight(BITMAP_SMOKE) == nullptr);
+    CHECK(catalogue.GetDynamicLight(-1) == nullptr);
+}

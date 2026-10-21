@@ -210,6 +210,33 @@ can give some SubTypes other values:
   errors. A variant without values and an empty `variants` list are
   warnings.
 
+## Dynamic light
+
+An effect entry can have a `dynamicLight` object: how the point lights its
+code adds shine with Enhanced dynamic lights. Every value is optional; an
+effect without the object, and Classic, look as they always did. The global
+Skill intensity and Skill radius (`dynamic.effectGain`, `dynamic.effectRange`
+in `Data/Render/Look.json`) still apply on top.
+
+```json
+{
+  "name": "aquaBeam",
+  "code": "BITMAP_BOSS_LASER",
+  "dynamicLight": { "intensity": 2, "radius": 0.5, "color": [0.5, 0.7, 1], "shadows": false }
+}
+```
+
+| Field | What it sets |
+|---|---|
+| `intensity` | Multiplies the light's colour, 0 to 4 (default 1). |
+| `radius` | Multiplies the light's reach in terrain cells, 0.25 to 4 (default 1); never below one cell. |
+| `color` | The light's hue, `[red, green, blue]`, none below 0 and not all 0. The effect's own strongest channel keeps the brightness, so a flickering light keeps flickering. |
+| `shadows` | `false`: the light casts no character shadow (default `true`). |
+
+Only lights the effect's own move and draw code adds take these values; lights
+of the particles, lightning and characters it creates keep theirs. A value out
+of range is a warning, and the effect's own value is kept.
+
 ## How the names were chosen
 
 - The enum name in camelCase without `MODEL_`/`BITMAP_`:

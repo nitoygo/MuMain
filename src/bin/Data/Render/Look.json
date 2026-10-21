@@ -26,7 +26,7 @@
     "ao.radius": 60,
     "shafts.strength": 0.5,
     "shafts.skills": 1,
-    "shafts.map": 1,
+    "shafts.map": 0.25,
     "sun.shadow": 1,
     "sun.softness": 1,
     "sun.resolution": 2048,

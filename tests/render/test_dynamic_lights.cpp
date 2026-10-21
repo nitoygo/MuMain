@@ -29,12 +29,12 @@ Grid MakeGrid(float value)
     return Grid(kGridVertices, {value, value * 0.5f, value * 0.25f});
 }
 
-float (*Data(Grid& grid))[3]
+float (*GridData(Grid& grid))[3]
 {
     return reinterpret_cast<float (*)[3]>(grid.data());
 }
 
-const float (*Data(const Grid& grid))[3]
+const float (*GridData(const Grid& grid))[3]
 {
     return reinterpret_cast<const float (*)[3]>(grid.data());
 }
@@ -110,8 +110,8 @@ TEST_CASE("terrain light grid adds lights exactly as Classic AddTerrainLight [re
     };
     for (const LightCall& call : calls)
     {
-        ClassicAddTerrainLight(call.x, call.y, call.color, call.range, Data(classic));
-        LightGrid::AddLight(Data(extracted), call.x, call.y, call.color, call.range);
+        ClassicAddTerrainLight(call.x, call.y, call.color, call.range, GridData(classic));
+        LightGrid::AddLight(GridData(extracted), call.x, call.y, call.color, call.range);
     }
     CHECK(classic == extracted);
 }
@@ -124,11 +124,11 @@ TEST_CASE("dynamic terrain lights are recorded as point lights without changing 
     const float fire[3] = {1.f, 0.4f, 0.1f};
     const float shade[3] = {-0.3f, -0.3f, -0.3f};
 
-    LightGrid::AddLight(Data(plain), 1530.f, 2210.f, fire, 3);
-    LightGrid::AddLight(Data(plain), 1600.f, 2400.f, shade, 2);
-    LightGrid::AddDynamicLight(Data(recorded), frameLights, 1530.f, 2210.f, fire, 3, 170.f);
-    LightGrid::AddDynamicLight(Data(recorded), frameLights, 1600.f, 2400.f, shade, 2, 80.f);
-    LightGrid::AddDynamicLight(Data(recorded), frameLights, 1700.f, 2500.f, fire, 0, 80.f);
+    LightGrid::AddLight(GridData(plain), 1530.f, 2210.f, fire, 3);
+    LightGrid::AddLight(GridData(plain), 1600.f, 2400.f, shade, 2);
+    LightGrid::AddDynamicLight(GridData(recorded), frameLights, 1530.f, 2210.f, fire, 3, 170.f);
+    LightGrid::AddDynamicLight(GridData(recorded), frameLights, 1600.f, 2400.f, shade, 2, 80.f);
+    LightGrid::AddDynamicLight(GridData(recorded), frameLights, 1700.f, 2500.f, fire, 0, 80.f);
 
     CHECK(plain == recorded);
     REQUIRE(frameLights.Lights().size() == 2);
@@ -175,14 +175,14 @@ TEST_CASE("the static model light keeps darkening lights and leaves out brighten
         DynamicLightList frameLights;
         const float shade[3] = {-0.4f, -0.2f, -0.7f};
         const float deepShade[3] = {-0.5f, -0.5f, -0.5f};
-        LightGrid::AddDynamicLight(Data(dynamicGrid), frameLights, 1260.f, 2240.f, shade, 3, 0.f);
-        LightGrid::AddDynamicLight(Data(dynamicGrid), frameLights, 1300.f, 2300.f, deepShade, 2, 0.f);
+        LightGrid::AddDynamicLight(GridData(dynamicGrid), frameLights, 1260.f, 2240.f, shade, 3, 0.f);
+        LightGrid::AddDynamicLight(GridData(dynamicGrid), frameLights, 1300.f, 2300.f, deepShade, 2, 0.f);
         for (const auto& point : samplePoints)
         {
             float expected[3];
             float actual[3];
-            LightGrid::Sample(Data(dynamicGrid), point[0], point[1], expected);
-            LightGrid::SampleStatic(Data(staticGrid), frameLights.Lights(), point[0], point[1], actual);
+            LightGrid::Sample(GridData(dynamicGrid), point[0], point[1], expected);
+            LightGrid::SampleStatic(GridData(staticGrid), frameLights.Lights(), point[0], point[1], actual);
             CheckSameLight(actual, expected);
         }
     }
@@ -192,26 +192,26 @@ TEST_CASE("the static model light keeps darkening lights and leaves out brighten
         Grid dynamicGrid = staticGrid;
         DynamicLightList frameLights;
         const float fire[3] = {1.f, 0.5f, 0.1f};
-        LightGrid::AddDynamicLight(Data(dynamicGrid), frameLights, 1260.f, 2240.f, fire, 3, 0.f);
+        LightGrid::AddDynamicLight(GridData(dynamicGrid), frameLights, 1260.f, 2240.f, fire, 3, 0.f);
         for (const auto& point : samplePoints)
         {
             float expected[3];
             float actual[3];
-            LightGrid::Sample(Data(staticGrid), point[0], point[1], expected);
-            LightGrid::SampleStatic(Data(staticGrid), frameLights.Lights(), point[0], point[1], actual);
+            LightGrid::Sample(GridData(staticGrid), point[0], point[1], expected);
+            LightGrid::SampleStatic(GridData(staticGrid), frameLights.Lights(), point[0], point[1], actual);
             CheckSameLight(actual, expected);
         }
         float centre[3];
         float staticCentre[3];
-        LightGrid::Sample(Data(dynamicGrid), 1260.f, 2240.f, centre);
-        LightGrid::Sample(Data(staticGrid), 1260.f, 2240.f, staticCentre);
+        LightGrid::Sample(GridData(dynamicGrid), 1260.f, 2240.f, centre);
+        LightGrid::Sample(GridData(staticGrid), 1260.f, 2240.f, staticCentre);
         CHECK(centre[0] > staticCentre[0]); // the grid itself still gets the light
     }
 
     SUBCASE("outside the grid: black")
     {
         float light[3] = {1.f, 1.f, 1.f};
-        LightGrid::SampleStatic(Data(staticGrid), {}, -150.f, 100.f, light);
+        LightGrid::SampleStatic(GridData(staticGrid), {}, -150.f, 100.f, light);
         CHECK(light[0] == 0.f);
         CHECK(light[1] == 0.f);
         CHECK(light[2] == 0.f);

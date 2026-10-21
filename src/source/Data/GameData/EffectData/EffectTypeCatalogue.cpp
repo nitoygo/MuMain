@@ -25,6 +25,7 @@ void EffectTypeCatalogue::Build(EffectKind kind, std::span<const EffectTypeEntry
 
     std::vector<NamedType> named;
     std::vector<EffectTypeCreateParams> createParams;
+    std::vector<std::optional<EffectDynamicLight>> dynamicLights;
     for (const EffectTypeEntry& entry : types)
     {
         const auto found = typeOfCode.find(entry.code);
@@ -37,6 +38,15 @@ void EffectTypeCatalogue::Build(EffectKind kind, std::span<const EffectTypeEntry
         {
             createParams.push_back({found->second, *entry.create});
         }
+        if (kind == EffectKind::Effect && entry.dynamicLight && found->second >= 0)
+        {
+            const auto type = static_cast<std::size_t>(found->second);
+            if (dynamicLights.size() <= type)
+            {
+                dynamicLights.resize(type + 1);
+            }
+            dynamicLights[type] = entry.dynamicLight;
+        }
     }
     if (kind == EffectKind::Effect)
     {
@@ -44,6 +54,7 @@ void EffectTypeCatalogue::Build(EffectKind kind, std::span<const EffectTypeEntry
                   [](const EffectTypeCreateParams& left, const EffectTypeCreateParams& right)
                   { return left.type < right.type; });
         m_createParams = std::move(createParams);
+        m_dynamicLights = std::move(dynamicLights);
     }
 
     std::vector<NamedType>& byName = m_byName[ToIndex(kind)];
@@ -89,5 +100,13 @@ size_t EffectTypeCatalogue::GetTypeCount(EffectKind kind) const
 std::span<const EffectTypeCreateParams> EffectTypeCatalogue::GetCreateParams() const
 {
     return m_createParams;
+}
+const EffectDynamicLight* EffectTypeCatalogue::GetDynamicLight(int type) const
+{
+    if (type < 0 || static_cast<std::size_t>(type) >= m_dynamicLights.size() || !m_dynamicLights[type])
+    {
+        return nullptr;
+    }
+    return &*m_dynamicLights[type];
 }
 } // namespace Data::Effects

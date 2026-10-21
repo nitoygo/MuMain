@@ -2,6 +2,7 @@
 
 #include "Core/Platform/WinCompat.h"
 #include "Core/Globals/_define.h"
+#include "Data/GameData/EffectData/EffectDynamicLight.h"
 #include "Render/Lighting/DynamicLightHistory.h"
 #include "Render/Lighting/DynamicLightList.h"
 #include "Render/Terrain/TerrainLightGrid.h"
@@ -1040,4 +1041,61 @@ TEST_CASE("a light without a height shines from its source's default height abov
     CHECK(Render::Terrain::LightGrid::MakeDynamicLight(0.f, 0.f, white, 3, 40.f, 270.f).position[2] == 310.f);
     CHECK(Render::Terrain::LightGrid::MakeDynamicLight(0.f, 0.f, white, 3, 40.f).position[2] ==
           40.f + Render::Lighting::kDynamicLightHeightAboveTerrain);
+}
+
+TEST_CASE("an effect's dynamic light values scale its light calls [render][dynamic_lights][history]")
+{
+    using Render::Lighting::LightCall;
+    Data::Effects::EffectDynamicLight light;
+    light.intensity = 2.f;
+    light.radius = 0.5f;
+    LightCall call;
+    call.color[0] = 0.2f;
+    call.color[1] = 0.4f;
+    call.color[2] = 0.1f;
+    call.range = 3;
+    Render::Lighting::ApplyEffectDynamicLight(light, call);
+    CHECK(call.color[0] == doctest::Approx(0.4f));
+    CHECK(call.color[1] == doctest::Approx(0.8f));
+    CHECK(call.range == 2);
+    CHECK(call.castsShadows);
+
+    // A new hue keeps the strongest channel (0.8); the range never drops below one cell; shadows off.
+    light = {};
+    light.color = std::array<float, 3>{1.f, 0.5f, 0.f};
+    light.radius = 0.25f;
+    light.shadows = false;
+    Render::Lighting::ApplyEffectDynamicLight(light, call);
+    CHECK(call.color[0] == doctest::Approx(0.8f));
+    CHECK(call.color[1] == doctest::Approx(0.4f));
+    CHECK(call.color[2] == doctest::Approx(0.f));
+    CHECK(call.range == 1);
+    CHECK_FALSE(call.castsShadows);
+}
+
+TEST_CASE("the effect light scope names the running effect and nests [render][dynamic_lights][history]")
+{
+    CHECK_FALSE(Render::Lighting::CurrentEffectType());
+    {
+        const Render::Lighting::EffectLightScope outer(7);
+        CHECK(Render::Lighting::CurrentEffectType() == 7);
+        {
+            const Render::Lighting::EffectLightScope inner(9);
+            CHECK(Render::Lighting::CurrentEffectType() == 9);
+        }
+        CHECK(Render::Lighting::CurrentEffectType() == 7);
+    }
+    CHECK_FALSE(Render::Lighting::CurrentEffectType());
+}
+
+TEST_CASE("a light that casts no shadow keeps that through the history [render][lighthistory]")
+{
+    DynamicLightHistory history;
+    const LightHistorySettings classic;
+    LightCall call = Call(1000.f, 1000.f, 0.5f, 3, LightSource::Effect);
+    call.castsShadows = false;
+    const auto lights = Tick(history, {call}, classic);
+    REQUIRE(lights.size() == 1);
+    CHECK_FALSE(lights[0].castsShadows);
+    CHECK(Tick(history, {Call(1000.f, 1000.f, 0.5f, 3, LightSource::Effect)}, classic)[0].castsShadows);
 }

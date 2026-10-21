@@ -22,8 +22,6 @@ struct FSInput
 };
 
 static const uint StepCount = 40;
-// How thick the air is: the share of a light's glow it scatters towards the camera.
-static const float AirDensity = 0.25;
 
 // The nearest point to `uv` on the shaft's segment, with distances in screen heights.
 float2 NearestPoint(float4 segment, float2 uv)
@@ -72,7 +70,7 @@ float4 main(FSInput input) : SV_Target
             weight *= decay;
             uv += step;
         }
-        light += colors[i].rgb * (AirDensity * gathered / total);
+        light += colors[i].rgb * (gathered / total);
     }
     return float4(light, 0.0);
 }

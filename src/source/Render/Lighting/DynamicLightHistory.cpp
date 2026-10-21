@@ -1,6 +1,9 @@
 #include "Render/Lighting/DynamicLightHistory.h"
 
+#include "Data/GameData/EffectData/EffectDynamicLight.h"
+
 #include <algorithm>
+#include <array>
 #include <cmath>
 
 namespace Render::Lighting
@@ -232,6 +235,7 @@ std::size_t DynamicLightHistory::Continue(Followed& light, const LightCall& call
     light.x = call.x;
     light.y = call.y;
     light.z = call.z;
+    light.castsShadows = call.castsShadows;
     light.range = call.range;
     light.called = true;
     std::copy(call.color, call.color + ColorChannels, light.target);
@@ -259,6 +263,7 @@ LightCall DynamicLightHistory::Shown(const Followed& light, const LightHistorySe
     result.x = light.x;
     result.y = light.y;
     result.z = light.z;
+    result.castsShadows = light.castsShadows;
     result.source = light.source;
     for (int k = 0; k < ColorChannels; ++k)
     {
@@ -439,4 +444,43 @@ DynamicLightHistory& FrameLightHistory()
     return history;
 }
 
+namespace
+{
+std::optional<int> s_effectType;
+} // namespace
+
+EffectLightScope::EffectLightScope(int type) : m_previous(s_effectType)
+{
+    s_effectType = type;
+}
+
+EffectLightScope::~EffectLightScope()
+{
+    s_effectType = m_previous;
+}
+
+std::optional<int> CurrentEffectType()
+{
+    return s_effectType;
+}
+
+void ApplyEffectDynamicLight(const Data::Effects::EffectDynamicLight& light, LightCall& call)
+{
+    if (light.color)
+    {
+        const float strongest = std::max({call.color[0], call.color[1], call.color[2]});
+        const std::array<float, 3>& hue = *light.color;
+        const float hueStrongest = std::max({hue[0], hue[1], hue[2]});
+        for (int k = 0; k < 3; ++k)
+        {
+            call.color[k] = hue[k] / hueStrongest * strongest;
+        }
+    }
+    for (float& channel : call.color)
+    {
+        channel *= light.intensity;
+    }
+    call.range = std::max(1, static_cast<int>(std::lround(static_cast<float>(call.range) * light.radius)));
+    call.castsShadows = light.shadows;
+}
 } // namespace Render::Lighting

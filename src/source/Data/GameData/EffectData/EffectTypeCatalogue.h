@@ -38,6 +38,9 @@ public:
     // The effect types with creation values, sorted by number.
     std::span<const EffectTypeCreateParams> GetCreateParams() const;
 
+    // How the point lights of effect type `type` shine, or null when its entry does not say.
+    const EffectDynamicLight* GetDynamicLight(int type) const;
+
 private:
     struct NamedType
     {
@@ -48,6 +51,8 @@ private:
     std::array<std::vector<NamedType>, EffectKindCount> m_byName;
     std::array<std::vector<NamedType>, EffectKindCount> m_byType;
     std::vector<EffectTypeCreateParams> m_createParams;
+    // By effect type number.
+    std::vector<std::optional<EffectDynamicLight>> m_dynamicLights;
 };
 } // namespace Data::Effects
 

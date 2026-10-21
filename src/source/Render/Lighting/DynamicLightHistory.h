@@ -28,6 +28,11 @@
 
 #include "Render/Lighting/DynamicLightList.h"
 
+namespace Data::Effects
+{
+struct EffectDynamicLight;
+} // namespace Data::Effects
+
 namespace Render::Lighting
 {
 
@@ -62,6 +67,22 @@ private:
 
 [[nodiscard]] LightSource CurrentLightSource();
 
+// The effect type whose code runs while it is alive (MoveEffects, RenderEffects): its light calls
+// take the effect's dynamicLight values (EffectTypes.json). Scopes nest.
+class EffectLightScope
+{
+public:
+    explicit EffectLightScope(int type);
+    ~EffectLightScope();
+    EffectLightScope(const EffectLightScope&) = delete;
+    EffectLightScope& operator=(const EffectLightScope&) = delete;
+
+private:
+    std::optional<int> m_previous;
+};
+
+[[nodiscard]] std::optional<int> CurrentEffectType();
+
 struct LightHistorySettings
 {
     // Time constant a map or character light eases towards its new brightness with; 0 is Classic.
@@ -95,7 +116,14 @@ struct LightCall
     LightSource source = LightSource::Effect;
     // World height of the light (AddTerrainLightAt); without it, DefaultLightHeight of its source.
     std::optional<float> z;
+    // False: the light casts no character shadow (an effect's dynamicLight.shadows).
+    bool castsShadows = true;
 };
+
+// `call` with an effect's dynamicLight values: its colour scaled by the intensity (and its hue
+// replaced, keeping the strongest channel), its range scaled by the radius (at least 1 cell), and
+// its shadows switch.
+void ApplyEffectDynamicLight(const Data::Effects::EffectDynamicLight& light, LightCall& call);
 
 // Refused history calls since the last clear, and which clear that was (ordered Classic fallback).
 struct DropCount
@@ -175,6 +203,7 @@ private:
         int range = 0;
         LightSource source = LightSource::Effect;
         std::optional<float> z;
+        bool castsShadows = true;
         // The colour called this frame (0 if not called), and the colour shown.
         float target[3]{};
         float value[3]{};
