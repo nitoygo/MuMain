@@ -48,14 +48,17 @@ enum class Pass : int
     // anti-aliasing is on.
     SunShadow,
     SceneDepth,
+    // Inside the terrain's frame start: the static terrain light built again for a moved sun.
+    TerrainBake,
     Count_
 };
 
 inline constexpr const char* kPassNames[static_cast<int>(Pass::Count_)] = {
-    "Terrain",   "Objects",  "Chars",     "Items",       "Effects",   "Other",   "CharWait",  "MoveFx",
-    "MovePart",  "Skinning", "UI",        "RenderBegin", "RenderEnd", "Submit",  "UIUpdate",  "RmlInput",
-    "UILayout",  "Flush",    "Sprites",   "Particles",   "Joints",    "Overlay", "RmlUpd",    "RmlRend",
-    "EndOffscr", "EndStage", "EndReplay", "EndPostUI",   "ObjAnim",   "ObjDraw", "SunShadow", "SceneDepth",
+    "Terrain",  "Objects",  "Chars",     "Items",      "Effects",     "Other",     "CharWait",
+    "MoveFx",   "MovePart", "Skinning",  "UI",         "RenderBegin", "RenderEnd", "Submit",
+    "UIUpdate", "RmlInput", "UILayout",  "Flush",      "Sprites",     "Particles", "Joints",
+    "Overlay",  "RmlUpd",   "RmlRend",   "EndOffscr",  "EndStage",    "EndReplay", "EndPostUI",
+    "ObjAnim",  "ObjDraw",  "SunShadow", "SceneDepth", "TerrainBake",
 };
 
 enum class Counter : int

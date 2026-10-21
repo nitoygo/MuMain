@@ -209,7 +209,6 @@ public:
     vec3_t        BodyAngle;
     float         BodyHeight;
     char          StreamMesh;
-    vec3_t        ShadowAngle;
     char          Skin;
     bool          HideSkin;
     float         Velocity;
