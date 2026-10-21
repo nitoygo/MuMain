@@ -44,8 +44,10 @@ enum class Pass : int
     // The two halves of a map object inside Objects: its animation and bones, and its draws.
     ObjectsAnimate,
     ObjectsDraw,
-    // Inside RendererReplay: the sun shadow map.
+    // Inside RendererReplay: the sun shadow map, and the scene's depth for ambient occlusion while
+    // anti-aliasing is on.
     SunShadow,
+    SceneDepth,
     Count_
 };
 
@@ -53,7 +55,7 @@ inline constexpr const char* kPassNames[static_cast<int>(Pass::Count_)] = {
     "Terrain",   "Objects",  "Chars",     "Items",       "Effects",   "Other",   "CharWait",  "MoveFx",
     "MovePart",  "Skinning", "UI",        "RenderBegin", "RenderEnd", "Submit",  "UIUpdate",  "RmlInput",
     "UILayout",  "Flush",    "Sprites",   "Particles",   "Joints",    "Overlay", "RmlUpd",    "RmlRend",
-    "EndOffscr", "EndStage", "EndReplay", "EndPostUI",   "ObjAnim",   "ObjDraw", "SunShadow",
+    "EndOffscr", "EndStage", "EndReplay", "EndPostUI",   "ObjAnim",   "ObjDraw", "SunShadow", "SceneDepth",
 };
 
 enum class Counter : int

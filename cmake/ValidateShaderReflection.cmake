@@ -296,7 +296,7 @@ set(shader_specs
     "post_composite.frag|frag||6|0|1"
     "post_ao.frag|frag||1|0|1"
     "post_ao_blur.frag|frag||2|0|1"
-    "shaft_occluder.frag|frag||1|0|0"
+    "shaft_occluder.frag|frag||1|0|1"
     "post_shafts.frag|frag||1|0|1"
     "sun_depth.frag|frag||1|0|1"
 )

@@ -1079,6 +1079,10 @@ static bool s_pipelinesMultisampled = false;
 // Enhanced sun shadows: while s_sunShadowPass replays the scene into the shadow map, each draw's recorded
 // scene matrix is turned into the sun's by s_sunFromScene.
 static bool s_sunShadowPass = false;
+// While the scene's solid draws are replayed depth-only into a single-sample depth (RenderSceneDepth).
+static bool s_sceneDepthPass = false;
+// While characters are replayed into the light-shaft occluder mask (RenderLightShafts).
+static bool s_shaftOccluderPass = false;
 static glm::mat4 s_sunFromScene{1.0f};
 
 // How a draw covers the sun shadow map (sun_depth.frag's coverageMode): solid with its alpha test,
@@ -1197,9 +1201,9 @@ static void ReplayDrawCommand(const RenderCmd& command, SDL_GPUGraphicsPipeline*
     }
 
     BindReplayFragmentSampler(command, state);
-    if (s_sunShadowPass)
+    if (s_sunShadowPass || s_sceneDepthPass || s_shaftOccluderPass)
     {
-        // sun_depth.frag reads fogEnabled's slot as its coverage mode.
+        // sun_depth.frag and shaft_occluder.frag read fogEnabled's slot as their coverage mode.
         FogUniform coverage = command.fogUniform;
         coverage.fogEnabled = static_cast<std::uint32_t>(GetSunCoverage(command)) - 1u;
         PushReplayFragmentUniforms(coverage, state);
@@ -1278,6 +1282,8 @@ static SDL_GPUGraphicsPipeline* s_shaftOccluderPipeline = nullptr;
 // its size, the far 1x1 map bound while there is none, the comparison sampler, whether this frame asks
 // for the map (SetSceneLighting) and whether it holds this frame's.
 static SDL_GPUGraphicsPipeline* s_sunShadowPipelines[2]{}; // [skinned]
+// The same draws, unbiased, into the scene's single-sample depth (RenderSceneDepth).
+static SDL_GPUGraphicsPipeline* s_sceneDepthPipelines[2]{}; // [skinned]
 static SDL_GPUShader* s_fragShaderSunDepth = nullptr;      // sun_depth.frag
 static SDL_GPUTexture* s_sunShadowMap = nullptr;
 static Uint32 s_sunShadowMapSize = 0u;
@@ -2384,6 +2390,7 @@ public:
         GroundShadows,    // the ground shadows, into the ground shadow mask
         ShaftOccluders,   // opaque skinned models, into the light-shaft occluder mask
         SunShadowCasters, // solid world draws, into the sun shadow map
+        SceneDepth,       // the scene's solid draws, into a single-sample depth
     };
 
     [[nodiscard]] static ReplayView FullFrameView()
@@ -2469,9 +2476,15 @@ public:
         }
         if (selection == ReplaySelection::ShaftOccluders)
         {
-            const bool opaqueModel = command.shaftOccluder && command.type == RenderCmdType::DrawSkinnedTriangles &&
-                                     !command.groundShadow && !command.blendEnabled;
-            return opaqueModel ? s_shaftOccluderPipeline : nullptr;
+            // Characters, their see-through parts covering partly (GetSunCoverage).
+            const bool occluder = command.shaftOccluder && command.type == RenderCmdType::DrawSkinnedTriangles &&
+                                  !command.groundShadow && GetSunCoverage(command) != SunCoverage::None;
+            return occluder ? s_shaftOccluderPipeline : nullptr;
+        }
+        if (selection == ReplaySelection::SceneDepth)
+        {
+            const bool solid = IsSunShadowCaster(command) && !command.blendEnabled && command.depthMaskEnabled;
+            return solid ? s_sceneDepthPipelines[command.type == RenderCmdType::DrawSkinnedTriangles ? 1 : 0] : nullptr;
         }
         if (selection == ReplaySelection::SunShadowCasters)
         {
@@ -2768,6 +2781,29 @@ public:
         s_sunShadowMapReady = true;
     }
 
+    // The scene's depth for ambient occlusion: the frame's own with one sample; multisampled, which
+    // cannot be read, its solid draws [0, end) again into the single-sample pass depth. Null without.
+    [[nodiscard]] static SDL_GPUTexture* RenderSceneDepth(std::size_t end, bool boneDataReady)
+    {
+        if (!IsMultisampled())
+        {
+            return s_depthTexture;
+        }
+        FRAME_PROFILE(SceneDepth);
+        SDL_GPUTexture* const depth = SingleSamplePassDepth();
+        if (!depth || !s_sceneDepthPipelines[0] || !s_sceneDepthPipelines[1] ||
+            (s_renderPass = BeginDepthOnlyPass(depth)) == nullptr)
+        {
+            return nullptr;
+        }
+        ReplayView view = FullFrameView();
+        s_sceneDepthPass = true;
+        ReplayCommands(0u, end, boneDataReady, ReplaySelection::SceneDepth, view);
+        s_sceneDepthPass = false;
+        EndReplayPass();
+        return depth;
+    }
+
     // The frame's shafts into s_frameShafts: the brightest skill light's at once, the map lights' fading
     // in and out through s_mapShaftSlots as they join or leave the brightest on screen. Their count.
     [[nodiscard]] static std::size_t SelectFrameShafts()
@@ -2838,7 +2874,9 @@ public:
             return nullptr;
         }
         ReplayView view = FullFrameView();
+        s_shaftOccluderPass = true;
         ReplayCommands(0u, end, boneDataReady, ReplaySelection::ShaftOccluders, view);
+        s_shaftOccluderPass = false;
         EndReplayPass();
         return s_lightShafts.Render(s_cmdBuf, std::span(shafts.data(), count), Render::Lighting::kShaftGlowWidth,
                                     Render::Lighting::kShaftDecay);
@@ -2916,7 +2954,7 @@ public:
         depthInfo.layer_count_or_depth = 1;
         depthInfo.num_levels = 1;
         depthInfo.sample_count = SDL_GPU_SAMPLECOUNT_1;
-        depthInfo.usage = SDL_GPU_TEXTUREUSAGE_DEPTH_STENCIL_TARGET;
+        depthInfo.usage = SDL_GPU_TEXTUREUSAGE_DEPTH_STENCIL_TARGET | SDL_GPU_TEXTUREUSAGE_SAMPLER;
         s_singleSampleDepthTexture = SDL_CreateGPUTexture(s_device, &depthInfo);
         if (!s_singleSampleDepthTexture)
         {
@@ -2999,16 +3037,16 @@ public:
         }
         s_hdrScenePass = false;
 
-        // Read from the scene's depth, which the scene pass stored; anti-aliased frames have none to read.
+        const bool sceneView = s_postProcessingView == mu::PostProcessingView::Scene;
+        SDL_GPUTexture* const sceneDepth = s_postProcessingLook.ambientOcclusionStrength > 0.0f && sceneView
+                                               ? RenderSceneDepth(sceneEnd, boneDataReady)
+                                               : nullptr;
         SDL_GPUTexture* const ambientOcclusion =
-            s_postProcessingLook.ambientOcclusionStrength > 0.0f && !IsMultisampled() &&
-                    s_postProcessingView == mu::PostProcessingView::Scene
-                ? s_ambientOcclusion.Render(s_cmdBuf, s_depthTexture, {s_swapW, s_swapH}, s_sceneProjection,
-                                            s_postProcessingLook.ambientOcclusionRadius)
-                : nullptr;
+            sceneDepth ? s_ambientOcclusion.Render(s_cmdBuf, sceneDepth, {s_swapW, s_swapH}, s_sceneProjection,
+                                                   s_postProcessingLook.ambientOcclusionRadius)
+                       : nullptr;
 
-        SDL_GPUTexture* const lightShafts = s_postProcessingLook.lightShaftStrength > 0.0f && !IsMultisampled() &&
-                                                    s_postProcessingView == mu::PostProcessingView::Scene
+        SDL_GPUTexture* const lightShafts = s_postProcessingLook.lightShaftStrength > 0.0f && sceneView
                                                 ? RenderLightShafts(sceneEnd, boneDataReady)
                                                 : nullptr;
 
@@ -6046,7 +6084,7 @@ private:
             createShader("shadow_mask", "frag", SDL_GPU_SHADERSTAGE_FRAGMENT, 0, 0, 0, /*fatal=*/false);
         // Light shafts: models' texture (t0) into the occluder mask.
         s_fragShaderShaftOccluder =
-            createShader("shaft_occluder", "frag", SDL_GPU_SHADERSTAGE_FRAGMENT, 1, 0, 0, /*fatal=*/false);
+            createShader("shaft_occluder", "frag", SDL_GPU_SHADERSTAGE_FRAGMENT, 1, 0, 1, /*fatal=*/false);
         // Sun shadows: the draw's texture (t0) for its alpha test, FogUniforms (b0).
         s_fragShaderSunDepth =
             createShader("sun_depth", "frag", SDL_GPU_SHADERSTAGE_FRAGMENT, 1, 0, 1, /*fatal=*/false);
@@ -6182,6 +6220,8 @@ private:
         bool shaftOccluderTarget = false;
         // Into the sun shadow map: depth only, one sample, biased against self-shadowing.
         bool sunShadowTarget = false;
+        // Into the scene's single-sample depth: depth only, one sample, unbiased.
+        bool sceneDepthTarget = false;
     };
 
     // The world sets built together, and what a failed pipeline means for them.
@@ -6457,8 +6497,9 @@ private:
         vtxInputState.num_vertex_attributes = numAttribs;
 
         SDL_GPUGraphicsPipelineTargetInfo targetInfo{};
-        targetInfo.color_target_descriptions = description.sunShadowTarget ? nullptr : &colorTargetDesc;
-        targetInfo.num_color_targets = description.sunShadowTarget ? 0u : 1u;
+        const bool depthOnly = description.sunShadowTarget || description.sceneDepthTarget;
+        targetInfo.color_target_descriptions = depthOnly ? nullptr : &colorTargetDesc;
+        targetInfo.num_color_targets = depthOnly ? 0u : 1u;
         // Enable depth-stencil target so pipelines match
         // the render pass that now includes a depth buffer.
         targetInfo.has_depth_stencil_target = !description.groundShadowMaskTarget && !description.shaftOccluderTarget;
@@ -6492,7 +6533,7 @@ private:
         pipelineInfo.props = 0;
 
         pipelineInfo.multisample_state.sample_count =
-            description.groundShadowMaskTarget || description.shaftOccluderTarget || description.sunShadowTarget
+            description.groundShadowMaskTarget || description.shaftOccluderTarget || depthOnly
                 ? SDL_GPU_SAMPLECOUNT_1
                 : mu::GetSdlGpuSampleCount(s_sampleCount).value_or(SDL_GPU_SAMPLECOUNT_1);
         pipelineInfo.multisample_state.enable_alpha_to_coverage = description.alphaToCoverage;
@@ -6760,6 +6801,14 @@ private:
         {
             SDL_ReleaseGPUGraphicsPipeline(s_device, s_shaftOccluderPipeline);
             s_shaftOccluderPipeline = nullptr;
+        }
+        for (SDL_GPUGraphicsPipeline*& pipeline : s_sceneDepthPipelines)
+        {
+            if (pipeline)
+            {
+                SDL_ReleaseGPUGraphicsPipeline(s_device, pipeline);
+                pipeline = nullptr;
+            }
         }
         for (SDL_GPUGraphicsPipeline*& pipeline : s_sunShadowPipelines)
         {
@@ -7178,8 +7227,16 @@ private:
             PipelineBuildDescription description{"sun-shadow",     "opaque", k_PipelineDisabled,      true, true,
                                                  layouts[skinned], false,    FragmentShader::SunDepth};
             description.sunShadowTarget = true;
-            const PipelineBuildResult result = BuildBlendPipeline(SDL_GPUColorTargetBlendState{}, description);
+            PipelineBuildResult result = BuildBlendPipeline(SDL_GPUColorTargetBlendState{}, description);
             s_sunShadowPipelines[skinned] = result.pipeline;
+            if (result.pipeline)
+            {
+                description.setName = "scene-depth";
+                description.sunShadowTarget = false;
+                description.sceneDepthTarget = true;
+                result = BuildBlendPipeline(SDL_GPUColorTargetBlendState{}, description);
+                s_sceneDepthPipelines[skinned] = result.pipeline;
+            }
             if (!result.pipeline)
             {
                 const char* driver = SDL_GetGPUDeviceDriver(s_device);
@@ -7234,7 +7291,16 @@ private:
             "shaft-occluders",     "opaque", k_PipelineDisabled,           false, false,
             VertexLayout::Skinned, false,    FragmentShader::ShaftOccluder};
         description.shaftOccluderTarget = true;
-        const PipelineBuildResult result = BuildBlendPipeline(SDL_GPUColorTargetBlendState{}, description);
+        // The mask keeps the most any draw covers, whatever order they come in.
+        SDL_GPUColorTargetBlendState keepMost{};
+        keepMost.enable_blend = true;
+        keepMost.src_color_blendfactor = SDL_GPU_BLENDFACTOR_ONE;
+        keepMost.dst_color_blendfactor = SDL_GPU_BLENDFACTOR_ONE;
+        keepMost.color_blend_op = SDL_GPU_BLENDOP_MAX;
+        keepMost.src_alpha_blendfactor = SDL_GPU_BLENDFACTOR_ONE;
+        keepMost.dst_alpha_blendfactor = SDL_GPU_BLENDFACTOR_ONE;
+        keepMost.alpha_blend_op = SDL_GPU_BLENDOP_MAX;
+        const PipelineBuildResult result = BuildBlendPipeline(keepMost, description);
         s_shaftOccluderPipeline = result.pipeline;
         if (!result.pipeline)
         {
