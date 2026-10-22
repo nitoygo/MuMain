@@ -30,6 +30,10 @@ struct Scales
     float shadeCool = 0.f;
     // The scale places at the shadow keep get (never below base, figures: the figure scale).
     float brightScale = 1.f;
+    // The sun's colour the static light is tinted with (the clock's hour); white is Classic.
+    float sunColor[3] = {1.f, 1.f, 1.f};
+    // How strong the sun is (the clock's hour), 1 at noon: the share of the shadow keep that applies.
+    float sunStrength = 1.f;
 
     bool operator==(const Scales&) const = default;
 };
@@ -47,6 +51,9 @@ inline constexpr float HighlightShoulderStart = 0.8f;
 [[nodiscard]] Scales Blend(const Data::Maps::LightMood& mood, int strengthPercent,
                            float highlightKnee = HighlightShoulderStart);
 
+// `day` towards `night` by the daylight (1: day, 0: night), every value in a straight line.
+[[nodiscard]] Scales Mix(const Scales& day, const Scales& night, float daylight);
+
 // Per CELL: adds Classic static × (figure factor − terrain factor), leaving dynamic light
 // untouched. Interpolate this correction only AFTER the factors have been applied per cell;
 // dividing sampled darkened static by a factor of sampled weight is not equivalent.
@@ -58,7 +65,7 @@ void ScaleFixedFigureLight(const Scales& scales, const float classicLight[3], fl
 
 // How much of a place keeps its Classic brightness, 0 to 1, from the luminance of
 // its undarkened static light: 0 up to 0.3 x shadowKeep, 1 from shadowKeep on,
-// smooth in between; always 0 without a shadow keep.
+// smooth in between, times the sun's strength; always 0 without a shadow keep.
 [[nodiscard]] float BrightWeight(const Scales& scales, float luminance);
 
 // The factors the static light of a place with this bright weight is multiplied

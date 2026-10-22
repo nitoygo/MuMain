@@ -26,11 +26,23 @@ struct FrameSunDirections
 {
     glm::vec3 sun{0.0f, 0.0f, 1.0f};
     glm::vec3 baked{0.0f, 0.0f, 1.0f};
+    // 1 by day and without the clock; 0 by night (SunAtHour).
+    float daylight = 1.0f;
+    // How strong the light from `sun` is (the moon's by night), 1 without the clock (SunAtHour).
+    float strength = 1.0f;
+    // The light's colour (SunAtHour), white without the clock.
+    glm::vec3 color{1.0f};
 };
 [[nodiscard]] std::optional<FrameSunDirections> FrameSun();
 
-// `baked` (a world-space light vector of the baked light) following this frame's sun (FollowSun);
-// unchanged without one.
+// The hour of the day (0 to 24) while the clock runs: the $time override, else UTC time over a day of
+// time.dayMinutes, the same on every client. None while time.dayMinutes is 0 (the sun stays at noon).
+[[nodiscard]] std::optional<float> FrameHour();
+// $time: holds the clock at `hour`, or lets it run again (none). Not saved.
+void SetTimeOverride(std::optional<float> hour);
+
+// `baked` (a world-space light vector of the baked light) following this frame's sun (FollowSun), never
+// from below 5 degrees; unchanged without one.
 [[nodiscard]] glm::vec3 FollowFrameSun(const glm::vec3& baked);
 
 } // namespace Render::Lighting

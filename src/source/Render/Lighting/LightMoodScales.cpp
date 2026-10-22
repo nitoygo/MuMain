@@ -62,6 +62,21 @@ Scales Blend(const Data::Maps::LightMood& mood, int strengthPercent, float highl
             BlendValue(mood.brightScale, strength)};
 }
 
+Scales Mix(const Scales& day, const Scales& night, float daylight)
+{
+    const float t = std::clamp(daylight, 0.f, 1.f);
+    const auto mix = [t](float d, float n) { return n + (d - n) * t; };
+    return {mix(day.base, night.base),
+            mix(day.figures, night.figures),
+            mix(day.dynamicGain, night.dynamicGain),
+            mix(day.background, night.background),
+            mix(day.sun, night.sun),
+            mix(day.highlightKnee, night.highlightKnee),
+            mix(day.shadowKeep, night.shadowKeep),
+            mix(day.shadeCool, night.shadeCool),
+            mix(day.brightScale, night.brightScale)};
+}
+
 namespace
 {
 // The shade tint: red and green darken a little more than blue.
@@ -81,7 +96,7 @@ void Factor(const Scales& scales, float scale, float brightWeight, float factor[
     {
         const float shade = scale * tint[i];
         const float bright = std::max(scales.brightScale, scale);
-        factor[i] = shade + weight * (bright - shade);
+        factor[i] = (shade + weight * (bright - shade)) * scales.sunColor[i];
     }
 }
 } // namespace
@@ -95,7 +110,7 @@ float BrightWeight(const Scales& scales, float luminance)
     constexpr float ShadeEnd = 0.3f;
     const float low = ShadeEnd * scales.shadowKeep;
     const float t = std::clamp((luminance - low) / (scales.shadowKeep - low), 0.f, 1.f);
-    return t * t * (3.f - 2.f * t);
+    return t * t * (3.f - 2.f * t) * scales.sunStrength;
 }
 
 void StaticFactor(const Scales& scales, float brightWeight, float factor[3])

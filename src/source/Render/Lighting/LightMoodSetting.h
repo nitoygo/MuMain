@@ -24,6 +24,11 @@ void UseMood(Data::Maps::LightMoodData data, bool enabled, int strengthPercent);
 // outside the world maps (login and character selection).
 const Scales& Active();
 
+// Blends the active world's mood towards its night mood by `daylight` (1: day, 0: night), with the sun's
+// `strength` and `color`. True when any moved by 0.02 or more, or the daylight reached day or night: the
+// caller then builds the map's static light again (CreateTerrainLight, or spread over frames).
+bool SetSunlight(float daylight, float strength, const float color[3]);
+
 // Logs the scales a map's static light was built with (map load and reload).
 void LogMapLight();
 

@@ -43,6 +43,9 @@
 //   $sun <v>                       sun.shadow
 //   $dynlights falloff <f>         dynamic.physicalFalloff
 //   $dynlights flatsun <f>         dynamic.flatSunShadow
+//   $time day <minutes>            time.dayMinutes
+//   $time dawn <f>                 time.dawnWarmth
+//   $time moon <f>                 time.moonTint
 namespace Render::Look
 {
 

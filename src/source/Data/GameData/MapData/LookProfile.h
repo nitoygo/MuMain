@@ -59,6 +59,9 @@ enum class LookValue : std::uint8_t
     SunShadowResolution,
     DynamicPhysicalFalloff,
     FlatSunShadow,
+    DayMinutes,
+    DawnWarmth,
+    MoonTint,
     Count,
 };
 

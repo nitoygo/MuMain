@@ -104,3 +104,18 @@ With the mood, at strength `s` each value `v` of the map's mood becomes
 
 Because the dynamic lights are added after the darkening, a candle's pool on
 the floor is as bright above the darker ground as it was in Classic.
+
+## Night
+
+While the Enhanced clock runs (`time.dayMinutes` in `Data/Render/Look.json`), a map blends from its mood
+to its night mood through dusk and back through dawn. The night mood has the same values: a top-level
+`"night"` object over the default mood, and a map entry's own `"night"` over that. Without a `"night"`,
+night is the day mood. `background` darkens the fog and clear colour with it.
+
+```json
+{
+  "night": { "base": 0.45, "figures": 0.6, "sun": 1.0, "background": 0.4, "shadowKeep": 0, "shadeCool": 0.3 },
+  "default": { ... },
+  "maps": [ { "world": 2, "name": "Devias", "night": { "base": 0.4 } } ]
+}
+```

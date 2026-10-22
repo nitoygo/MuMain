@@ -217,3 +217,20 @@ TEST_CASE("the shadow keep and the cool shade are optional and range-checked [da
     CHECK(Messages(outOfRange.issues).find("default.shadeCool") != std::string::npos);
     CHECK(Messages(outOfRange.issues).find("default.brightScale") != std::string::npos);
 }
+
+TEST_CASE("the night mood: the top one over the default, a map's own over the top one [data][lightmood]")
+{
+    const ReadResult result = Read(R"({"formatVersion": 1,
+        "night": {"base": 0.3, "sun": 0.2},
+        "default": {"base": 0.7, "figures": 0.8, "dynamicGain": 1.2, "background": 1.0, "sun": 0.5},
+        "maps": [{"world": 1, "base": 0.5, "night": {"base": 0.25}}, {"world": 10, "background": 0.7}]})");
+
+    CHECK_MESSAGE(result.issues.empty(), Messages(result.issues));
+    CHECK(result.data.NightForWorld(Lorencia) == LightMood{0.3, 0.8, 1.2, 1.0, 0.2});
+    // A map's own night starts from the top night, not from the map's day values.
+    CHECK(result.data.NightForWorld(1) == LightMood{0.25, 0.8, 1.2, 1.0, 0.2});
+    CHECK(result.data.NightForWorld(Icarus) == LightMood{0.3, 0.8, 1.2, 1.0, 0.2});
+    // Without a night object, night is the day.
+    const ReadResult plain = Read(ValidFile);
+    CHECK(plain.data.NightForWorld(Lorencia) == plain.data.ForWorld(Lorencia));
+}
