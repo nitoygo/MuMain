@@ -2973,11 +2973,14 @@ void BMD::RenderBodyShadow(const int blendMesh, const int hiddenMesh, const int 
             AddMeshShadowTriangles(blendMesh, hiddenMesh, startMesh, endMesh, projection, shadowColor);
         }
     };
-    // The sun shadow map shadows the ground itself; only the flat shadow is drawn without it.
-    if (!Render::Lighting::SunShadowsActive())
+    // The sun shadow map shadows the ground itself; only the flat shadow is drawn without it, as dark
+    // as the map lets it be (dynamic.flatSunShadow: none indoors).
+    const float flatSunShadow =
+        Render::Lighting::DynamicLightsActive() ? Render::Look::Value(Data::Maps::LookValue::FlatSunShadow) : 1.f;
+    if (!Render::Lighting::SunShadowsActive() && flatSunShadow > 0.f)
     {
         const mu::ScopedGroundShadow groundShadow;
-        drawShadow(alpha);
+        drawShadow(alpha * flatSunShadow);
     }
     // The ground's strongest point lights cast one more shadow each, away from the light.
     const Render::Lighting::WorldDynamicLights& worldLights = Render::Lighting::FrameWorldDynamicLights();

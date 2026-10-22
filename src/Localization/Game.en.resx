@@ -1637,6 +1637,12 @@
   <data name="Tuning Light Shafts From Map Lights Help" xml:space="preserve">
     <value>How much fires and bonfires cast light shafts.</value>
   </data>
+  <data name="Tuning Flat Sun Shadow" xml:space="preserve">
+    <value>Flat sun shadow</value>
+  </data>
+  <data name="Tuning Flat Sun Shadow Help" xml:space="preserve">
+    <value>How dark the flat shadow under characters is when sun shadows are off. Indoor and underground maps set it to 0, leaving only the shadows of torches and spells.</value>
+  </data>
   <data name="Tuning Sun Shadows" xml:space="preserve">
     <value>Sun shadows</value>
   </data>
