@@ -31,14 +31,32 @@
     "sun.softness": 1,
     "sun.resolution": 2048,
     "dynamic.physicalFalloff": 0.5,
-    "dynamic.flatSunShadow": 1
+    "dynamic.flatSunShadow": 1,
+    "time.dayMinutes": 0,
+    "time.dawnWarmth": 1,
+    "time.moonTint": 1
   },
   "maps": [
+    {
+      "world": 0,
+      "name": "Lorencia",
+      "time.dayMinutes": 60
+    },
     {
       "world": 1,
       "name": "Dungeon",
       "sun.shadow": 0,
       "dynamic.flatSunShadow": 0
+    },
+    {
+      "world": 2,
+      "name": "Devias",
+      "time.dayMinutes": 60
+    },
+    {
+      "world": 3,
+      "name": "Noria",
+      "time.dayMinutes": 60
     },
     {
       "world": 4,
@@ -47,9 +65,50 @@
       "dynamic.flatSunShadow": 0
     },
     {
+      "world": 6,
+      "name": "Arena",
+      "time.dayMinutes": 60
+    },
+    {
+      "world": 7,
+      "name": "Atlans",
+      "time.dayMinutes": 60
+    },
+    {
+      "world": 8,
+      "name": "Tarkan",
+      "time.dayMinutes": 60
+    },
+    {
       "world": 10,
       "name": "Icarus",
-      "bloom.strength": 0.3
+      "bloom.strength": 0.3,
+      "time.dayMinutes": 60
+    },
+    {
+      "world": 30,
+      "name": "Valley of Loren",
+      "time.dayMinutes": 60
+    },
+    {
+      "world": 31,
+      "name": "Land of Trials",
+      "time.dayMinutes": 60
+    },
+    {
+      "world": 33,
+      "name": "Aida",
+      "time.dayMinutes": 60
+    },
+    {
+      "world": 34,
+      "name": "Crywolf",
+      "time.dayMinutes": 60
+    },
+    {
+      "world": 37,
+      "name": "Kanturu",
+      "time.dayMinutes": 60
     },
     {
       "world": 38,
@@ -62,6 +121,46 @@
       "name": "Refinery Tower",
       "sun.shadow": 0,
       "dynamic.flatSunShadow": 0
+    },
+    {
+      "world": 51,
+      "name": "Elbeland",
+      "time.dayMinutes": 60
+    },
+    {
+      "world": 56,
+      "name": "Swamp of Peace",
+      "time.dayMinutes": 60
+    },
+    {
+      "world": 57,
+      "name": "Raklion",
+      "time.dayMinutes": 60
+    },
+    {
+      "world": 62,
+      "name": "Santa Village",
+      "time.dayMinutes": 60
+    },
+    {
+      "world": 63,
+      "name": "Vulcanus",
+      "time.dayMinutes": 60
+    },
+    {
+      "world": 79,
+      "name": "Loren Market",
+      "time.dayMinutes": 60
+    },
+    {
+      "world": 80,
+      "name": "Karutan 1",
+      "time.dayMinutes": 60
+    },
+    {
+      "world": 81,
+      "name": "Karutan 2",
+      "time.dayMinutes": 60
     }
   ]
 }

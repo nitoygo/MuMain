@@ -16,6 +16,7 @@
 #include "WindowsConsole.h"
 
 #include "Render/Lighting/DynamicLightHistory.h"
+#include "Render/Lighting/DynamicLightsSetting.h"
 #include "Render/PostProcessing/PostProcessingSetting.h"
 #include "Render/Look/LookPresetSetting.h"
 #include "Render/Renderer/Antialiasing.h"
@@ -113,6 +114,19 @@ bool CheckDeveloperLookCommand(const std::wstring& command)
     if (command.starts_with(L"$post view "))
     {
         Render::PostProcessing::SetPostProcessingView(std::wstring_view(command).substr(11));
+        return true;
+    }
+    if (command.starts_with(L"$time ") && !command.starts_with(L"$time day ") && !command.starts_with(L"$time dawn ") &&
+        !command.starts_with(L"$time moon "))
+    {
+        const std::wstring_view argument = std::wstring_view(command).substr(6);
+        if (argument == L"off")
+        {
+            Render::Lighting::SetTimeOverride(std::nullopt);
+            return true;
+        }
+        const float hour = std::wcstof(std::wstring(argument).c_str(), nullptr);
+        Render::Lighting::SetTimeOverride(std::fmod(std::max(hour, 0.f), 24.f));
         return true;
     }
     if (command == L"$dynlights stats")

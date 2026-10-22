@@ -248,3 +248,21 @@ TEST_CASE("a bright scale dims the places at the shadow keep, never below the sh
     mood.brightScale = 0.8;
     CHECK(Mood::Blend(mood, 50).brightScale == Approx(0.9f));
 }
+
+TEST_CASE("the daylight mixes the day mood towards the night mood [render][lightmood]")
+{
+    const Mood::Scales day = Mood::Blend(Lifted, 100);
+    const Mood::Scales night = Mood::Blend(Tuned, 100);
+    CHECK(Mood::Mix(day, night, 1.f) == day);
+    CHECK(Mood::Mix(day, night, 0.f) == night);
+    CHECK(Mood::Mix(day, night, 0.5f).base == Approx((day.base + night.base) / 2.f));
+}
+
+TEST_CASE("a low sun lets painted bright places darken with the rest [render][lightmood]")
+{
+    Render::Lighting::LightMood::Scales scales;
+    scales.shadowKeep = 0.5f;
+    CHECK(Render::Lighting::LightMood::BrightWeight(scales, 1.f) == doctest::Approx(1.f));
+    scales.sunStrength = 0.25f;
+    CHECK(Render::Lighting::LightMood::BrightWeight(scales, 1.f) == doctest::Approx(0.25f));
+}

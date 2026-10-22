@@ -10,7 +10,7 @@ namespace Render::Lighting
 // (Classic lights a face max(0.8 × dot(n, L) + 0.4, 0.2) with it), so the normals it meets must be
 // world-oriented. `highlight`: the brighter fixed light of previews (BMD::HighLight). Otherwise the
 // map's baked direction, scaled by the light mood's sun and, with Enhanced dynamic lights, following
-// the frame's sun (FollowFrameSun).
+// the frame's sun (FollowFrameSun) and as strong as it (the moon by night).
 [[nodiscard]] glm::vec3 ModelLightVector(bool highlight);
 
 } // namespace Render::Lighting

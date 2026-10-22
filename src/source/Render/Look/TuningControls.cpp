@@ -98,6 +98,12 @@ constexpr std::array<ControlSpec, TuningControlCount> Specs = {{
      TuningUnit::Percent, 100.0, TuningZero::Plain},
     {TuningControlId::FlatSunShadow, TuningGroup::DynamicLights, true, LookValue::FlatSunShadow, 0.05,
      TuningUnit::Percent, 100.0, TuningZero::Plain},
+    {TuningControlId::DayMinutes, TuningGroup::DynamicLights, false, LookValue::DayMinutes, 5.0, TuningUnit::None, 1.0,
+     TuningZero::Plain},
+    {TuningControlId::DawnWarmth, TuningGroup::DynamicLights, true, LookValue::DawnWarmth, 0.05, TuningUnit::Percent,
+     100.0, TuningZero::Plain},
+    {TuningControlId::MoonTint, TuningGroup::DynamicLights, true, LookValue::MoonTint, 0.05, TuningUnit::Percent, 100.0,
+     TuningZero::Plain},
 }};
 
 constexpr bool SpecsFollowIdOrder()

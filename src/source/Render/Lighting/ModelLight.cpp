@@ -35,7 +35,13 @@ glm::vec3 ModelLightVector(bool highlight)
     vec3_t light;
     VectorIRotate(position, matrix, light);
     const glm::vec3 vector(light[0], light[1], light[2]);
-    return highlight ? vector : FollowFrameSun(vector);
+    if (highlight)
+    {
+        return vector;
+    }
+    // Gentler from a low sun, faint from the moon.
+    const std::optional<FrameSunDirections> sun = FrameSun();
+    return FollowFrameSun(vector) * (sun ? sun->strength : 1.f);
 }
 
 } // namespace Render::Lighting

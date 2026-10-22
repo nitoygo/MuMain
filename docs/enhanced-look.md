@@ -90,6 +90,9 @@ window.
 | Dynamic lights | Sun shadow softness | `sun.softness` | 0–2 | 0.1 | 1 | More settings |
 | Dynamic lights | Sun shadow resolution | `sun.resolution` | 1024–4096 | 1024 | 2048 | More settings |
 | Dynamic lights | Physical light falloff | `dynamic.physicalFalloff` | 0–100 % | 5 % | 50 % | More settings |
+| Dynamic lights | Day length (minutes) | `time.dayMinutes` | 0–240 | 5 | 60 on outdoor maps, 0 elsewhere | common |
+| Dynamic lights | Sunrise and sunset warmth | `time.dawnWarmth` | 0–150 % | 5 % | 100 % | More settings |
+| Dynamic lights | Moonlight tint | `time.moonTint` | 0–150 % | 5 % | 100 % | More settings |
 | Dynamic lights | Flat sun shadow | `dynamic.flatSunShadow` | 0–100 % | 5 % | 100 % (0 indoors) | More settings |
 | Darker map light | Mood strength | `mood.strengthPercent` | 0–100 % | 1 % | 100 % | common |
 | Bloom and colour grading | Bloom intensity | `bloom.strength` | 0–2 | 0.05 | 1 (Icarus 0.3) | common |
@@ -229,6 +232,9 @@ for the whole file.
 | `sun.shadow` | 1 | 0 | 0–1 | how dark the sun's shadows are, on top of `dynamic.shadowOpacity`. Everything solid (the terrain, buildings, trees, characters) is drawn from the sun into a shadow map, so shadows fall onto slopes, walls and other characters. The sun stands opposite `dynamic.shadowAngle`, as high as the flat character shadows were long. On models it takes away only the direct sunlight, not the ambient light. Characters' see-through parts (wings, capes, auras) cast a lighter shadow by their opacity, or glowing, their brightness. Above 0, characters cast no flat sun shadow; point-light shadows stay flat. Needs dynamic lights; drawn with anti-aliasing too |
 | `sun.softness` | 1 | 1 | 0–2 | how many shadow-map texels the sun shadows' edges blur over |
 | `dynamic.physicalFalloff` | 0.5 | 0 | 0–1 | how point lights fade: 0 the terrain light's linear fade over the horizontal distance, 1 inverse-square over the full distance, height included, ending smoothly at the light's reach; in between, a blend. Ground, models and the point-light shadows' strength all fade the same way; lights baked into the ground's vertex colour (beyond the per-pixel ones) keep the linear fade |
+| `time.dayMinutes` | 0 (outdoor maps: 60) | 0 | 0–240 | how many real minutes a day lasts: the sun rises at 6, stands where `dynamic.shadowAngle` puts it at noon, sets at 18, its light gentler the lower it stands (the sine of its height); by night the moon takes the same path at 80 % of the noon sun's strength, its shadows and lit sides standing out against the night mood's darkness, and the map blends to its night mood (`docs/light-mood.md`). The light turns orange as the sun nears the horizon and white by noon (`time.dawnWarmth`), the moon's blue-white (`time.moonTint`), and painted bright places dim with a low sun. The hour comes from UTC time, so every client sees the same one. 0 keeps the sun at noon, today's look; Look.json ships 60 on outdoor maps. A map whose Look.json value is 0 (indoors, events) never gets a clock: the player's value only sets the day's length. `$time <hour>` holds the clock at an hour, `$time off` lets it run |
+| `time.dawnWarmth` | 1 | 1 | 0–1.5 | how far the low sun's light turns orange (0 keeps it white all day) |
+| `time.moonTint` | 1 | 1 | 0–1.5 | how far the moonlight turns blue (0 makes it white) |
 | `dynamic.flatSunShadow` | 1 (Dungeon, Lost Tower, Kanturu Relics, Refinery Tower: 0) | 1 | 0–1 | how dark the flat shadow under characters is while sun shadows are off (`sun.shadow` 0), on top of the shadow's own darkness. The indoor and underground maps set both to 0: no sun there, so only torches and spells cast character shadows. Classic always draws it |
 | `sun.resolution` | 2048 | 2048 | 1024–4096 | the sun shadow map's size in texels (1024, 2048 or 4096): sharper shadows for more graphics memory and time |
 
@@ -259,7 +265,7 @@ Shorter forms of `$look set`: `$lighting rim <v>`, `$lighting specular <v>`,
 `$lighting diffuse <scale> <ambient> <floor>`, `$lightmood knee <k>`,
 `$dynlights wrap <w>`, `$dynlights smooth <s>`,
 `$dynlights spell <gain> <range> <fade>`, `$dynlights cap <c>`,
-`$dynlights reach <cells>`, `$dynlights shadow <opacity>`, `$dynlights shadowangle <degrees>`, `$dynlights shadowlights <n>`, `$bloom falloff <f>`, `$bloom <strength>`, `$ao <strength>`, `$ao radius <r>`, `$shafts <strength>`, `$shafts skills <f>`, `$shafts map <f>`, `$sun <strength>`, `$sun softness <f>`, `$sun resolution <texels>`, `$dynlights falloff <f>`, `$dynlights flatsun <f>`.
+`$dynlights reach <cells>`, `$dynlights shadow <opacity>`, `$dynlights shadowangle <degrees>`, `$dynlights shadowlights <n>`, `$bloom falloff <f>`, `$bloom <strength>`, `$ao <strength>`, `$ao radius <r>`, `$shafts <strength>`, `$shafts skills <f>`, `$shafts map <f>`, `$sun <strength>`, `$sun softness <f>`, `$sun resolution <texels>`, `$dynlights falloff <f>`, `$dynlights flatsun <f>`, `$time day <minutes>`, `$time dawn <f>`, `$time moon <f>`, `$time <hour>`, `$time off`.
 The DevEditor has the same values in its Look panel.
 
 Feature overrides, to compare one feature on and off. They last for the

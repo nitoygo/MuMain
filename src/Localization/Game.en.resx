@@ -1637,6 +1637,24 @@
   <data name="Tuning Light Shafts From Map Lights Help" xml:space="preserve">
     <value>How much fires and bonfires cast light shafts.</value>
   </data>
+  <data name="Tuning Day Length" xml:space="preserve">
+    <value>Day length (minutes)</value>
+  </data>
+  <data name="Tuning Day Length Help" xml:space="preserve">
+    <value>How many real minutes a day of sunrise, noon, sunset and night lasts; the same hour on every client. 0 keeps the sun at noon.</value>
+  </data>
+  <data name="Tuning Dawn Warmth" xml:space="preserve">
+    <value>Sunrise and sunset warmth</value>
+  </data>
+  <data name="Tuning Dawn Warmth Help" xml:space="preserve">
+    <value>How orange the light turns as the sun nears the horizon. 0 keeps it white all day.</value>
+  </data>
+  <data name="Tuning Moon Tint" xml:space="preserve">
+    <value>Moonlight tint</value>
+  </data>
+  <data name="Tuning Moon Tint Help" xml:space="preserve">
+    <value>How blue the moonlight is. 0 makes it white.</value>
+  </data>
   <data name="Tuning Flat Sun Shadow" xml:space="preserve">
     <value>Flat sun shadow</value>
   </data>

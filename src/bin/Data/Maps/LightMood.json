@@ -1,5 +1,6 @@
 {
   "formatVersion": 1,
+  "night": { "base": 0.45, "figures": 0.6, "sun": 1.0, "background": 0.4, "shadowKeep": 0, "shadeCool": 0.3 },
   "default": {
     "base": 0.45,
     "figures": 0.7,

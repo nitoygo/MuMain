@@ -1,8 +1,10 @@
 #include "Render/Lighting/SunShadow.h"
 
+#include <glm/gtc/constants.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 
 #include <algorithm>
+#include <utility>
 #include <array>
 #include <cmath>
 #include <initializer_list>
@@ -32,7 +34,7 @@ glm::vec3 SunDirection(float fallAngleDegrees, float fallPerHeight)
     return glm::normalize(glm::vec3(-std::cos(angle) * fallPerHeight, -std::sin(angle) * fallPerHeight, 1.0f));
 }
 
-glm::vec3 FollowSun(const glm::vec3& baked, const glm::vec3& bakedSun, const glm::vec3& sun)
+glm::vec3 FollowSun(const glm::vec3& baked, const glm::vec3& bakedSun, const glm::vec3& sun, float minElevationDegrees)
 {
     const float length = glm::length(baked);
     if (sun == bakedSun || length == 0.0f)
@@ -42,11 +44,47 @@ glm::vec3 FollowSun(const glm::vec3& baked, const glm::vec3& bakedSun, const glm
     const auto azimuth = [](const glm::vec3& v) { return std::atan2(v.y, v.x); };
     const auto elevation = [](const glm::vec3& v) { return std::atan2(v.z, std::hypot(v.x, v.y)); };
     const float maxElevation = glm::radians(89.0f);
+    const float minElevation = std::min(glm::radians(minElevationDegrees), elevation(baked));
     const float turned = azimuth(baked) + azimuth(sun) - azimuth(bakedSun);
     const float raised =
-        std::clamp(elevation(baked) + elevation(sun) - elevation(bakedSun), -maxElevation, maxElevation);
+        std::clamp(elevation(baked) + elevation(sun) - elevation(bakedSun), minElevation, maxElevation);
     return length *
            glm::vec3(std::cos(raised) * std::cos(turned), std::cos(raised) * std::sin(turned), std::sin(raised));
+}
+
+SunAtTime SunAtHour(float hour, float noonAngleDegrees, float noonFall)
+{
+    const glm::vec3 noon = SunDirection(noonAngleDegrees, noonFall);
+    if (hour == 12.0f)
+    {
+        return {noon, 1.0f, 1.0f, glm::vec3(1.0f)};
+    }
+    const float noonElevation = std::atan2(noon.z, std::hypot(noon.x, noon.y));
+    const float pi = glm::pi<float>();
+    // Where on its arc a light rising at `rise` stands (0 rising, 1 setting), and the light there.
+    const auto onArc = [&](float along)
+    {
+        const float elevation = noonElevation * std::sin(pi * std::clamp(along, 0.0f, 1.0f));
+        const float azimuth = std::atan2(noon.y, noon.x) + (std::clamp(along, 0.0f, 1.0f) - 0.5f) * pi;
+        const float shown = std::max(elevation, glm::radians(1.0f));
+        return std::pair{
+            glm::vec3(std::cos(shown) * std::cos(azimuth), std::cos(shown) * std::sin(azimuth), std::sin(shown)),
+            std::max(std::sin(elevation), 0.0f) / std::sin(noonElevation)};
+    };
+    const float day = (hour - kSunriseHour) / (kSunsetHour - kSunriseHour);
+    if (day > 0.0f && day < 1.0f)
+    {
+        const auto [toSun, strength] = onArc(day);
+        const float elevation = noonElevation * std::sin(pi * day);
+        // Warm through the morning and afternoon, orange at the horizon.
+        const float warmth = std::pow(1.0f - std::min(strength, 1.0f), 0.6f);
+        return {toSun, glm::smoothstep(0.0f, glm::radians(kTwilightElevationDegrees), elevation), strength,
+                glm::mix(glm::vec3(1.0f), kSunHorizonColor, warmth)};
+    }
+    // The moon: the sun's path, half a day later.
+    const float night = std::fmod(hour - kSunsetHour + 24.0f, 24.0f) / (24.0f - (kSunsetHour - kSunriseHour));
+    const auto [toMoon, strength] = onArc(night);
+    return {toMoon, 0.0f, kMoonStrength * strength, kMoonColor};
 }
 
 SunShadowView BuildSunShadowView(const glm::vec3& toSun, const glm::mat4& sceneViewProjection, float groundLow,

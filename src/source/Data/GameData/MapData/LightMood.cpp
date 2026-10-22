@@ -21,6 +21,7 @@ using Items::Json::OrderedJson;
 
 constexpr const char* DefaultKey = "default";
 constexpr const char* MapsKey = "maps";
+constexpr const char* NightKey = "night";
 constexpr const char* WorldKey = "world";
 constexpr const char* NameKey = "name";
 constexpr double MaxScale = 1.0;
@@ -186,6 +187,24 @@ bool ReadWorld(const OrderedJson& json, const std::string& object, int& world, I
     return true;
 }
 
+// The "night" object of `json`, if it has one, over `night`.
+bool ReadNight(const OrderedJson& json, const std::string& object, LightMood& night, IssueList& issues)
+{
+    const auto field = json.find(NightKey);
+    if (field == json.end())
+    {
+        return true;
+    }
+    const std::string name = object.empty() ? std::string(NightKey) : Field(object, NightKey);
+    if (!field->is_object())
+    {
+        issues.Error(name, "must be an object of mood values");
+        return false;
+    }
+    WarnUnknownKeys(*field, name, true, {}, issues);
+    return ReadMoodValues(*field, name, false, night, issues) && CheckRanges(night, name, issues);
+}
+
 bool ReadMap(const OrderedJson& json, size_t index, const LightMood& defaultMood, std::set<int>& worlds,
              LightMoodData& data, IssueList& issues)
 {
@@ -195,7 +214,7 @@ bool ReadMap(const OrderedJson& json, size_t index, const LightMood& defaultMood
         issues.Error(entry, "must be an object with a world and its values");
         return false;
     }
-    MapLightMood map{0, defaultMood};
+    MapLightMood map{0, defaultMood, data.defaultNight};
     if (!ReadWorld(json, entry, map.world, issues))
     {
         return false;
@@ -206,8 +225,9 @@ bool ReadMap(const OrderedJson& json, size_t index, const LightMood& defaultMood
         issues.Error(object, "is in the list more than once");
         return false;
     }
-    WarnUnknownKeys(json, object, true, {WorldKey, NameKey}, issues);
-    if (!ReadMoodValues(json, object, false, map.mood, issues) || !CheckRanges(map.mood, object, issues))
+    WarnUnknownKeys(json, object, true, {WorldKey, NameKey, NightKey}, issues);
+    if (!ReadMoodValues(json, object, false, map.mood, issues) || !CheckRanges(map.mood, object, issues) ||
+        !ReadNight(json, object, map.night, issues))
     {
         return false;
     }
@@ -256,6 +276,13 @@ const LightMood& LightMoodData::ForWorld(int world) const
     return map != maps.end() ? map->mood : defaultMood;
 }
 
+const LightMood& LightMoodData::NightForWorld(int world) const
+{
+    const auto map =
+        std::find_if(maps.begin(), maps.end(), [world](const MapLightMood& entry) { return entry.world == world; });
+    return map != maps.end() ? map->night : defaultNight;
+}
+
 void ReadLightMoodJson(std::string_view text, const std::string& source, LightMoodData& data,
                        std::vector<ItemDataIssue>& issues)
 {
@@ -266,10 +293,12 @@ void ReadLightMoodJson(std::string_view text, const std::string& source, LightMo
     {
         return;
     }
-    WarnUnknownKeys(root, "", false, {Items::Json::Keys::FormatVersion, DefaultKey, MapsKey}, list);
+    WarnUnknownKeys(root, "", false, {Items::Json::Keys::FormatVersion, DefaultKey, MapsKey, NightKey}, list);
 
     LightMoodData read;
-    const bool valid = ReadDefault(root, read.defaultMood, list) && ReadMaps(root, read, list);
+    bool valid = ReadDefault(root, read.defaultMood, list);
+    read.defaultNight = read.defaultMood;
+    valid = valid && ReadNight(root, "", read.defaultNight, list) && ReadMaps(root, read, list);
     if (valid)
     {
         data = std::move(read);

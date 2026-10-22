@@ -34,6 +34,9 @@
 // "default" has all five and applies to every map without an entry. A map
 // entry names its world number and overrides any of them; "name" is for the
 // reader only.
+// An optional "night" object (at the top, and in a map entry) holds the mood
+// the map blends to by night while the Enhanced clock runs (time.dayMinutes):
+// the top one over the default mood, a map's own over the top one.
 namespace Data::Maps
 {
 struct LightMood
@@ -54,6 +57,7 @@ struct MapLightMood
 {
     int world = 0;
     LightMood mood;
+    LightMood night;
 
     bool operator==(const MapLightMood&) const = default;
 };
@@ -61,10 +65,13 @@ struct MapLightMood
 struct LightMoodData
 {
     LightMood defaultMood;
+    LightMood defaultNight;
     std::vector<MapLightMood> maps;
 
     // The world's own mood, or the default.
     const LightMood& ForWorld(int world) const;
+    // The world's own night mood, or the default night.
+    const LightMood& NightForWorld(int world) const;
 };
 
 constexpr int LightMoodFormatVersion = 1;

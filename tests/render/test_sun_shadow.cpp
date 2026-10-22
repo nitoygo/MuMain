@@ -137,3 +137,78 @@ TEST_CASE("a baked light vector follows the sun's turn and rise, and is the same
                                       SunDirection(Render::Lighting::kBakedSunShadowAngle, 0.01f));
     CHECK(std::atan2(steep.z, std::hypot(steep.x, steep.y)) <= glm::radians(89.0f) + 1e-5f);
 }
+
+TEST_CASE("the sun rises, stands at today's sun at noon, sets, and is gone at night [render][sun]")
+{
+    using Render::Lighting::SunAtHour;
+    const glm::vec3 noon = SunDirection(135.0f, 0.5f);
+    CHECK(SunAtHour(12.0f, 135.0f, 0.5f).toSun == noon);
+    CHECK(SunAtHour(12.0f, 135.0f, 0.5f).daylight == 1.0f);
+
+    const auto elevation = [](const glm::vec3& v) { return std::atan2(v.z, std::hypot(v.x, v.y)); };
+    const auto azimuth = [](const glm::vec3& v) { return std::atan2(v.y, v.x); };
+    const glm::vec3 rise = SunAtHour(6.01f, 135.0f, 0.5f).toSun;
+    const glm::vec3 set = SunAtHour(17.99f, 135.0f, 0.5f).toSun;
+    // Just after sunrise and before sunset: at the horizon (shown a degree above it), half a turn apart,
+    // a quarter turn either side of noon. At 6 and 18 exactly, the moon has the sky.
+    CHECK(elevation(rise) == doctest::Approx(glm::radians(1.0f)));
+    CHECK(elevation(set) == doctest::Approx(glm::radians(1.0f)));
+    CHECK(std::abs(std::remainder(azimuth(set) - azimuth(rise), 2.0f * glm::pi<float>())) ==
+          doctest::Approx(glm::pi<float>()).epsilon(0.01));
+    CHECK(std::remainder(azimuth(rise) - azimuth(noon), 2.0f * glm::pi<float>()) ==
+          doctest::Approx(-glm::pi<float>() / 2.0f).epsilon(0.01));
+
+    // Lower in the morning than at noon; daylight full by mid-morning, none at night.
+    CHECK(elevation(SunAtHour(9.0f, 135.0f, 0.5f).toSun) < elevation(noon));
+    CHECK(SunAtHour(9.0f, 135.0f, 0.5f).daylight == 1.0f);
+    CHECK(SunAtHour(6.2f, 135.0f, 0.5f).daylight > 0.0f);
+    CHECK(SunAtHour(6.2f, 135.0f, 0.5f).daylight < 1.0f);
+    CHECK(SunAtHour(23.0f, 135.0f, 0.5f).daylight == 0.0f);
+    CHECK(SunAtHour(3.0f, 135.0f, 0.5f).daylight == 0.0f);
+}
+
+TEST_CASE("a low sun never lights a baked vector from below its floor [render][sun]")
+{
+    using Render::Lighting::FollowSun;
+    const glm::vec3 bakedSun = SunDirection(Render::Lighting::kBakedSunShadowAngle, 0.5f);
+    const glm::vec3 lowSun = Render::Lighting::SunAtHour(6.5f, Render::Lighting::kBakedSunShadowAngle, 0.5f).toSun;
+    const glm::vec3 terrain = FollowSun(glm::vec3(0.5f, -0.5f, 0.5f), bakedSun, lowSun, 5.0f);
+    CHECK(std::atan2(terrain.z, std::hypot(terrain.x, terrain.y)) == doctest::Approx(glm::radians(5.0f)));
+    // A level vector stays level: the floor is never above the baked elevation.
+    const glm::vec3 model = FollowSun(glm::vec3(0.0f, -1.5f, 0.0f), bakedSun, lowSun, 5.0f);
+    CHECK(model.z == doctest::Approx(0.0f).epsilon(1e-5));
+}
+
+TEST_CASE("the sun is strongest at noon and gentle when low; the moon lights the night faintly [render][sun]")
+{
+    using Render::Lighting::SunAtHour;
+    CHECK(SunAtHour(12.0f, 135.0f, 0.5f).strength == 1.0f);
+    const float morning = SunAtHour(9.0f, 135.0f, 0.5f).strength;
+    CHECK(morning > 0.5f);
+    CHECK(morning < 1.0f);
+    CHECK(SunAtHour(15.0f, 135.0f, 0.5f).strength == doctest::Approx(morning));
+    CHECK(SunAtHour(6.5f, 135.0f, 0.5f).strength < morning);
+
+    // Midnight: the moon at its highest, where the sun stands at noon.
+    const Render::Lighting::SunAtTime midnight = SunAtHour(0.0f, 135.0f, 0.5f);
+    CHECK(midnight.daylight == 0.0f);
+    CHECK(midnight.strength == doctest::Approx(Render::Lighting::kMoonStrength));
+    const glm::vec3 noon = SunDirection(135.0f, 0.5f);
+    CHECK(midnight.toSun.x == doctest::Approx(noon.x));
+    CHECK(midnight.toSun.z == doctest::Approx(noon.z));
+    // The moon rises as the sun sets.
+    CHECK(SunAtHour(18.5f, 135.0f, 0.5f).strength < midnight.strength);
+}
+
+TEST_CASE("the sun is white at noon, warmer the lower it stands; the moon is cool [render][sun]")
+{
+    using Render::Lighting::SunAtHour;
+    CHECK(SunAtHour(12.0f, 135.0f, 0.5f).color == glm::vec3(1.0f));
+    const glm::vec3 morning = SunAtHour(9.0f, 135.0f, 0.5f).color;
+    const glm::vec3 dawn = SunAtHour(6.5f, 135.0f, 0.5f).color;
+    CHECK(morning.b < 1.0f);
+    CHECK(dawn.b < morning.b);
+    CHECK(dawn.r == doctest::Approx(1.0f));
+    CHECK(SunAtHour(15.0f, 135.0f, 0.5f).color.b == doctest::Approx(morning.b));
+    CHECK(SunAtHour(0.0f, 135.0f, 0.5f).color == Render::Lighting::kMoonColor);
+}

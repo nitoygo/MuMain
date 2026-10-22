@@ -10,6 +10,7 @@
 #include <algorithm>
 #include <chrono>
 #include <cstdint>
+#include <iterator>
 #include <limits>
 #include <utility>
 
@@ -28,6 +29,10 @@ struct State
     int world = NoWorld;
     std::uint32_t lookRevision = 0;
     Scales scales;
+    // The daylight the scales were blended at (SetDaylight); 1 without the clock.
+    float daylight = 1.f;
+    float sunColor[3] = {1.f, 1.f, 1.f};
+    float sunStrength = 1.f;
 };
 
 State s_state;
@@ -54,9 +59,18 @@ void Recompute(int world)
 {
     s_state.world = world;
     s_state.lookRevision = Look::Revision();
-    s_state.scales = s_state.enabled && IsWorldMap(world) ? Blend(s_state.data.ForWorld(world), s_state.strength,
-                                                                  Look::Value(Data::Maps::LookValue::HighlightKnee))
-                                                          : Scales{};
+    const float knee = Look::Value(Data::Maps::LookValue::HighlightKnee);
+    if (!s_state.enabled || !IsWorldMap(world))
+    {
+        s_state.scales = Scales{};
+        return;
+    }
+    const Scales day = Blend(s_state.data.ForWorld(world), s_state.strength, knee);
+    s_state.scales = s_state.daylight >= 1.f
+                         ? day
+                         : Mix(day, Blend(s_state.data.NightForWorld(world), s_state.strength, knee), s_state.daylight);
+    std::copy(std::begin(s_state.sunColor), std::end(s_state.sunColor), s_state.scales.sunColor);
+    s_state.scales.sunStrength = s_state.sunStrength;
 }
 
 void RebuildStaticLight()
@@ -133,6 +147,29 @@ void ScaleOwnHeroLight(float x, float y, const float classicLight[3], float ligh
     const Scales& scales = Active();
     ScaleFixedFigureLight(scales, classicLight, light,
                           scales.shadowKeep > 0.f ? RequestStaticLightBrightWeight(x, y) : 0.f);
+}
+
+bool SetSunlight(float daylight, float strength, const float color[3])
+{
+    strength = std::clamp(strength, 0.f, 1.f);
+    daylight = std::clamp(daylight, 0.f, 1.f);
+    const bool atEnd = daylight == 0.f || daylight == 1.f;
+    float colorMoved = 0.f;
+    for (int i = 0; i < 3; ++i)
+        colorMoved = (std::max)(colorMoved, std::abs(color[i] - s_state.sunColor[i]));
+    const bool daylightMoved =
+        daylight != s_state.daylight && (atEnd || std::abs(daylight - s_state.daylight) >= 0.02f);
+    const bool strengthMoved = strength != s_state.sunStrength &&
+                               (strength == 0.f || strength == 1.f || std::abs(strength - s_state.sunStrength) >= 0.02f);
+    if (!daylightMoved && !strengthMoved && colorMoved < 0.02f)
+    {
+        return false;
+    }
+    s_state.daylight = daylight;
+    s_state.sunStrength = strength;
+    std::copy(color, color + 3, s_state.sunColor);
+    Recompute(gMapManager.WorldActive);
+    return true;
 }
 
 } // namespace Render::Lighting::LightMood

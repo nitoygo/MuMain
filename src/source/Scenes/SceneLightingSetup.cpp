@@ -66,8 +66,8 @@ void SubmitSceneLighting()
         lighting.sunDirection[0] = toSun.x;
         lighting.sunDirection[1] = toSun.y;
         lighting.sunDirection[2] = toSun.z;
-        lighting.sunShadowDarkness =
-            Render::Look::Value(LookValue::SunShadowStrength) * Render::Look::Value(LookValue::GroundShadowOpacity);
+        lighting.sunShadowDarkness = Render::Look::Value(LookValue::SunShadowStrength) *
+                                     Render::Look::Value(LookValue::GroundShadowOpacity) * sun->strength;
         lighting.sunShadowSoftness = Render::Look::Value(LookValue::SunShadowSoftness);
         lighting.sunShadowResolution = static_cast<std::uint32_t>(Render::Look::Value(LookValue::SunShadowResolution));
         // Around the hero: the ground the camera sees lies within these heights.

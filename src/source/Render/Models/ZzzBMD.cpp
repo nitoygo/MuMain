@@ -2974,9 +2974,9 @@ void BMD::RenderBodyShadow(const int blendMesh, const int hiddenMesh, const int 
         }
     };
     // The sun shadow map shadows the ground itself; only the flat shadow is drawn without it, as dark
-    // as the map lets it be (dynamic.flatSunShadow: none indoors).
-    const float flatSunShadow =
-        Render::Lighting::DynamicLightsActive() ? Render::Look::Value(Data::Maps::LookValue::FlatSunShadow) : 1.f;
+    // as the map lets it be (dynamic.flatSunShadow: none indoors) and as strong as the sun (or moon) is.
+    const std::optional<Render::Lighting::FrameSunDirections> sun = Render::Lighting::FrameSun();
+    const float flatSunShadow = sun ? Render::Look::Value(Data::Maps::LookValue::FlatSunShadow) * sun->strength : 1.f;
     if (!Render::Lighting::SunShadowsActive() && flatSunShadow > 0.f)
     {
         const mu::ScopedGroundShadow groundShadow;

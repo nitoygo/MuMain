@@ -602,18 +602,26 @@ static glm::vec3 TerrainSunVector()
 // The vector BackTerrainLight was last built with.
 static glm::vec3 s_terrainLightSun{0.f};
 
-void CreateTerrainLight()
+// The next row of a static light build spread over frames (InitTerrainLight); TERRAIN_SIZE: none running.
+static int s_bakeRow = TERRAIN_SIZE;
+
+static void CreateTerrainLightRows(int firstRow, int endRow, const Render::Lighting::LightMood::Scales& scales)
 {
-    s_terrainLightSun = TerrainSunVector();
     const vec3_t Light = {s_terrainLightSun.x, s_terrainLightSun.y, s_terrainLightSun.z};
-    const Render::Lighting::LightMood::Scales& scales = Render::Lighting::LightMood::Active();
-    for (int y = 0; y < TERRAIN_SIZE; y++)
+    for (int y = firstRow; y < endRow; y++)
     {
         for (int x = 0; x < TERRAIN_SIZE; x++)
         {
             CreateStaticLightCell(TERRAIN_INDEX(x, y), Light, scales);
         }
     }
+}
+
+void CreateTerrainLight()
+{
+    s_bakeRow = TERRAIN_SIZE;
+    s_terrainLightSun = TerrainSunVector();
+    CreateTerrainLightRows(0, TERRAIN_SIZE, Render::Lighting::LightMood::Active());
 }
 
 void CreateTerrainLight_Part(int xi, int yi)
@@ -2888,12 +2896,44 @@ extern int EnableEvent;
 
 void InitTerrainLight()
 {
-    // The sun moved (dynamic.shadowAngle): the slope shading follows it.
-    if (const glm::vec3 sun = TerrainSunVector();
-        glm::any(glm::greaterThan(glm::abs(sun - s_terrainLightSun), glm::vec3(1e-4f))))
+    // The sun moved (dynamic.shadowAngle, the clock) or the sunlight changed: the static light follows,
+    // at most every kClockBakeInterval while the clock runs, then a few rows a frame.
+    constexpr std::chrono::seconds kClockBakeInterval{2};
+    constexpr int kClockBakeRowsPerFrame = 32;
+    static std::chrono::steady_clock::time_point s_lastBake;
+    static Render::Lighting::LightMood::Scales s_bakeScales;
+    const auto now = std::chrono::steady_clock::now();
+    const std::optional<Render::Lighting::FrameSunDirections> frameSun = Render::Lighting::FrameSun();
+    const bool clock = frameSun && Render::Lighting::FrameHour().has_value();
+    if (s_bakeRow < TERRAIN_SIZE)
     {
         FRAME_PROFILE(TerrainBake);
-        CreateTerrainLight();
+        const int endRow = (std::min)(s_bakeRow + kClockBakeRowsPerFrame, TERRAIN_SIZE);
+        CreateTerrainLightRows(s_bakeRow, endRow, s_bakeScales);
+        s_bakeRow = endRow;
+    }
+    else if (!clock || now - s_lastBake >= kClockBakeInterval)
+    {
+        FRAME_PROFILE(TerrainBake);
+        const glm::vec3 sunColor = frameSun ? frameSun->color : glm::vec3(1.f);
+        const bool moodChanged = Render::Lighting::LightMood::SetSunlight(
+            frameSun ? frameSun->daylight : 1.f, frameSun ? frameSun->strength : 1.f, &sunColor[0]);
+        const bool sunMoved =
+            glm::any(glm::greaterThan(glm::abs(TerrainSunVector() - s_terrainLightSun), glm::vec3(1e-4f)));
+        if (moodChanged || sunMoved)
+        {
+            s_lastBake = now;
+            if (clock)
+            {
+                s_terrainLightSun = TerrainSunVector();
+                s_bakeScales = Render::Lighting::LightMood::Active();
+                s_bakeRow = 0;
+            }
+            else
+            {
+                CreateTerrainLight();
+            }
+        }
     }
     Render::Lighting::FrameDynamicLights().Clear();
     Render::Lighting::FrameWorldDynamicLights().Clear();
