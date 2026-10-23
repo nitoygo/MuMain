@@ -256,7 +256,15 @@ bool Open(int slot)
     // A monster model the model file table names is drawn from its glTF binary (with the BMD's actions);
     // otherwise, or when the file is refused, from the BMD.
     const Data::Models::ModelFiles& modelFiles = Data::Models::GetModelFileTable();
-    if (monsterRange && Data::Models::ApplyModelFile(target, slot, modelFiles))
+    // The file may order its bones differently, so the head bone is found by the BMD bone's name.
+    std::string headBoneName;
+    if (model->headBone && *model->headBone >= 0 && *model->headBone < target.NumBones)
+    {
+        const char* name = target.Bones[*model->headBone].Name;
+        headBoneName.assign(name, strnlen(name, sizeof(target.Bones[0].Name)));
+    }
+    const bool fromModelFile = monsterRange && Data::Models::ApplyModelFile(target, slot, modelFiles);
+    if (fromModelFile)
     {
         Data::Models::OpenModelFileTextures(slot, LoaderFolders(FoldersOnWorld(*model)), modelFiles);
     }
@@ -268,6 +276,10 @@ bool Open(int slot)
     OpenParts(*model);
     ApplyAnimations(target, model->load, monsterRange ? Defaults::MonsterRange : Defaults::NpcRange);
     SetMeshValues(target, *model);
+    if (fromModelFile && !headBoneName.empty())
+    {
+        target.BoneHead = target.FindBoneOrRoot(headBoneName);
+    }
     LoadSounds(*model);
     SetSoundSlots(target, *model);
     LoadBitmaps(*model);
