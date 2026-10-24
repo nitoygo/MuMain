@@ -16,6 +16,11 @@ struct SceneLighting
     float4x4 sunViewProjection;
     float4 sunShadowParameters;
     float4 lightingParameters;
+    float4 cloudParameters;
+    float4 cloudOffset;
+    float4 skyFill;
+    float4 sunTowards;
+    float4 sunColor;
 };
 
 struct FogUniforms

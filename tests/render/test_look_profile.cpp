@@ -251,6 +251,12 @@ TEST_CASE("the developer tuning commands name their look values [render][look]")
     single(L"$fog glow 0.5", LookValue::FogAnisotropy, 0.5);
     single(L"$fog sun 2", LookValue::FogSunScatter, 2.0);
     single(L"$fog lights 1.5", LookValue::FogLightScatter, 1.5);
+    single(L"$clouds scale 4000", LookValue::CloudScale, 4000.0);
+    single(L"$clouds speed 60", LookValue::CloudSpeed, 60.0);
+    single(L"$clouds cover 0.5", LookValue::CloudCover, 0.5);
+    single(L"$clouds 0.3", LookValue::CloudStrength, 0.3);
+    single(L"$sky 0.5", LookValue::SkyFill, 0.5);
+    single(L"$rim sun 1", LookValue::RimSunFollow, 1.0);
     single(L"$fog 0.5", LookValue::FogDensity, 0.5);
     single(L"$ao 0.5", LookValue::AmbientOcclusionStrength, 0.5);
     single(L"$shafts skills 0.5", LookValue::LightShaftSkills, 0.5);

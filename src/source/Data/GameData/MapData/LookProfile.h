@@ -67,6 +67,12 @@ enum class LookValue : std::uint8_t
     FogAnisotropy,
     FogSunScatter,
     FogLightScatter,
+    CloudStrength,
+    CloudScale,
+    CloudSpeed,
+    CloudCover,
+    SkyFill,
+    RimSunFollow,
     Count,
 };
 

@@ -94,6 +94,12 @@ window.
 | Dynamic lights | Sunrise and sunset warmth | `time.dawnWarmth` | 0–150 % | 5 % | 100 % | More settings |
 | Dynamic lights | Moonlight tint | `time.moonTint` | 0–150 % | 5 % | 100 % | More settings |
 | Dynamic lights | Flat sun shadow | `dynamic.flatSunShadow` | 0–100 % | 5 % | 100 % (0 indoors) | More settings |
+| Dynamic lights | Cloud shadows | `clouds.strength` | 0–100 % | 5 % | 0 | common |
+| Dynamic lights | Cloud size | `clouds.scale` | 500–10000 | 250 | 3000 | More settings |
+| Dynamic lights | Cloud speed | `clouds.speed` | 0–300 | 5 | 40 | More settings |
+| Dynamic lights | Cloud cover | `clouds.cover` | 0–100 % | 5 % | 45 % | More settings |
+| Dynamic lights | Sky-blue shade | `sky.fill` | 0–100 % | 5 % | 0 | common |
+| Dynamic lights | Rim light follows the sun | `lighting.rim.sunFollow` | 0–100 % | 5 % | 0 | More settings |
 | Darker map light | Mood strength | `mood.strengthPercent` | 0–100 % | 1 % | 100 % | common |
 | Bloom and colour grading | Bloom intensity | `bloom.strength` | 0–2 | 0.05 | 1 (Icarus 0.3) | common |
 | Bloom and colour grading | Bloom spread | `bloom.levelFalloff` | 0.25–1 | 0.05 | 0.6 | common |
@@ -246,6 +252,12 @@ for the whole file.
 | `time.dawnWarmth` | 1 | 1 | 0–1.5 | how far the low sun's light turns orange (0 keeps it white all day) |
 | `time.moonTint` | 1 | 1 | 0–1.5 | how far the moonlight turns blue (0 makes it white) |
 | `dynamic.flatSunShadow` | 1 (Dungeon, Lost Tower, Kanturu Relics, Refinery Tower: 0) | 1 | 0–1 | how dark the flat shadow under characters is while sun shadows are off (`sun.shadow` 0), on top of the shadow's own darkness. The indoor and underground maps set both to 0: no sun there, so only torches and spells cast character shadows. Classic always draws it |
+| `clouds.strength` | 0 | 0 | 0–1 | how much a passing cloud dims the sun's (or moon's) light on the ground, characters and fog; drifting procedural clouds whose shadows fall slanted by the sun, fading with its strength. Only with sun shadows |
+| `clouds.scale` | 3000 | 3000 | 500–10000 | the cloud pattern's size in world units |
+| `clouds.speed` | 40 | 40 | 0–300 | how fast the clouds drift along a fixed wind, in world units per second |
+| `clouds.cover` | 0.45 | 0.45 | 0–1 | the share of the sky the clouds cover |
+| `sky.fill` | 0 | 0 | 0–1 | how far shade (from shadows and clouds) turns towards the sky's blue while sunlit places keep the sun's colour; replaces the light mood's `shadeCool` while sun shadows are on. Only with sun shadows |
+| `lighting.rim.sunFollow` | 0 | 0 | 0–1 | how much the characters' edge light comes from the sun: brighter and sun-coloured on its side, gone in its shadow; 0 the even Enhanced rim |
 | `sun.resolution` | 2048 | 2048 | 1024–4096 | the sun shadow map's size in texels (1024, 2048 or 4096): sharper shadows for more graphics memory and time |
 
 ## Developer commands
@@ -275,7 +287,7 @@ Shorter forms of `$look set`: `$lighting rim <v>`, `$lighting specular <v>`,
 `$lighting diffuse <scale> <ambient> <floor>`, `$lightmood knee <k>`,
 `$dynlights wrap <w>`, `$dynlights smooth <s>`,
 `$dynlights spell <gain> <range> <fade>`, `$dynlights cap <c>`,
-`$dynlights reach <cells>`, `$dynlights shadow <opacity>`, `$dynlights shadowangle <degrees>`, `$dynlights shadowlights <n>`, `$bloom falloff <f>`, `$bloom <strength>`, `$ao <strength>`, `$ao radius <r>`, `$fog <density>`, `$fog height <h>`, `$fog glow <g>`, `$fog sun <f>`, `$fog lights <f>`, `$shafts <strength>`, `$shafts skills <f>`, `$shafts map <f>`, `$sun <strength>`, `$sun softness <f>`, `$sun resolution <texels>`, `$dynlights falloff <f>`, `$dynlights flatsun <f>`, `$time day <minutes>`, `$time dawn <f>`, `$time moon <f>`, `$time <hour>`, `$time off`.
+`$dynlights reach <cells>`, `$dynlights shadow <opacity>`, `$dynlights shadowangle <degrees>`, `$dynlights shadowlights <n>`, `$bloom falloff <f>`, `$bloom <strength>`, `$ao <strength>`, `$ao radius <r>`, `$fog <density>`, `$fog height <h>`, `$fog glow <g>`, `$fog sun <f>`, `$fog lights <f>`, `$clouds <strength>`, `$clouds scale <units>`, `$clouds speed <units/s>`, `$clouds cover <f>`, `$sky <f>`, `$rim sun <f>`, `$shafts <strength>`, `$shafts skills <f>`, `$shafts map <f>`, `$sun <strength>`, `$sun softness <f>`, `$sun resolution <texels>`, `$dynlights falloff <f>`, `$dynlights flatsun <f>`, `$time day <minutes>`, `$time dawn <f>`, `$time moon <f>`, `$time <hour>`, `$time off`.
 The DevEditor has the same values in its Look panel.
 
 Feature overrides, to compare one feature on and off. They last for the

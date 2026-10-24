@@ -12,6 +12,8 @@ struct FogUniforms
     float4 medium;
     float4 sun;
     float4 scatter;
+    float4 clouds;
+    float4 cloudOffset;
     uint4 size;
     uint4 target;
 };

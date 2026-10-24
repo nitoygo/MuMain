@@ -38,6 +38,12 @@
 //   $fog glow <g>                  fog.anisotropy
 //   $fog sun <f>                   fog.sunScatter
 //   $fog lights <f>                fog.lightScatter
+//   $clouds scale <units>          clouds.scale
+//   $clouds speed <units/s>        clouds.speed
+//   $clouds cover <f>              clouds.cover
+//   $clouds <strength>             clouds.strength
+//   $sky <f>                       sky.fill
+//   $rim sun <f>                   lighting.rim.sunFollow
 //   $fog <density>                 fog.density
 //   $ao <v>                        ao.strength
 //   $shafts skills <f>             shafts.skills

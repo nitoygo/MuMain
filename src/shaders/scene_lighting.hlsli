@@ -25,6 +25,11 @@ cbuffer SceneLighting : register(b1, space3)
     float4x4 sunViewProjection; // world to the sun shadow map's clip space
     float4 sunShadowParameters; // darkness (0: no shadow map), softness in texels, 1 / map size, texel in world units
     float4 lightingParameters;  // x: point lights' physical falloff (0 linear, 1 inverse-square)
+    float4 cloudParameters;     // x: cloud strength (0: none), y: 1 / pattern size, z: sky cover
+    float4 cloudOffset;         // xy: the clouds' drift plus the sun's slant
+    float4 skyFill;             // rgb: the sky's tint of the shade, w: how far shade takes it
+    float4 sunTowards;          // xyz: towards the sun (or moon), w: how far the rim follows it
+    float4 sunColor;            // rgb: the sun's (or moon's) colour
 };
 
 // The Enhanced exponential fog: the same curve as mu::EnhancedFogAmount() (SceneLighting.cpp).

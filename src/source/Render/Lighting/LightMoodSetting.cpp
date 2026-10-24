@@ -3,6 +3,7 @@
 #include "Render/Lighting/LightMoodSetting.h"
 
 #include "Core/Utilities/Log/MuLogger.h"
+#include "Render/Lighting/DynamicLightsSetting.h"
 #include "Render/Look/LookProfileSetting.h"
 #include "Render/Terrain/ZzzLodTerrain.h"
 #include "World/MapInfra/MapManager.h"
@@ -71,6 +72,12 @@ void Recompute(int world)
                          : Mix(day, Blend(s_state.data.NightForWorld(world), s_state.strength, knee), s_state.daylight);
     std::copy(std::begin(s_state.sunColor), std::end(s_state.sunColor), s_state.scales.sunColor);
     s_state.scales.sunStrength = s_state.sunStrength;
+    // Under a sun that casts shadows the sky fill tints the shade (the lit shaders): no second blue here.
+    if (DynamicLightsActive() && Look::Value(Data::Maps::LookValue::SunShadowStrength) > 0.0f &&
+        Look::Value(Data::Maps::LookValue::SkyFill) > 0.0f)
+    {
+        s_state.scales.shadeCool = 0.f;
+    }
 }
 
 void RebuildStaticLight()

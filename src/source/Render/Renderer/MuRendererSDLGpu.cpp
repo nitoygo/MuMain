@@ -2775,6 +2775,10 @@ public:
         uniform.scatter[2] = AmbientShare;
         // One and a half shadow-map texels between the soft lookup's taps.
         uniform.scatter[3] = 1.5f * s_sceneLightingUniform.sunShadowParameters[2];
+        std::copy(std::begin(s_sceneLightingUniform.cloudParameters), std::end(s_sceneLightingUniform.cloudParameters),
+                  uniform.clouds);
+        std::copy(std::begin(s_sceneLightingUniform.cloudOffset), std::end(s_sceneLightingUniform.cloudOffset),
+                  uniform.cloudOffset);
         return uniform;
     }
 

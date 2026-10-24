@@ -4,6 +4,7 @@
 // map sees it, more of it looking towards the sun, and the glow of the frame's point lights near them.
 // Writes rgb: the light gathered up to the slice's far end, a: the share of what lies behind that shows.
 #include "fog_common.hlsli"
+#include "clouds.hlsli"
 
 static const uint MaxDynamicLights = 32; // mu::kMaxDynamicLights
 // Mirrors mu::DynamicLightsUniform (std140), as in dynamic_lighting.hlsli.
@@ -97,7 +98,8 @@ void main(uint3 cell : SV_DispatchThreadID)
         // The sun is looked up at a dithered point inside the slice, so shadow edges dissolve into a
         // fine grain instead of banding along the slices.
         const float3 sunPoint = camera.xyz + direction * lerp(start, end, Dither(float2(cell.xy), float(z)));
-        const float3 lit = color.rgb * (scatter.z + scatter.y * sunPhase * SunVisibility(sunPoint)) +
+        const float3 lit = color.rgb * (scatter.z + scatter.y * sunPhase * SunVisibility(sunPoint) *
+                                                      CloudLight(sunPoint.xy, clouds, cloudOffset.xy)) +
                            medium.w * PointLightGlow(position);
         light += transmittance * lit * (1.0 - kept);
         transmittance *= kept;

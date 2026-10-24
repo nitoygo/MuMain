@@ -14,6 +14,8 @@ cbuffer FogUniforms : register(b0, space2)
     float4 sun;                     // xyz: towards the sun (or moon), w: 1 when the shadow map holds its shadows
     float4 scatter;                 // x: fog.anisotropy, y: fog.sunScatter, z: the ambient share,
                                     // w: the sun shadow map's soft lookup step, in its uv
+    float4 clouds;                  // as SceneLighting's cloudParameters
+    float4 cloudOffset;             // xy: as SceneLighting's cloudOffset
     uint4 size;                     // xyz: the volume's cells, w: unused
     uint4 target;                   // xy: the fog layer's pixels
 };
