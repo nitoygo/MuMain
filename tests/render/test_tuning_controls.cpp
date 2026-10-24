@@ -105,14 +105,26 @@ const SpecRow Spec[] = {
      TuningUnit::Percent, TuningZero::Plain},
     {TuningControlId::DayMinutes, TuningGroup::DynamicLights, false, LookValue::DayMinutes, 0, 240, 5, TuningUnit::None,
      TuningZero::Plain},
-    {TuningControlId::DawnWarmth, TuningGroup::DynamicLights, true, LookValue::DawnWarmth, 0, 1.5, 0.05, TuningUnit::Percent,
+    {TuningControlId::Daylight, TuningGroup::DynamicLights, true, LookValue::Daylight, 0, 1, 0.05, TuningUnit::Percent,
      TuningZero::Plain},
-    {TuningControlId::MoonTint, TuningGroup::DynamicLights, true, LookValue::MoonTint, 0, 1.5, 0.05, TuningUnit::Percent,
+    {TuningControlId::SunHeight, TuningGroup::DynamicLights, true, LookValue::SunHeight, 5, 90, 1, TuningUnit::Degrees,
      TuningZero::Plain},
-    {TuningControlId::FogDensity, TuningGroup::PostProcessing, false, LookValue::FogDensity, 0, 2, 0.05, TuningUnit::None,
+    {TuningControlId::SunStrength, TuningGroup::DynamicLights, true, LookValue::SunStrength, 0, 1, 0.05,
+     TuningUnit::Percent, TuningZero::Plain},
+    {TuningControlId::SunWarmth, TuningGroup::DynamicLights, true, LookValue::SunWarmth, -1, 1, 0.05,
+     TuningUnit::Percent, TuningZero::Plain},
+    {TuningControlId::SkyBrightness, TuningGroup::DynamicLights, true, LookValue::SkyBrightness, 0, 1, 0.05,
+     TuningUnit::Percent, TuningZero::Plain},
+    {TuningControlId::SkyFarLight, TuningGroup::DynamicLights, true, LookValue::SkyFarLight, 0, 1, 0.05,
+     TuningUnit::Percent, TuningZero::Plain},
+    {TuningControlId::SkyGlow, TuningGroup::DynamicLights, true, LookValue::SkyGlow, 0, 1, 0.05, TuningUnit::Percent,
      TuningZero::Plain},
-    {TuningControlId::FogHeight, TuningGroup::PostProcessing, false, LookValue::FogHeight, 50, 2000, 50, TuningUnit::None,
+    {TuningControlId::SkyNight, TuningGroup::DynamicLights, true, LookValue::SkyNight, 0, 1, 0.05, TuningUnit::Percent,
      TuningZero::Plain},
+    {TuningControlId::FogDensity, TuningGroup::PostProcessing, false, LookValue::FogDensity, 0, 2, 0.05,
+     TuningUnit::None, TuningZero::Plain},
+    {TuningControlId::FogHeight, TuningGroup::PostProcessing, false, LookValue::FogHeight, 50, 2000, 50,
+     TuningUnit::None, TuningZero::Plain},
     {TuningControlId::FogAnisotropy, TuningGroup::PostProcessing, false, LookValue::FogAnisotropy, 0, 0.9, 0.05,
      TuningUnit::None, TuningZero::Plain},
     {TuningControlId::FogSunScatter, TuningGroup::PostProcessing, false, LookValue::FogSunScatter, 0, 4, 0.1,
@@ -131,16 +143,20 @@ const SpecRow Spec[] = {
      TuningZero::Plain},
     {TuningControlId::RimSunFollow, TuningGroup::DynamicLights, true, LookValue::RimSunFollow, 0, 1, 0.05,
      TuningUnit::Percent, TuningZero::Plain},
+    {TuningControlId::LinearLight, TuningGroup::DynamicLights, true, LookValue::LinearLight, 0, 1, 0.05,
+     TuningUnit::Percent, TuningZero::Plain},
+    {TuningControlId::QualityTier, TuningGroup::PostProcessing, false, LookValue::QualityTier, 0, 2, 1,
+     TuningUnit::None, TuningZero::Plain},
 };
 
 Data::Maps::LookProfileData ShippedLikeProfile()
 {
     Data::Maps::LookProfileData profile;
-    profile.defaultOverrides[LookValue::BloomStrength] = 1.0;
-    profile.defaultOverrides[LookValue::DynamicEffectGain] = 1.5;
+    profile.defaults.overrides[LookValue::BloomStrength] = 1.0;
+    profile.defaults.overrides[LookValue::DynamicEffectGain] = 1.5;
     Data::Maps::MapLookOverrides icarus;
     icarus.world = Icarus;
-    icarus.overrides[LookValue::BloomStrength] = 0.3;
+    icarus.layer.overrides[LookValue::BloomStrength] = 0.3;
     profile.maps.push_back(icarus);
     return profile;
 }
@@ -148,7 +164,7 @@ Data::Maps::LookProfileData ShippedLikeProfile()
 
 TEST_CASE("the 31 tuning controls have the specified bounds, steps, units and placement [render][look][tuning]")
 {
-    REQUIRE(Render::Look::TuningControlCount == 46);
+    REQUIRE(Render::Look::TuningControlCount == 54);
     REQUIRE(std::size(Spec) == Render::Look::TuningControlCount);
     std::set<LookValue> covered;
     for (const SpecRow& row : Spec)
@@ -266,7 +282,7 @@ TEST_CASE("player values apply after the map's and yield to a developer's sessio
 
     // A developer's edit of the same value wins while it lasts.
     Data::Maps::LookProfileData edited = profile;
-    edited.defaultOverrides[LookValue::BloomStrength] = 1.8;
+    edited.defaults.overrides[LookValue::BloomStrength] = 1.8;
     Render::Look::DeveloperLookEdits developer;
     developer.Mark(LookValue::BloomStrength, std::nullopt);
     CHECK(Render::Look::ResolveLookValues(edited, Lorencia, personal, developer, all)[LookValue::BloomStrength] == 1.8);
@@ -282,7 +298,7 @@ TEST_CASE("player values apply after the map's and yield to a developer's sessio
 TEST_CASE("an inherited value between steps is not changed by resolving it [render][look][tuning]")
 {
     Data::Maps::LookProfileData profile;
-    profile.defaultOverrides[LookValue::RimStrength] = 0.37;
+    profile.defaults.overrides[LookValue::RimStrength] = 0.37;
     const Data::Maps::LookValues values =
         Render::Look::ResolveLookValues(profile, Lorencia, {}, {}, {true, true, true, true});
     CHECK(values[LookValue::RimStrength] == 0.37);

@@ -3,6 +3,12 @@
 // exponentially from `camera.w` (the first slice's start) to `color.w` (the last one's end).
 #ifndef MU_FOG_COMMON_HLSLI
 #define MU_FOG_COMMON_HLSLI
+// The storage images' format (SdlGpuVolumetricFog::Format) for glslang; DXC needs no declaration.
+#ifdef MU_D3D12_RAW_STORAGE_BUFFER
+#define FOG_STORAGE_FORMAT
+#else
+#define FOG_STORAGE_FORMAT [[spv::format_rgba16f]]
+#endif
 cbuffer FogUniforms : register(b0, space2)
 {
     float4x4 inverseViewProjection; // clip space to world

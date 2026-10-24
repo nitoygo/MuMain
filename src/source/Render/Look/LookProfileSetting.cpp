@@ -32,6 +32,7 @@ struct State
     std::string source = "shipped";
     // The saves SaveLive made (SaveCount).
     int saves = 0;
+    std::optional<Data::Maps::TimeBlend> timeBlend;
 };
 
 State s_state;
@@ -74,7 +75,12 @@ void LoadProfile()
 
 const LookValues& Active()
 {
-    return s_state.layers.Active(gMapManager.WorldActive);
+    return s_state.layers.Active(gMapManager.WorldActive, s_state.timeBlend);
+}
+
+void SetTimeBlend(const std::optional<Data::Maps::TimeBlend>& blend)
+{
+    s_state.timeBlend = blend;
 }
 
 void SetPersonalLookOverrides(const Data::Maps::LookOverrides& overrides)
@@ -286,7 +292,7 @@ bool HandleDeveloperCommand(std::wstring_view command)
         break;
     case LookVerb::Set:
     {
-        const LookEdit edit{look->name, look->value};
+        const LookEdit edit{look->name, look->value, look->state};
         (void)SetLive(std::span<const LookEdit>(&edit, 1), look->map);
         break;
     }

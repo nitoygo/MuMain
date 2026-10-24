@@ -57,12 +57,16 @@ struct SceneLighting
     // How physically point lights fade: 0 the terrain light's linear fade over the horizontal
     // distance, 1 inverse-square over the full distance (PointLightFalloff).
     float physicalFalloff = 0.0f;
-    // Enhanced volumetric fog: the light the air scatters (the sun's or moon's, through the light mood)
+    // The least diffuse light world models keep from the sky away from a low sun (SkyFarLight), 0 without the clock.
+    float skyFarLight = 0.0f;
+    // How far the world's lit shaders add their lights in linear light (lighting.linear), 0 without a frame sun.
+    float linearLight = 0.0f;
+    // Enhanced volumetric fog: the colour of the light the air scatters (the sun's or moon's, through the light mood)
     // and the height it is thickest at (the hero's ground).
     float fogLight[3]{1.0f, 1.0f, 1.0f};
     float fogBase = 0.0f;
-    // fog.density's factor: thicker as the sun stands lower, 1 at noon, by night and without the clock.
-    float fogDensityScale = 1.0f;
+    // How strong the sun's (or moon's) light is, 1 without the clock.
+    float fogSunStrength = 1.0f;
     // Enhanced cloud shadows: how much a cloud dims the sun's light (0: none), the pattern's size in
     // world units, the share of sky covered and the pattern's offset (drift and the sun's slant).
     float cloudStrength = 0.0f;
@@ -74,6 +78,9 @@ struct SceneLighting
     float rimSunFollow = 0.0f;
     // The sun's (or moon's) colour.
     float sunColor[3]{1.0f, 1.0f, 1.0f};
+    // The sky's colour on the sun's side and the other: the tint of the light that is not direct sun.
+    float skyToward[3]{1.0f, 1.0f, 1.0f};
+    float skyAway[3]{1.0f, 1.0f, 1.0f};
 };
 
 // The frame's fog as configured through IMuRenderer::SetFog() when the scene lighting was set.
@@ -99,12 +106,14 @@ struct SceneLightingUniform
     float cameraPosition[4];     // xyz world space, w unused
     float sunViewProjection[16]; // column-major, world to the sun shadow map's clip space
     float sunShadowParameters[4]; // darkness (0: no shadow map), softness in texels, 1 / map size, texel size
-    float lightingParameters[4];  // physical falloff, unused, unused, unused
+    float lightingParameters[4];  // physical falloff, terrain sunlight grid bound, sky far light, linear light
     float cloudParameters[4];     // strength (0: no clouds), 1 / pattern size, sky cover, unused
     float cloudOffset[4];         // xy: drift plus the sun's slant through the clouds, zw unused
     float skyFill[4];             // rgb: the sky's tint of the shade, w: how far shade takes it
     float sunTowards[4];          // xyz: towards the sun (or moon), w: how far the rim follows it
     float sunColor[4];            // rgb: the sun's (or moon's) colour, w unused
+    float skyToward[4];           // rgb: the sky's colour on the sun's side, w unused
+    float skyAway[4];             // rgb: the sky's colour on the other side, w unused
 };
 
 inline constexpr std::size_t kSceneLightingRegisterSize = 16;
@@ -121,7 +130,8 @@ static_assert(offsetof(SceneLightingUniform, sunShadowParameters) == 12 * kScene
 static_assert(offsetof(SceneLightingUniform, lightingParameters) == 13 * kSceneLightingRegisterSize);
 static_assert(offsetof(SceneLightingUniform, cloudParameters) == 14 * kSceneLightingRegisterSize);
 static_assert(offsetof(SceneLightingUniform, sunColor) == 18 * kSceneLightingRegisterSize);
-static_assert(sizeof(SceneLightingUniform) == 19 * kSceneLightingRegisterSize);
+static_assert(offsetof(SceneLightingUniform, skyAway) == 20 * kSceneLightingRegisterSize);
+static_assert(sizeof(SceneLightingUniform) == 21 * kSceneLightingRegisterSize);
 
 [[nodiscard]] SceneLightingUniform PackSceneLightingUniform(const SceneLighting& lighting, const SceneFog& fog);
 

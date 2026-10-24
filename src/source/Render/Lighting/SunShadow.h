@@ -32,35 +32,35 @@ inline constexpr float kBakedSunShadowAngle = 135.0f;
 [[nodiscard]] glm::vec3 FollowSun(const glm::vec3& baked, const glm::vec3& bakedSun, const glm::vec3& sun,
                                   float minElevationDegrees = -89.0f);
 
-// The day: the sun rises at kSunriseHour, stands at its noon position at 12 and sets at kSunsetHour.
-inline constexpr float kSunriseHour = 6.0f;
-inline constexpr float kSunsetHour = 18.0f;
-// How strong the moon's light is at its highest, a share of the noon sun's.
-inline constexpr float kMoonStrength = 0.8f;
-// The light's colour: the sun's at the horizon (sunrise, sunset), warming towards it from white at
-// noon, and the moon's.
+// The direct light's colours: the sun's at the horizon and the moon's (sun.warmth).
 inline constexpr glm::vec3 kSunHorizonColor{1.0f, 0.62f, 0.38f};
 inline constexpr glm::vec3 kMoonColor{0.78f, 0.86f, 1.0f};
-// The sun's height at which daylight is full; below it, it fades to night at the horizon.
-inline constexpr float kTwilightElevationDegrees = 12.0f;
+// The light's colour at sun.warmth `warmth` (-1 to 1): white at 0, towards kSunHorizonColor above,
+// towards kMoonColor below.
+[[nodiscard]] glm::vec3 SunColor(float warmth);
 
-struct SunAtTime
+// The sky's colour on the sun's side and on the other side, each of luminance 1 so that it tints the
+// sky's light without changing its brightness: white, towards kNightSky by `night` (sky.night), then
+// towards kTwilightGlow on the sun's side and kTwilightShade on the other by `glow` (sky.glow).
+inline constexpr glm::vec3 kTwilightGlow{1.0f, 0.55f, 0.3f};
+inline constexpr glm::vec3 kTwilightShade{0.65f, 0.5f, 1.0f};
+inline constexpr glm::vec3 kNightSky{0.72f, 0.82f, 1.0f};
+struct SkyColors
 {
-    glm::vec3 toSun{0.0f, 0.0f, 1.0f};
-    // 1 by day, 0 by night, in between at dawn and dusk.
-    float daylight = 1.0f;
-    // How strong the light from toSun is, 1 at noon: the sun's light on level ground (the sine of its
-    // height over the noon sun's), by night the moon's (kMoonStrength at its highest).
-    float strength = 1.0f;
-    // The light's colour: white at noon, warmer the lower the sun, kMoonColor by night.
-    glm::vec3 color{1.0f};
+    glm::vec3 towardSun{1.0f};
+    glm::vec3 awayFromSun{1.0f};
 };
+[[nodiscard]] SkyColors SkyColorsFor(float glow, float night);
 
-// The sun at `hour` (0 to 24) on a day whose noon sun is SunDirection(noonAngleDegrees, noonFall):
-// its azimuth sweeps half a turn from sunrise to sunset through the noon azimuth, its height rises from
-// the horizon to the noon height and back. By night the moon takes the same path, twelve hours later.
-// Exactly the noon sun at 12.
-[[nodiscard]] SunAtTime SunAtHour(float hour, float noonAngleDegrees, float noonFall);
+// A flat (sheared) shadow cast by a light towards `toSun`: the projection's axis angle in radians
+// (mu::ShadowProjection::axisAngle, the shadow's direction plus a half turn) and how far it falls per
+// unit of height, at most `maxFall`.
+struct FlatShadowCast
+{
+    float axisAngle = 0.0f;
+    float fallPerHeight = 0.0f;
+};
+[[nodiscard]] FlatShadowCast FlatShadowFromSun(const glm::vec3& toSun, float maxFall);
 
 // The square, texel-snapped area of the shadow map: light-space x and y from `origin`, `size` wide,
 // depth from `nearDistance` to `farDistance` along the sun's rays.

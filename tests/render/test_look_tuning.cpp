@@ -391,6 +391,13 @@ TEST_CASE("$look commands parse their verb, scope, name and value [render][look]
     REQUIRE(setMap.has_value());
     CHECK(setMap->map);
     CHECK(setMap->name == "mood.sun");
+    const auto setNight = ParseLookCommand(L"$look set map night sky.glow 0.6");
+    REQUIRE(setNight.has_value());
+    CHECK(setNight->map);
+    CHECK(setNight->state == Data::Maps::TimeState::Night);
+    CHECK(setNight->name == "sky.glow");
+    CHECK(ParseLookCommand(L"$look set dusk sun.warmth 0.7")->state == Data::Maps::TimeState::Dusk);
+    CHECK_FALSE(set->state.has_value());
 
     CHECK(ParseLookCommand(L"$look reset")->verb == LookVerb::Reset);
     CHECK(ParseLookCommand(L"$look reset dynamic.wrap")->name == "dynamic.wrap");
@@ -412,4 +419,17 @@ TEST_CASE("$look commands parse their verb, scope, name and value [render][look]
     const auto knee = Render::Look::ParseLookTuningCommand(L"$lightmood knee 0.9");
     REQUIRE(knee.has_value());
     CHECK(knee->assignments[0].value == LookValue::HighlightKnee);
+}
+
+TEST_CASE("a value of a time of day goes into that state's object of the entry [render][look]")
+{
+    FakeFileSystem fileSystem = Shipped();
+    LookFiles files = Load(fileSystem);
+    const LookEdit edit{"sky.glow", 0.6, Data::Maps::TimeState::Dusk};
+    REQUIRE(Render::Look::SetLookValues(files, std::span<const LookEdit>(&edit, 1), std::nullopt).applied);
+    CHECK(files.look["default"]["dusk"]["sky.glow"].get<double>() == Approx(0.6));
+    CHECK(files.lookData.ForWorld(0, Data::Maps::TimeState::Dusk)[Data::Maps::LookValue::SkyGlow] == Approx(0.6));
+    // A light mood value has no times of day.
+    const LookEdit mood{"mood.sun", 0.4, Data::Maps::TimeState::Night};
+    CHECK_FALSE(Render::Look::SetLookValues(files, std::span<const LookEdit>(&mood, 1), std::nullopt).applied);
 }

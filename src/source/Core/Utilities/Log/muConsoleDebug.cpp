@@ -17,6 +17,7 @@
 
 #include "Render/Lighting/DynamicLightHistory.h"
 #include "Render/Lighting/DynamicLightsSetting.h"
+#include "Data/GameData/MapData/LookProfile.h"
 #include "Render/PostProcessing/PostProcessingSetting.h"
 #include "Render/Look/LookPresetSetting.h"
 #include "Render/Renderer/Antialiasing.h"
@@ -116,8 +117,24 @@ bool CheckDeveloperLookCommand(const std::wstring& command)
         Render::PostProcessing::SetPostProcessingView(std::wstring_view(command).substr(11));
         return true;
     }
-    if (command.starts_with(L"$time ") && !command.starts_with(L"$time day ") && !command.starts_with(L"$time dawn ") &&
-        !command.starts_with(L"$time moon "))
+    // $env dawn|day|dusk|night: the clock held in the middle of that time of day.
+    if (command.starts_with(L"$env "))
+    {
+        const std::wstring_view argument = std::wstring_view(command).substr(5);
+        for (std::size_t index = 0; index < Data::Maps::TimeStateCount; ++index)
+        {
+            const auto state = static_cast<Data::Maps::TimeState>(index);
+            if (argument == Core::Text::FromUtf8(Data::Maps::TimeStateName(state)))
+            {
+                Render::Lighting::SetTimeOverride(static_cast<float>(Data::Maps::TimeStateHour(state)));
+                return true;
+            }
+        }
+        mu::log::Get("render")->warn("$env: dawn, day, dusk or night");
+        return true;
+    }
+    // The look values' $time forms ($time day, $time daylight) were handled above.
+    if (command.starts_with(L"$time "))
     {
         const std::wstring_view argument = std::wstring_view(command).substr(6);
         if (argument == L"off")

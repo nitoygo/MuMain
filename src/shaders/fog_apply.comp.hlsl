@@ -7,7 +7,7 @@ Texture2D sceneDepth : register(t0, space0);
 Texture3D fogVolume : register(t1, space0);
 SamplerState depthSampler : register(s0, space0);  // point
 SamplerState volumeSampler : register(s1, space0); // linear, clamped
-RWTexture2D<float4> fogLayer : register(u0, space1);
+FOG_STORAGE_FORMAT RWTexture2D<float4> fogLayer : register(u0, space1);
 
 [numthreads(8, 8, 1)]
 void main(uint3 pixel : SV_DispatchThreadID)
@@ -17,9 +17,16 @@ void main(uint3 pixel : SV_DispatchThreadID)
     const float2 uv = (float2(pixel.xy) + 0.5) / float2(target.xy);
     const float depth = sceneDepth.SampleLevel(depthSampler, uv, 0).r;
     const float distance = length(WorldAt(uv, depth) - camera.xyz);
+    // Each slice holds the fog up to its far end; the first one starts at the camera, with no fog.
+    const float firstEnd = camera.w * exp(SliceGrowth() / float(size.z));
+    if (depth < 1.0 && distance < firstEnd)
+    {
+        const float4 first = fogVolume.SampleLevel(volumeSampler, float3(uv, 0.5 / float(size.z)), 0);
+        fogLayer[pixel.xy] = lerp(float4(0.0, 0.0, 0.0, 1.0), first, distance / firstEnd);
+        return;
+    }
     // Nothing drawn there: the fog all the way to the last slice.
-    const float along = depth >= 1.0 ? 1.0 : saturate(log(max(distance, camera.w) / camera.w) / SliceGrowth());
-    // Each slice holds the fog up to its far end: the slice ending at `along`.
+    const float along = depth >= 1.0 ? 1.0 : saturate(log(distance / camera.w) / SliceGrowth());
     const float slice = along - 0.5 / float(size.z);
     fogLayer[pixel.xy] = fogVolume.SampleLevel(volumeSampler, float3(uv, slice), 0);
 }

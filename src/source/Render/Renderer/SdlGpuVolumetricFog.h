@@ -45,6 +45,9 @@ public:
     static constexpr Uint32 Width = 160;
     static constexpr Uint32 Height = 90;
     static constexpr Uint32 Depth = 64;
+    // The volume's and the layer's format: Vulkan guarantees it storage and linear filtering. The shaders
+    // declare it (FOG_STORAGE_FORMAT), as Vulkan needs the two to match (test_volumetric_fog_formats).
+    static constexpr SDL_GPUTextureFormat Format = SDL_GPU_TEXTUREFORMAT_R16G16B16A16_FLOAT;
     // Both shaders' [numthreads] in x and y.
     static constexpr Uint32 ThreadGroupSize = 8;
 

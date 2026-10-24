@@ -64,10 +64,22 @@ ControlTexts TextsOf(TuningControlId id)
         return {I18N::Game::TuningSunShadows, I18N::Game::TuningSunShadowsHelp};
     case TuningControlId::DayMinutes:
         return {I18N::Game::TuningDayLength, I18N::Game::TuningDayLengthHelp};
-    case TuningControlId::DawnWarmth:
-        return {I18N::Game::TuningDawnWarmth, I18N::Game::TuningDawnWarmthHelp};
-    case TuningControlId::MoonTint:
-        return {I18N::Game::TuningMoonTint, I18N::Game::TuningMoonTintHelp};
+    case TuningControlId::Daylight:
+        return {I18N::Game::TuningDaylight, I18N::Game::TuningDaylightHelp};
+    case TuningControlId::SunHeight:
+        return {I18N::Game::TuningSunHeight, I18N::Game::TuningSunHeightHelp};
+    case TuningControlId::SunStrength:
+        return {I18N::Game::TuningSunStrength, I18N::Game::TuningSunStrengthHelp};
+    case TuningControlId::SunWarmth:
+        return {I18N::Game::TuningSunWarmth, I18N::Game::TuningSunWarmthHelp};
+    case TuningControlId::SkyBrightness:
+        return {I18N::Game::TuningSkyBrightness, I18N::Game::TuningSkyBrightnessHelp};
+    case TuningControlId::SkyFarLight:
+        return {I18N::Game::TuningSkyFarLight, I18N::Game::TuningSkyFarLightHelp};
+    case TuningControlId::SkyGlow:
+        return {I18N::Game::TuningSkyGlow, I18N::Game::TuningSkyGlowHelp};
+    case TuningControlId::SkyNight:
+        return {I18N::Game::TuningSkyNight, I18N::Game::TuningSkyNightHelp};
     case TuningControlId::FogDensity:
         return {I18N::Game::TuningFogDensity, I18N::Game::TuningFogDensityHelp};
     case TuningControlId::FogHeight:
@@ -90,6 +102,10 @@ ControlTexts TextsOf(TuningControlId id)
         return {I18N::Game::TuningSkyFill, I18N::Game::TuningSkyFillHelp};
     case TuningControlId::RimSunFollow:
         return {I18N::Game::TuningRimSunFollow, I18N::Game::TuningRimSunFollowHelp};
+    case TuningControlId::QualityTier:
+        return {I18N::Game::TuningQualityTier, I18N::Game::TuningQualityTierHelp};
+    case TuningControlId::LinearLight:
+        return {I18N::Game::TuningLinearLight, I18N::Game::TuningLinearLightHelp};
     case TuningControlId::FlatSunShadow:
         return {I18N::Game::TuningFlatSunShadow, I18N::Game::TuningFlatSunShadowHelp};
     case TuningControlId::SunShadowSoftness:

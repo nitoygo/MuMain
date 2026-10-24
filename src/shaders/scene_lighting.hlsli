@@ -24,13 +24,29 @@ cbuffer SceneLighting : register(b1, space3)
     float4 cameraPosition;
     float4x4 sunViewProjection; // world to the sun shadow map's clip space
     float4 sunShadowParameters; // darkness (0: no shadow map), softness in texels, 1 / map size, texel in world units
-    float4 lightingParameters;  // x: point lights' physical falloff (0 linear, 1 inverse-square)
+    float4 lightingParameters;  // x: point lights' physical falloff (0 linear, 1 inverse-square), y: 1 when
+                                // the terrain's direct-sunlight grid is bound, z: the least diffuse light
+                                // world models keep from the sky away from a low sun, w: how far lights add
+                                // up in linear light (lighting.linear)
     float4 cloudParameters;     // x: cloud strength (0: none), y: 1 / pattern size, z: sky cover
     float4 cloudOffset;         // xy: the clouds' drift plus the sun's slant
     float4 skyFill;             // rgb: the sky's tint of the shade, w: how far shade takes it
     float4 sunTowards;          // xyz: towards the sun (or moon), w: how far the rim follows it
     float4 sunColor;            // rgb: the sun's (or moon's) colour
+    float4 skyToward;           // rgb: the sky's colour on the sun's side
+    float4 skyAway;             // rgb: the sky's colour on the other side
 };
+
+// Light in the texture colours' gamma, as linear light and back (lighting.linear).
+float3 ToLinearLight(float3 color)
+{
+    return pow(max(color, 0.0), 2.2);
+}
+
+float3 FromLinearLight(float3 light)
+{
+    return pow(max(light, 0.0), 1.0 / 2.2);
+}
 
 // The Enhanced exponential fog: the same curve as mu::EnhancedFogAmount() (SceneLighting.cpp).
 float EnhancedFogAmount(float eyeDepth)

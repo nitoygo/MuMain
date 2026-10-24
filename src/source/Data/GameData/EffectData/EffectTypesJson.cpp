@@ -11,6 +11,7 @@
 #include <array>
 #include <cctype>
 #include <cmath>
+#include <limits>
 #include <map>
 #include <set>
 #include <tuple>
@@ -165,11 +166,16 @@ void ReadDynamicLight(const OrderedJson& json, const std::string& entryField, co
                     values.shaft, issues);
     if (const auto color = light->find(Keys::Color); color != light->end())
     {
+        // Checked as the floats kept: the light divides by the strongest channel.
         const bool valid = color->is_array() && color->size() == 3 &&
-                           std::all_of(color->begin(), color->end(), [](const OrderedJson& channel)
-                                       { return channel.is_number() && channel.get<double>() >= 0.0; }) &&
+                           std::all_of(color->begin(), color->end(),
+                                       [](const OrderedJson& channel)
+                                       {
+                                           return channel.is_number() && channel.get<double>() >= 0.0 &&
+                                                  channel.get<double>() <= std::numeric_limits<float>::max();
+                                       }) &&
                            std::any_of(color->begin(), color->end(),
-                                       [](const OrderedJson& channel) { return channel.get<double>() > 0.0; });
+                                       [](const OrderedJson& channel) { return channel.get<float>() > 0.f; });
         if (valid)
         {
             values.color =

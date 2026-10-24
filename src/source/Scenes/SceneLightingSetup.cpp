@@ -14,6 +14,7 @@
 #include "Render/Lighting/WorldDynamicLights.h"
 #include "Render/Look/LookProfileSetting.h"
 #include "Render/Renderer/MuRenderer.h"
+#include "Render/Lighting/SunShadow.h"
 #include "Render/Renderer/SceneLighting.h"
 #include "Scenes/SceneCore.h"
 
@@ -94,6 +95,13 @@ void SubmitSceneLighting()
         lighting.sunColor[0] = sun->color.r;
         lighting.sunColor[1] = sun->color.g;
         lighting.sunColor[2] = sun->color.b;
+        lighting.skyFarLight = sun->skyFarLight;
+        lighting.linearLight = Render::Look::Value(Data::Maps::LookValue::LinearLight);
+        for (int i = 0; i < 3; ++i)
+        {
+            lighting.skyToward[i] = sun->skyToward[i];
+            lighting.skyAway[i] = sun->skyAway[i];
+        }
         if (!Render::Lighting::SunShadowsActive())
         {
             lighting.sunDirection[0] = sun->sun.x;
@@ -117,17 +125,14 @@ void SubmitSceneLighting()
         lighting.skyFill = Render::Look::Value(LookValue::SkyFill);
         lighting.rimSunFollow = Render::Look::Value(LookValue::RimSunFollow);
     }
-    // The air takes the frame's light: the sun's or moon's colour, dimmer as it stands lower, through
-    // the mood's darkening; without the clock, white.
-    const float fogLight = Render::Lighting::LightMood::Active().base * (sun ? 0.3f + 0.7f * sun->strength : 1.0f);
-    const glm::vec3 fogColor = (sun ? sun->color : glm::vec3(1.0f)) * fogLight;
+    // The air takes the frame's light: the sun's or moon's colour through the mood's darkening; without
+    // the clock, white. Its strength scales the direct part (the renderer).
+    const glm::vec3 fogColor = (sun ? sun->color : glm::vec3(1.0f)) * Render::Lighting::LightMood::Active().base;
     lighting.fogLight[0] = fogColor.r;
     lighting.fogLight[1] = fogColor.g;
     lighting.fogLight[2] = fogColor.b;
     lighting.fogBase = Hero ? Hero->Object.Position[2] : 0.0f;
-    // Morning and evening haze: up to 2.5 times the fog as the sun nears the horizon.
-    constexpr float LowSunFog = 1.5f;
-    lighting.fogDensityScale = sun ? 1.0f + LowSunFog * (1.0f - sun->strength) * sun->daylight : 1.0f;
+    lighting.fogSunStrength = sun ? sun->strength : 1.0f;
     mu::GetRenderer().SetSceneLighting(lighting);
 }
 

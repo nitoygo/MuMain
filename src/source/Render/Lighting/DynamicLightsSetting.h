@@ -27,11 +27,18 @@ struct FrameSunDirections
 {
     glm::vec3 sun{0.0f, 0.0f, 1.0f};
     glm::vec3 baked{0.0f, 0.0f, 1.0f};
-    // 1 by day and without the clock; 0 by night (SunAtHour).
+    // How much of the day mood shows (time.daylight).
     float daylight = 1.0f;
-    // How strong the light from `sun` is (the moon's by night), 1 without the clock (SunAtHour).
+    // How strong the light from `sun` is, the moon's by night (sun.strength).
     float strength = 1.0f;
-    // The light's colour (SunAtHour), white without the clock.
+    // The painted light's and the models' brightness (sky.brightness).
+    float skyLit = 1.0f;
+    // The least light the sky leaves on faces turned from the sun or moon (sky.farLight).
+    float skyFarLight = 0.0f;
+    // The sky's colour on the sun's side and the other (SkyColorsFor: sky.glow, sky.night).
+    glm::vec3 skyToward{1.0f};
+    glm::vec3 skyAway{1.0f};
+    // The light's colour (SunColor: sun.warmth).
     glm::vec3 color{1.0f};
 };
 [[nodiscard]] std::optional<FrameSunDirections> FrameSun();
