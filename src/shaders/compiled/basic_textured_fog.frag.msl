@@ -21,6 +21,8 @@ struct SceneLighting
     float4 skyFill;
     float4 sunTowards;
     float4 sunColor;
+    float4 skyToward;
+    float4 skyAway;
 };
 
 struct FogUniforms

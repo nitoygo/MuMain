@@ -41,6 +41,7 @@
 #include "Render/Lighting/LightMoodSetting.h"
 #include "Render/Lighting/DynamicLightsSetting.h"
 #include "Render/Lighting/ModelLight.h"
+#include "Render/Lighting/SunShadow.h"
 #include "Render/Lighting/LightShadowCasters.h"
 #include "Render/Lighting/WorldDynamicLights.h"
 #include "Render/Look/LookProfileSetting.h"
@@ -542,6 +543,8 @@ void BMD::EnsureCpuNormals(int mesh) const
         return;
 
     const Mesh_t* m = &Meshs[mesh];
+    // Faces turned from a low sun keep the sky's light.
+    const float luminosityFloor = std::max(0.2f, Render::Lighting::ModelSkyFloor());
     for (int j = 0; j < m->NumNormals; j++)
     {
         const Normal_t* sn = &m->Normals[j];
@@ -550,8 +553,8 @@ void BMD::EnsureCpuNormals(int mesh) const
         if (LightEnable)
         {
             float Luminosity = VectorDotProduct(tn, m_LastLightPosition) * 0.8f + 0.4f;
-            if (Luminosity < 0.2f)
-                Luminosity = 0.2f;
+            if (Luminosity < luminosityFloor)
+                Luminosity = luminosityFloor;
             IntensityTransform[mesh][j] = Luminosity;
         }
     }
@@ -639,6 +642,7 @@ void BMD::Transform(float (*BoneMatrix)[3][4], vec3_t BoundingBoxMin, vec3_t Bou
                 VectorAdd(vp, BodyOrigin, vp);
         }
 
+        const float luminosityFloor = std::max(0.2f, Render::Lighting::ModelSkyFloor());
         for (int j = 0; j < m->NumNormals; j++)
         {
             Normal_t* sn = &m->Normals[j];
@@ -649,7 +653,8 @@ void BMD::Transform(float (*BoneMatrix)[3][4], vec3_t BoundingBoxMin, vec3_t Bou
                 float Luminosity;
                 Luminosity = VectorDotProduct(tn, m_LastLightPosition) * 0.8f + 0.4f;
 
-                if (Luminosity < 0.2f) Luminosity = 0.2f;
+                if (Luminosity < luminosityFloor)
+                    Luminosity = luminosityFloor;
                 IntensityTransform[i][j] = Luminosity;
             }
         }
@@ -2974,8 +2979,16 @@ void BMD::RenderBodyShadow(const int blendMesh, const int hiddenMesh, const int 
         }
     };
     // The sun shadow map shadows the ground itself; only the flat shadow is drawn without it, as dark
-    // as the map lets it be (dynamic.flatSunShadow: none indoors) and as strong as the sun (or moon) is.
+    // as the map lets it be (dynamic.flatSunShadow: none indoors) and as strong as the sun (or moon) is,
+    // falling away from it.
     const std::optional<Render::Lighting::FrameSunDirections> sun = Render::Lighting::FrameSun();
+    if (sun)
+    {
+        constexpr float MaxFlatShadowFall = 3.0f;
+        const Render::Lighting::FlatShadowCast cast = Render::Lighting::FlatShadowFromSun(sun->sun, MaxFlatShadowFall);
+        projection.axisAngle = cast.axisAngle;
+        projection.shearX = projection.shearHeight * cast.fallPerHeight;
+    }
     const float flatSunShadow = sun ? Render::Look::Value(Data::Maps::LookValue::FlatSunShadow) * sun->strength : 1.f;
     if (!Render::Lighting::SunShadowsActive() && flatSunShadow > 0.f)
     {

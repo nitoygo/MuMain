@@ -1222,6 +1222,21 @@ TEST_CASE("An effect's dynamic light values are read, checked, written and looke
     }
     CHECK_FALSE(Data::Items::HasErrors(result.issues));
 
+    // A colour that is 0 or infinite as floats is refused too.
+    for (const char* color : {"[1e-300, 0, 0]", "[1e300, 1, 1]"})
+    {
+        CAPTURE(color);
+        const ReadResult extreme =
+            Read(std::string(R"({"formatVersion": 1, "kind": "effect", "types": [{"name": "odd", "code": "BITMAP_SMOKE",
+                 "dynamicLight": {"color": )") +
+                     color + "}}]}",
+                 EffectKind::Effect);
+        REQUIRE(extreme.types.size() == 1);
+        REQUIRE(extreme.types[0].dynamicLight);
+        CHECK_FALSE(extreme.types[0].dynamicLight->color);
+        CHECK(HasIssue(extreme.issues, ItemDataIssueSeverity::Warning, "types[0].dynamicLight.color"));
+    }
+
     // Particles have none: the key is unknown there.
     CHECK(HasIssue(Read(R"({"formatVersion": 1, "kind": "particle", "types": [
         {"name": "smoke", "code": "BITMAP_SMOKE", "dynamicLight": {"intensity": 2}}]})")

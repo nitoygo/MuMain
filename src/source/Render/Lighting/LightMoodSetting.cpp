@@ -5,6 +5,7 @@
 #include "Core/Utilities/Log/MuLogger.h"
 #include "Render/Lighting/DynamicLightsSetting.h"
 #include "Render/Look/LookProfileSetting.h"
+#include "Render/Renderer/MuRenderer.h"
 #include "Render/Terrain/ZzzLodTerrain.h"
 #include "World/MapInfra/MapManager.h"
 
@@ -34,6 +35,8 @@ struct State
     float daylight = 1.f;
     float sunColor[3] = {1.f, 1.f, 1.f};
     float sunStrength = 1.f;
+    // Bumped whenever the scales change: the static light built with older ones is stale.
+    std::uint32_t revision = 0;
 };
 
 State s_state;
@@ -58,6 +61,7 @@ void LogScales(const char* event)
 
 void Recompute(int world)
 {
+    const Scales previous = s_state.scales;
     s_state.world = world;
     s_state.lookRevision = Look::Revision();
     const float knee = Look::Value(Data::Maps::LookValue::HighlightKnee);
@@ -72,11 +76,16 @@ void Recompute(int world)
                          : Mix(day, Blend(s_state.data.NightForWorld(world), s_state.strength, knee), s_state.daylight);
     std::copy(std::begin(s_state.sunColor), std::end(s_state.sunColor), s_state.scales.sunColor);
     s_state.scales.sunStrength = s_state.sunStrength;
-    // Under a sun that casts shadows the sky fill tints the shade (the lit shaders): no second blue here.
+    // Where the sky fill tints the shade (the lit shaders, under sun shadows the renderer can draw), no
+    // second blue here.
     if (DynamicLightsActive() && Look::Value(Data::Maps::LookValue::SunShadowStrength) > 0.0f &&
-        Look::Value(Data::Maps::LookValue::SkyFill) > 0.0f)
+        mu::GetRenderer().SunShadowsAvailable() && Look::Value(Data::Maps::LookValue::SkyFill) > 0.0f)
     {
         s_state.scales.shadeCool = 0.f;
+    }
+    if (!(s_state.scales == previous))
+    {
+        ++s_state.revision;
     }
 }
 
@@ -154,6 +163,12 @@ void ScaleOwnHeroLight(float x, float y, const float classicLight[3], float ligh
     const Scales& scales = Active();
     ScaleFixedFigureLight(scales, classicLight, light,
                           scales.shadowKeep > 0.f ? RequestStaticLightBrightWeight(x, y) : 0.f);
+}
+
+std::uint32_t Revision()
+{
+    (void)Active();
+    return s_state.revision;
 }
 
 bool SetSunlight(float daylight, float strength, const float color[3])

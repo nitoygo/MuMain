@@ -33,8 +33,14 @@ const CommandForm CommandForms[] = {
     {L"$dynlights falloff ", {LookValue::DynamicPhysicalFalloff}},
     {L"$dynlights flatsun ", {LookValue::FlatSunShadow}},
     {L"$time day ", {LookValue::DayMinutes}},
-    {L"$time dawn ", {LookValue::DawnWarmth}},
-    {L"$time moon ", {LookValue::MoonTint}},
+    {L"$time daylight ", {LookValue::Daylight}},
+    {L"$sun height ", {LookValue::SunHeight}},
+    {L"$sun strength ", {LookValue::SunStrength}},
+    {L"$sun warmth ", {LookValue::SunWarmth}},
+    {L"$sky brightness ", {LookValue::SkyBrightness}},
+    {L"$sky far ", {LookValue::SkyFarLight}},
+    {L"$sky glow ", {LookValue::SkyGlow}},
+    {L"$sky night ", {LookValue::SkyNight}},
     {L"$bloom falloff ", {LookValue::BloomLevelFalloff}},
     {L"$ao radius ", {LookValue::AmbientOcclusionRadius}},
     {L"$fog height ", {LookValue::FogHeight}},
@@ -47,6 +53,8 @@ const CommandForm CommandForms[] = {
     {L"$clouds ", {LookValue::CloudStrength}},
     {L"$sky ", {LookValue::SkyFill}},
     {L"$rim sun ", {LookValue::RimSunFollow}},
+    {L"$linear ", {LookValue::LinearLight}},
+    {L"$quality ", {LookValue::QualityTier}},
     {L"$fog ", {LookValue::FogDensity}},
     {L"$ao ", {LookValue::AmbientOcclusionStrength}},
     {L"$shafts skills ", {LookValue::LightShaftSkills}},
@@ -208,12 +216,22 @@ std::optional<LookCommand> ParseLookCommand(std::wstring_view command)
     {
         parsed.verb = LookVerb::Set;
         std::size_t next = 2;
-        if (arguments == 3 && words[2] == L"map")
+        if (next < words.size() && words[next] == L"map")
         {
             parsed.map = true;
-            next = 3;
+            ++next;
         }
-        else if (arguments != 2)
+        for (std::size_t index = 0; next < words.size() && index < Data::Maps::TimeStateCount; ++index)
+        {
+            const auto state = static_cast<Data::Maps::TimeState>(index);
+            if (Ascii(words[next]) == std::string(Data::Maps::TimeStateName(state)))
+            {
+                parsed.state = state;
+                ++next;
+                break;
+            }
+        }
+        if (words.size() != next + 2)
         {
             return std::nullopt;
         }

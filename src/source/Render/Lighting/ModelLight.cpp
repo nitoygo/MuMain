@@ -5,6 +5,8 @@
 #include "Core/Math/ZzzMathLib.h"
 #include "Render/Lighting/DynamicLightsSetting.h"
 #include "Render/Lighting/LightMoodSetting.h"
+#include "Render/Renderer/MuRenderer.h"
+#include "Scenes/SceneCore.h"
 #include "World/MapInfra/MapManager.h"
 
 namespace Render::Lighting
@@ -35,13 +37,25 @@ glm::vec3 ModelLightVector(bool highlight)
     vec3_t light;
     VectorIRotate(position, matrix, light);
     const glm::vec3 vector(light[0], light[1], light[2]);
-    if (highlight)
+    // Models shown in the UI keep their light; in the world it follows the frame's sun, gentler from a
+    // low sun, fainter from the moon, as bright as the sky keeps it. (The game draws every model with the
+    // highlight light.)
+    const std::optional<FrameSunDirections> sun = FrameSun();
+    if (!sun || SceneFlag != MAIN_SCENE || mu::GetRenderer().InScreenSpaceSampling())
     {
         return vector;
     }
-    // Gentler from a low sun, faint from the moon.
+    return FollowFrameSun(vector) * sun->skyLit;
+}
+
+float ModelSkyFloor()
+{
     const std::optional<FrameSunDirections> sun = FrameSun();
-    return FollowFrameSun(vector) * (sun ? sun->strength : 1.f);
+    if (!sun || SceneFlag != MAIN_SCENE || mu::GetRenderer().InScreenSpaceSampling())
+    {
+        return 0.f;
+    }
+    return sun->skyFarLight;
 }
 
 } // namespace Render::Lighting

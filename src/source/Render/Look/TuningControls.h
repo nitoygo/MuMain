@@ -88,8 +88,14 @@ enum class TuningControlId : std::uint8_t
     PhysicalFalloff,
     FlatSunShadow,
     DayMinutes,
-    DawnWarmth,
-    MoonTint,
+    Daylight,
+    SunHeight,
+    SunStrength,
+    SunWarmth,
+    SkyBrightness,
+    SkyFarLight,
+    SkyGlow,
+    SkyNight,
     FogDensity,
     FogHeight,
     FogAnisotropy,
@@ -101,6 +107,8 @@ enum class TuningControlId : std::uint8_t
     CloudCover,
     SkyFill,
     RimSunFollow,
+    LinearLight,
+    QualityTier,
     Count,
 };
 inline constexpr std::size_t TuningControlCount = static_cast<std::size_t>(TuningControlId::Count);
@@ -198,12 +206,14 @@ struct LookFeatureAppliers
 // the player's groups from what the renderer accepted, before the light mood is rebuilt from them.
 void ApplyLookFeatures(const LookFeatures& requested, const LookFeatureAppliers& appliers);
 
-// The effective values on `world`: built-in, the profile's default, the world's entry, then the
-// player's values of the groups in `applying`, except where a developer's value applies.
+// The effective values on `world`: built-in, the profile's layers (with `state`, their values of that
+// time of day too), then the player's values of the groups in `applying`, except where a developer's
+// value applies.
 [[nodiscard]] Data::Maps::LookValues ResolveLookValues(const Data::Maps::LookProfileData& profile, int world,
                                                        const Data::Maps::LookOverrides& personal,
                                                        const DeveloperLookEdits& developerEdits,
-                                                       const TuningGroupSet& applying);
+                                                       const TuningGroupSet& applying,
+                                                       std::optional<Data::Maps::TimeState> state = std::nullopt);
 // True when the player's value of `value` applies on `world` (it exists, its group applies and no
 // developer's value does).
 [[nodiscard]] bool PersonalValueApplies(const Data::Maps::LookProfileData& profile, int world,

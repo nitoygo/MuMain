@@ -29,8 +29,10 @@ public:
     // New files (start-up, `$look load`): live and loaded both, no developer edits, mood rebuilt.
     void UseFiles(LookFiles files);
 
-    // The effective values on `world`, cached until a change or another world.
-    [[nodiscard]] const Data::Maps::LookValues& Active(int world);
+    // The effective values on `world`, blended between two times of day when `blend` is set (none: the
+    // plain values), cached until a change, another world or another blend.
+    [[nodiscard]] const Data::Maps::LookValues& Active(int world,
+                                                       const std::optional<Data::Maps::TimeBlend>& blend = {});
     // Changes whenever the effective values may have (not with the world).
     [[nodiscard]] std::uint32_t Revision() const
     {
@@ -83,6 +85,7 @@ private:
     std::uint32_t m_revision = 0;
     bool m_cacheValid = false;
     int m_cacheWorld = 0;
+    std::optional<Data::Maps::TimeBlend> m_cacheBlend;
     Data::Maps::LookValues m_values = Data::Maps::BuiltInLookValues();
 };
 

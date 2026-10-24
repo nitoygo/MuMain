@@ -89,23 +89,28 @@ void UpdateFrameSun()
     s_frameHour.reset();
     if (!DynamicLightsActive())
     {
+        Render::Look::SetTimeBlend(std::nullopt);
         return;
     }
-    const float fall = gMapManager.InBattleCastle() ? kSunShadowFallBattleCastle : kSunShadowFall;
-    const float angle = Render::Look::Value(Data::Maps::LookValue::GroundShadowAngle);
-    FrameSunDirections directions{SunDirection(angle, fall), SunDirection(kBakedSunShadowAngle, fall)};
+    using Data::Maps::LookValue;
     s_frameHour = ClockHour();
-    if (s_frameHour)
-    {
-        const SunAtTime now = SunAtHour(*s_frameHour, angle, fall);
-        directions.sun = now.toSun;
-        directions.daylight = now.daylight;
-        directions.strength = now.strength;
-        // time.dawnWarmth and time.moonTint scale how far the light leaves white.
-        const float tint = Render::Look::Value(now.daylight > 0.0f ? Data::Maps::LookValue::DawnWarmth
-                                                                    : Data::Maps::LookValue::MoonTint);
-        directions.color = glm::vec3(1.0f) + (now.color - glm::vec3(1.0f)) * tint;
-    }
+    // From here on the look values are this hour's: its time of day's (Look.json), blended.
+    Render::Look::SetTimeBlend(s_frameHour ? std::optional(Data::Maps::TimeStateAt(*s_frameHour)) : std::nullopt);
+    const float angle = Render::Look::Value(LookValue::GroundShadowAngle);
+    const float height = glm::radians(Render::Look::Value(LookValue::SunHeight));
+    const float bakedFall = gMapManager.InBattleCastle() ? kSunShadowFallBattleCastle : kSunShadowFall;
+    const float fall = s_frameHour && !gMapManager.InBattleCastle() ? std::cos(height) / std::sin(height) : bakedFall;
+    FrameSunDirections directions{SunDirection(angle, fall), SunDirection(kBakedSunShadowAngle, bakedFall)};
+    // A map without the clock keeps these at their plain values: neutral, unless its environment sets them.
+    directions.daylight = Render::Look::Value(LookValue::Daylight);
+    directions.strength = Render::Look::Value(LookValue::SunStrength);
+    directions.skyLit = Render::Look::Value(LookValue::SkyBrightness);
+    directions.skyFarLight = Render::Look::Value(LookValue::SkyFarLight);
+    const SkyColors sky =
+        SkyColorsFor(Render::Look::Value(LookValue::SkyGlow), Render::Look::Value(LookValue::SkyNight));
+    directions.skyToward = sky.towardSun;
+    directions.skyAway = sky.awayFromSun;
+    directions.color = SunColor(Render::Look::Value(LookValue::SunWarmth));
     s_frameSun = directions;
 }
 

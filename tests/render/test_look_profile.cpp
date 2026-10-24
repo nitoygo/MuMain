@@ -257,6 +257,8 @@ TEST_CASE("the developer tuning commands name their look values [render][look]")
     single(L"$clouds 0.3", LookValue::CloudStrength, 0.3);
     single(L"$sky 0.5", LookValue::SkyFill, 0.5);
     single(L"$rim sun 1", LookValue::RimSunFollow, 1.0);
+    single(L"$linear 1", LookValue::LinearLight, 1.0);
+    single(L"$quality 1", LookValue::QualityTier, 1.0);
     single(L"$fog 0.5", LookValue::FogDensity, 0.5);
     single(L"$ao 0.5", LookValue::AmbientOcclusionStrength, 0.5);
     single(L"$shafts skills 0.5", LookValue::LightShaftSkills, 0.5);
@@ -268,8 +270,14 @@ TEST_CASE("the developer tuning commands name their look values [render][look]")
     single(L"$dynlights falloff 0.25", LookValue::DynamicPhysicalFalloff, 0.25);
     single(L"$dynlights flatsun 0.5", LookValue::FlatSunShadow, 0.5);
     single(L"$time day 60", LookValue::DayMinutes, 60.0);
-    single(L"$time dawn 0.5", LookValue::DawnWarmth, 0.5);
-    single(L"$time moon 0", LookValue::MoonTint, 0.0);
+    single(L"$time daylight 0.5", LookValue::Daylight, 0.5);
+    single(L"$sun height 20", LookValue::SunHeight, 20.0);
+    single(L"$sun strength 0.4", LookValue::SunStrength, 0.4);
+    single(L"$sun warmth -1", LookValue::SunWarmth, -1.0);
+    single(L"$sky brightness 0.8", LookValue::SkyBrightness, 0.8);
+    single(L"$sky far 0.3", LookValue::SkyFarLight, 0.3);
+    single(L"$sky glow 1", LookValue::SkyGlow, 1.0);
+    single(L"$sky night 0.5", LookValue::SkyNight, 0.5);
 
     const std::optional<Render::Look::LookTuningCommand> diffuse =
         ParseLookTuningCommand(L"$lighting diffuse 1.0 0.3 0.15");

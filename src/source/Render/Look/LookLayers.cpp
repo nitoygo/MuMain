@@ -27,12 +27,27 @@ void LookLayers::UseFiles(LookFiles files)
     Changed(true);
 }
 
-const Data::Maps::LookValues& LookLayers::Active(int world)
+const Data::Maps::LookValues& LookLayers::Active(int world, const std::optional<Data::Maps::TimeBlend>& blend)
 {
-    if (!m_cacheValid || world != m_cacheWorld)
+    if (!m_cacheValid || world != m_cacheWorld || blend != m_cacheBlend)
     {
-        m_values = ResolveLookValues(m_live.lookData, world, m_personal, m_developerEdits, m_applying);
+        const auto resolve = [&](std::optional<Data::Maps::TimeState> state)
+        { return ResolveLookValues(m_live.lookData, world, m_personal, m_developerEdits, m_applying, state); };
+        if (!blend)
+        {
+            m_values = resolve(std::nullopt);
+        }
+        else
+        {
+            m_values = resolve(blend->from);
+            if (blend->to != blend->from && blend->amount > 0.0)
+            {
+                m_values = Data::Maps::BlendLookValues(m_values, resolve(blend->to), blend->amount);
+            }
+        }
+        Data::Maps::ApplyQualityTier(m_values);
         m_cacheWorld = world;
+        m_cacheBlend = blend;
         m_cacheValid = true;
     }
     return m_values;

@@ -176,6 +176,13 @@ mu_add_test(
 )
 
 mu_add_test(
+    NAME volumetric_fog_format_tests
+    SOURCES
+        test_volumetric_fog_formats.cpp
+    LINK_LIBS SDL3::SDL3
+)
+
+mu_add_test(
     NAME scene_lighting_tests
     SOURCES
         test_scene_lighting.cpp

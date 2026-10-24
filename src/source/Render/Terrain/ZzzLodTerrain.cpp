@@ -556,17 +556,44 @@ static vec3_t FigureStaticTerrainLight[TERRAIN_SIZE * TERRAIN_SIZE];
 // The static light of one cell: the baked light, shaded by the slope towards
 // the sun and darkened by the map's light mood: by its base where the baked
 // light is dark, less towards its shadow keep.
+// Per cell, the direct sunlight inside BackTerrainLight (RGBA8): what Enhanced clouds take away.
+static std::vector<std::uint8_t> s_terrainSunLight(TERRAIN_SIZE * TERRAIN_SIZE * 4, 0);
+
+// The least slope shading the sky leaves away from a low sun (FrameSunDirections::skyFarLight), set per build.
+static float s_skyFarLight = 0.f;
+// The sky's colour on the sun's side and the other (FrameSunDirections), as last built.
+static glm::vec3 s_skyToward{1.f};
+static glm::vec3 s_skyAway{1.f};
+// lighting.linear, as last built.
+static float s_linearLight = 0.f;
+
 static void CreateStaticLightCell(int Index, const vec3_t Sun, const Render::Lighting::LightMood::Scales& scales)
 {
     float Luminosity = VectorDotProduct(TerrainNormal[Index], Sun) + 0.5f;
-    if (Luminosity < 0.f)
-        Luminosity = 0.f;
+    if (Luminosity < s_skyFarLight)
+        Luminosity = s_skyFarLight;
     else if (Luminosity > 1.f)
         Luminosity = 1.f;
+    // The sun's share: the slope term above the half Classic gives every face.
+    const float direct = std::max(Luminosity - 0.5f, 0.f);
+    // The rest is the sky's, in its colour on the side the slope turns to.
+    const float sunSide = std::hypot(Sun[0], Sun[1]);
+    const float towards =
+        sunSide > 0.f ? 0.5f + 0.5f * (TerrainNormal[Index][0] * Sun[0] + TerrainNormal[Index][1] * Sun[1]) / sunSide
+                      : 0.5f;
+    const glm::vec3 sky = glm::mix(s_skyAway, s_skyToward, std::clamp(towards, 0.f, 1.f));
     vec3_t undarkened;
     for (int i = 0; i < 3; i++)
     {
-        undarkened[i] = TerrainLight[Index][i] * Luminosity;
+        const float skyShare = (Luminosity - direct) * sky[i];
+        float lit = direct + skyShare;
+        if (s_linearLight > 0.f)
+        {
+            // The two shares added as light (lighting.linear), as world_lit adds the point lights.
+            const float linearSum = std::pow(direct, 2.2f) + std::pow(skyShare, 2.2f);
+            lit += (std::pow(linearSum, 1.f / 2.2f) - lit) * s_linearLight;
+        }
+        undarkened[i] = TerrainLight[Index][i] * lit;
     }
     const float luminance = 0.299f * undarkened[0] + 0.587f * undarkened[1] + 0.114f * undarkened[2];
     const float weight = Render::Lighting::LightMood::BrightWeight(scales, luminance);
@@ -577,6 +604,11 @@ static void CreateStaticLightCell(int Index, const vec3_t Sun, const Render::Lig
         BackTerrainLight[Index][i] = undarkened[i] * factor[i];
     }
     Vector(weight, weight, weight, StaticLightBrightWeight[Index]);
+    for (int i = 0; i < 3; i++)
+    {
+        const float value = TerrainLight[Index][i] * direct * factor[i];
+        s_terrainSunLight[Index * 4 + i] = static_cast<std::uint8_t>(std::clamp(value, 0.f, 1.f) * 255.f + 0.5f);
+    }
     VectorCopy(BackTerrainLight[Index], FigureStaticTerrainLight[Index]);
     Render::Lighting::LightMood::CorrectFigureLight(scales, undarkened, FigureStaticTerrainLight[Index], weight);
 }
@@ -606,11 +638,46 @@ static glm::vec3 TerrainSunVector()
     return Render::Lighting::FollowFrameSun(baked);
 }
 
+static float TerrainSkyFarLight()
+{
+    const std::optional<Render::Lighting::FrameSunDirections> sun = Render::Lighting::FrameSun();
+    return sun ? sun->skyFarLight : 0.f;
+}
+
+// The sky's colours this frame; true when they differ from the last build's.
+static bool TerrainSkyChanged()
+{
+    const std::optional<Render::Lighting::FrameSunDirections> sun = Render::Lighting::FrameSun();
+    const glm::vec3 toward = sun ? sun->skyToward : glm::vec3(1.f);
+    const glm::vec3 away = sun ? sun->skyAway : glm::vec3(1.f);
+    const float linearLight = sun ? Render::Look::Value(Data::Maps::LookValue::LinearLight) : 0.f;
+    return glm::any(glm::greaterThan(glm::abs(toward - s_skyToward), glm::vec3(0.01f))) ||
+           glm::any(glm::greaterThan(glm::abs(away - s_skyAway), glm::vec3(0.01f))) ||
+           std::abs(linearLight - s_linearLight) > 0.01f;
+}
+
+// Takes this frame's sky light for the next build.
+static void TakeTerrainSky()
+{
+    const std::optional<Render::Lighting::FrameSunDirections> sun = Render::Lighting::FrameSun();
+    s_skyFarLight = TerrainSkyFarLight();
+    s_skyToward = sun ? sun->skyToward : glm::vec3(1.f);
+    s_skyAway = sun ? sun->skyAway : glm::vec3(1.f);
+    s_linearLight = sun ? Render::Look::Value(Data::Maps::LookValue::LinearLight) : 0.f;
+}
+
 // The vector BackTerrainLight was last built with.
 static glm::vec3 s_terrainLightSun{0.f};
 
 // The next row of a static light build spread over frames (InitTerrainLight); TERRAIN_SIZE: none running.
 static int s_bakeRow = TERRAIN_SIZE;
+// The light mood revision the static light was last built with.
+static std::uint32_t s_bakedMoodRevision = 0;
+
+static void UploadTerrainSunLight()
+{
+    mu::GetRenderer().SetTerrainSunLight(s_terrainSunLight);
+}
 
 static void CreateTerrainLightRows(int firstRow, int endRow, const Render::Lighting::LightMood::Scales& scales)
 {
@@ -628,7 +695,10 @@ void CreateTerrainLight()
 {
     s_bakeRow = TERRAIN_SIZE;
     s_terrainLightSun = TerrainSunVector();
+    TakeTerrainSky();
+    s_bakedMoodRevision = Render::Lighting::LightMood::Revision();
     CreateTerrainLightRows(0, TERRAIN_SIZE, Render::Lighting::LightMood::Active());
+    UploadTerrainSunLight();
 }
 
 void CreateTerrainLight_Part(int xi, int yi)
@@ -2919,21 +2989,29 @@ void InitTerrainLight()
         const int endRow = (std::min)(s_bakeRow + kClockBakeRowsPerFrame, TERRAIN_SIZE);
         CreateTerrainLightRows(s_bakeRow, endRow, s_bakeScales);
         s_bakeRow = endRow;
+        if (s_bakeRow == TERRAIN_SIZE)
+        {
+            UploadTerrainSunLight();
+        }
     }
     else if (!clock || now - s_lastBake >= kClockBakeInterval)
     {
         FRAME_PROFILE(TerrainBake);
         const glm::vec3 sunColor = frameSun ? frameSun->color : glm::vec3(1.f);
         const bool moodChanged = Render::Lighting::LightMood::SetSunlight(
-            frameSun ? frameSun->daylight : 1.f, frameSun ? frameSun->strength : 1.f, &sunColor[0]);
+            frameSun ? frameSun->daylight : 1.f, frameSun ? frameSun->skyLit : 1.f, &sunColor[0]);
         const bool sunMoved =
             glm::any(glm::greaterThan(glm::abs(TerrainSunVector() - s_terrainLightSun), glm::vec3(1e-4f)));
-        if (moodChanged || sunMoved)
+        // Look values or the tint source changed the mood's scales since the last build.
+        const bool scalesChanged = Render::Lighting::LightMood::Revision() != s_bakedMoodRevision;
+        if (moodChanged || sunMoved || scalesChanged || TerrainSkyChanged())
         {
             s_lastBake = now;
             if (clock)
             {
                 s_terrainLightSun = TerrainSunVector();
+                TakeTerrainSky();
+                s_bakedMoodRevision = Render::Lighting::LightMood::Revision();
                 s_bakeScales = Render::Lighting::LightMood::Active();
                 s_bakeRow = 0;
             }

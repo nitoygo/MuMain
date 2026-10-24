@@ -474,10 +474,16 @@ LookEditResult SetLookValues(LookFiles& files, std::span<const LookEdit> edits, 
                            FormatNumber(max);
             return result;
         }
+        if (edit.state && !resolved->look)
+        {
+            result.error = edit.name + ": a light mood value has no times of day";
+            return result;
+        }
         result.oldValues.push_back(EffectiveValue(files, *resolved, valueWorld));
         LookDocument& document = resolved->look ? work.look : work.mood;
         LookDocument& entry = world ? MapEntry(document, *world, mapName) : DefaultEntry(document);
-        entry[resolved->key] = edit.value;
+        LookDocument& target = edit.state ? entry[Data::Maps::TimeStateName(*edit.state)] : entry;
+        target[resolved->key] = edit.value;
         lookEdited = lookEdited || resolved->look.has_value();
         moodEdited = moodEdited || !resolved->look.has_value();
     }

@@ -91,8 +91,14 @@ window.
 | Dynamic lights | Sun shadow resolution | `sun.resolution` | 1024–4096 | 1024 | 2048 | More settings |
 | Dynamic lights | Physical light falloff | `dynamic.physicalFalloff` | 0–100 % | 5 % | 50 % | More settings |
 | Dynamic lights | Day length (minutes) | `time.dayMinutes` | 0–240 | 5 | 60 on outdoor maps, 0 elsewhere | common |
-| Dynamic lights | Sunrise and sunset warmth | `time.dawnWarmth` | 0–150 % | 5 % | 100 % | More settings |
-| Dynamic lights | Moonlight tint | `time.moonTint` | 0–150 % | 5 % | 100 % | More settings |
+| Dynamic lights | Daylight | `time.daylight` | 0–100 % | 5 % | 100 % | More settings |
+| Dynamic lights | Sun height | `sun.height` | 5–90° | 1° | 63° | More settings |
+| Dynamic lights | Sun strength | `sun.strength` | 0–100 % | 5 % | 100 % | More settings |
+| Dynamic lights | Sun colour | `sun.warmth` | −100–100 % | 5 % | 0 % | More settings |
+| Dynamic lights | Sky brightness | `sky.brightness` | 0–100 % | 5 % | 100 % | More settings |
+| Dynamic lights | Light on the far side | `sky.farLight` | 0–100 % | 5 % | 0 % | More settings |
+| Dynamic lights | Sky glow | `sky.glow` | 0–100 % | 5 % | 0 % | More settings |
+| Dynamic lights | Night sky | `sky.night` | 0–100 % | 5 % | 0 % | More settings |
 | Dynamic lights | Flat sun shadow | `dynamic.flatSunShadow` | 0–100 % | 5 % | 100 % (0 indoors) | More settings |
 | Dynamic lights | Cloud shadows | `clouds.strength` | 0–100 % | 5 % | 35 % | common |
 | Dynamic lights | Cloud size | `clouds.scale` | 500–10000 | 250 | 3000 | More settings |
@@ -100,6 +106,8 @@ window.
 | Dynamic lights | Cloud cover | `clouds.cover` | 0–100 % | 5 % | 45 % | More settings |
 | Dynamic lights | Sky-blue shade | `sky.fill` | 0–100 % | 5 % | 50 % | common |
 | Dynamic lights | Rim light follows the sun | `lighting.rim.sunFollow` | 0–100 % | 5 % | 100 % | More settings |
+| Dynamic lights | Lights add up as real light | `lighting.linear` | 0–100 % | 5 % | 0 % | More settings |
+| Post-processing | Graphics quality | `quality.tier` | 0–2 | 1 | 2 | common |
 | Darker map light | Mood strength | `mood.strengthPercent` | 0–100 % | 1 % | 100 % | common |
 | Bloom and colour grading | Bloom intensity | `bloom.strength` | 0–2 | 0.05 | 1 (Icarus 0.3) | common |
 | Bloom and colour grading | Bloom spread | `bloom.levelFalloff` | 0.25–1 | 0.05 | 0.6 | common |
@@ -201,8 +209,9 @@ Classic uses neither file.
 ```json
 {
   "formatVersion": 1,
-  "default": { "bloom.strength": 1.0, "dynamic.effectCap": 2.5 },
-  "maps": [ { "world": 10, "name": "Icarus", "bloom.strength": 0.3 } ]
+  "default": { "bloom.strength": 1.0, "night": { "sun.strength": 0.45 } },
+  "environments": { "enclosed": { "sun.shadow": 0, "fog.density": 0.4 } },
+  "maps": [ { "world": 10, "name": "Icarus", "environment": "sky", "bloom.strength": 0.3 } ]
 }
 ```
 
@@ -248,17 +257,81 @@ for the whole file.
 | `sun.shadow` | 1 | 0 | 0–1 | how dark the sun's shadows are, on top of `dynamic.shadowOpacity`. Everything solid (the terrain, buildings, trees, characters) is drawn from the sun into a shadow map, so shadows fall onto slopes, walls and other characters. The sun stands opposite `dynamic.shadowAngle`, as high as the flat character shadows were long. On models it takes away only the direct sunlight, not the ambient light. Characters' see-through parts (wings, capes, auras) cast a lighter shadow by their opacity, or glowing, their brightness. Above 0, characters cast no flat sun shadow; point-light shadows stay flat. Needs dynamic lights; drawn with anti-aliasing too |
 | `sun.softness` | 1 | 1 | 0–2 | how many shadow-map texels the sun shadows' edges blur over |
 | `dynamic.physicalFalloff` | 0.5 | 0 | 0–1 | how point lights fade: 0 the terrain light's linear fade over the horizontal distance, 1 inverse-square over the full distance, height included, ending smoothly at the light's reach; in between, a blend. Ground, models and the point-light shadows' strength all fade the same way; lights baked into the ground's vertex colour (beyond the per-pixel ones) keep the linear fade |
-| `time.dayMinutes` | 0 (outdoor maps: 60) | 0 | 0–240 | how many real minutes a day lasts: the sun rises at 6, stands where `dynamic.shadowAngle` puts it at noon, sets at 18, its light gentler the lower it stands (the sine of its height); by night the moon takes the same path at 80 % of the noon sun's strength, its shadows and lit sides standing out against the night mood's darkness, and the map blends to its night mood (`docs/light-mood.md`). The light turns orange as the sun nears the horizon and white by noon (`time.dawnWarmth`), the moon's blue-white (`time.moonTint`), and painted bright places dim with a low sun. The hour comes from UTC time, so every client sees the same one. 0 keeps the sun at noon, today's look; Look.json ships 60 on outdoor maps. A map whose Look.json value is 0 (indoors, events) never gets a clock: the player's value only sets the day's length. The volumetric fog thickens as the sun nears the horizon, up to 2.5 times `fog.density` at sunrise and sunset. `$time <hour>` holds the clock at an hour, `$time off` lets it run |
-| `time.dawnWarmth` | 1 | 1 | 0–1.5 | how far the low sun's light turns orange (0 keeps it white all day) |
-| `time.moonTint` | 1 | 1 | 0–1.5 | how far the moonlight turns blue (0 makes it white) |
-| `dynamic.flatSunShadow` | 1 (Dungeon, Lost Tower, Kanturu Relics, Refinery Tower: 0) | 1 | 0–1 | how dark the flat shadow under characters is while sun shadows are off (`sun.shadow` 0), on top of the shadow's own darkness. The indoor and underground maps set both to 0: no sun there, so only torches and spells cast character shadows. Classic always draws it |
-| `clouds.strength` | 0.35 | 0 | 0–1 | how much a passing cloud dims the sun's (or moon's) light on the ground, characters and fog; drifting procedural clouds whose shadows fall slanted by the sun, fading with its strength. Only with sun shadows |
+| `time.dayMinutes` | 0 (outdoor environments: 60) | 0 | 0–240 | how many real minutes a full day lasts. The hour comes from UTC time, so every client sees the same one, and picks the time of day (see [Times of day and environments](#times-of-day-and-environments)). 0 (indoors, events, the `fixed`, `underwater` and `enclosed` environments) means no clock: the plain values apply. The player's value only sets the day's length on maps that have a clock. `$time <hour>` holds the clock, `$env <state>` holds it in the middle of a time of day, `$time off` lets it run |
+| `time.daylight` | 1 | 1 | 0–1 | how much of the map's day mood shows: 1 the day look, 0 its night mood (`docs/light-mood.md`) |
+| `sun.height` | 63 | 63 | 5–90 | how high the sun or moon stands, in degrees, while the clock runs; without it the sun keeps the slant the maps' baked light implies. Its direction is `dynamic.shadowAngle` |
+| `sun.strength` | 1 | 1 | 0–1 | how strong the direct light of the sun or moon is: its shadows, the clouds and the fog's sunlight follow it |
+| `sun.warmth` | 0 | 0 | −1–1 | the direct light's colour: towards 1 a low sun's orange, towards −1 moonlight's blue, 0 white |
+| `sky.brightness` | 1 | 1 | 0–1 | how bright the painted light and the characters' light are |
+| `sky.farLight` | 0 | 0 | 0–1 | the least light the sky leaves on faces turned away from the sun or moon (ground and models) |
+| `sky.glow` | 0 | 0 | 0–1 | how far the sky colours its light (all but the direct sun) orange on the sun's side and violet on the other, at unchanged brightness |
+| `sky.night` | 0 | 0 | 0–1 | how far the sky colours its light blue |
+| `dynamic.flatSunShadow` | 1 (Dungeon, Lost Tower, Kanturu Relics, Refinery Tower: 0) | 1 | 0–1 | how dark the flat shadow under characters is while sun shadows are off (`sun.shadow` 0); it falls away from the frame's sun, as long as the sun's slant (at most 3 units per unit of height), on top of the shadow's own darkness. The indoor and underground maps set both to 0: no sun there, so only torches and spells cast character shadows. Classic always draws it |
+| `clouds.strength` | 0.35 | 0 | 0–1 | how much a passing cloud dims the sun's (or moon's) light on the ground, characters and fog; drifting procedural clouds whose shadows fall slanted by the sun, fading with its strength. On the ground a cloud takes away the direct sunlight only, never the painted ambient light or point lights. Only with sun shadows |
 | `clouds.scale` | 3000 | 3000 | 500–10000 | the cloud pattern's size in world units |
 | `clouds.speed` | 40 | 40 | 0–300 | how fast the clouds drift along a fixed wind, in world units per second |
 | `clouds.cover` | 0.45 | 0.45 | 0–1 | the share of the sky the clouds cover |
 | `sky.fill` | 0.5 | 0 | 0–1 | how far shade (from shadows and clouds) turns towards the sky's blue while sunlit places keep the sun's colour; replaces the light mood's `shadeCool` while sun shadows are on. Only with sun shadows |
 | `lighting.rim.sunFollow` | 1 | 0 | 0–1 | how much the characters' edge light comes from the sun: brighter and sun-coloured on its side, gone in its shadow; 0 the even Enhanced rim |
+| `lighting.linear` | 0 | 0 | 0–1 | how far the ground's and characters' lights (direct sun, the sky's share, point lights) add up as light (decoded from the texture colours' gamma, summed, encoded back) rather than as screen colours. Overlapping lights blend softly instead of brightening too fast; a light alone looks the same. Effects, fog, blending and mipmaps stay in screen colours |
+| `quality.tier` | 2 | 2 | 0–2 | limits over every other value, for slower PCs: 2 High leaves them; 1 Medium turns off light shafts and keeps the sun shadow map at 1024 or below; 0 Low also turns off sun shadows (characters cast their flat shadow), the volumetric fog and ambient occlusion. Turned-off passes free their targets |
 | `sun.resolution` | 2048 | 2048 | 1024–4096 | the sun shadow map's size in texels (1024, 2048 or 4096): sharper shadows for more graphics memory and time |
+
+## Times of day and environments
+
+**Times of day.** While a map's clock runs (`time.dayMinutes` above 0), the
+look moves through four authored states instead of following a moving sun:
+
+| State | Hours | |
+|---|---|---|
+| `day` | 06–20 | the plain values |
+| `dusk` | 20–21 | blends in from day over 20:00–20:30, out to night over 20:30–21:00 |
+| `night` | 21–05 | |
+| `dawn` | 05–06 | blends in from night over 05:00–05:30, out to day over 05:30–06:00 |
+
+The proportions are Guild Wars 2's: long stable days and nights, short
+transitions. The sun's direction and height change only during a transition,
+so shadows and the ground's baked light stay still the rest of the time.
+
+`default`, an environment and a map entry may each hold `dawn`, `day`, `dusk`
+and `night` objects, with any look values. In a state, each layer's own object
+applies right after that layer: built-in, `default`, `default`'s state, the
+environment, its state, the map, the map's state. So a map's plain value still
+wins over the default's night value. Every look value can differ by state; the
+shipped file sets the sun (`sun.*`, `dynamic.shadowAngle`), the sky (`sky.*`),
+`time.daylight`, clouds, shadow softness, and at night more glow from spells
+and torches (`dynamic.effectGain`, `shafts.strength`, `bloom.strength`). The
+outdoor environments set fog for each state.
+
+**Environments.** `environments` names kinds of place; a map entry picks one
+with `"environment"`. Their values apply between the default and the map's
+own. The shipped ones:
+
+| Environment | Clock | What it sets | Maps |
+|---|---|---|---|
+| `outdoor` | 60 minutes | fog for each state | Lorencia, Devias, Noria, Tarkan, Valley of Loren, Land of Trials, Crywolf, Elbeland, Loren Market, Karutan |
+| `outdoorDense` | 60 minutes | thicker fog | Aida, Kanturu Ruins, Swamp of Calmness, Raklion, Vulcanus |
+| `sky` | 60 minutes | light fog, a brighter night | Icarus |
+| `underwater` | none | soft blue light | Atlans |
+| `enclosed` | none | no sun shadows, fog | Dungeon, Lost Tower, Devil Square, Chaos Castle, Kanturu Relics, Refinery Tower, Balgass Refuge, Illusion Temple, Raklion boss cave, Doppelganger, Imperial Guardian |
+| `fixed` | none | nothing (open air, no clock) | Arena, Blood Castle, Kalima, Barracks of Balgass, Santa Village, Duel Arena |
+
+[enhanced-look-map-environments.md](enhanced-look-map-environments.md) lists
+every map with its world number and why it has its environment.
+
+**Tuning a state.** `$env dawn|day|dusk|night` holds the clock in the middle
+of that state. `$look set [map] dawn|day|dusk|night <name> <value>` changes
+that state's value of the default (or of the active map's entry), live, and
+`$look save` writes it into the state's object. The short forms (`$sun`,
+`$fog`, ...) and `$look set` without a state change the plain values, which a
+state's own value of the same name hides during that state. The player's
+Options sliders win over every state.
+
+**Night: two parts.** The night state sets the light (sun, sky, glow).
+The map's night *mood* in `Data/Maps/LightMood.json` ([light-mood.md](light-mood.md))
+sets how the painted lightmap darkens and tints. `time.daylight` decides how far
+the mood has gone towards it. They are kept apart on purpose: the mood is the
+painted map's colour, per map; the state is the light over it.
 
 ## Developer commands
 
@@ -278,7 +351,7 @@ player's:
 | Command | Effect |
 |---|---|
 | `$look show [<name>]` | every effective value and where it comes from (render log) |
-| `$look set [map] <name> <value>` | changes a value of the default profile, or of the current map's entry |
+| `$look set [map] [dawn\|day\|dusk\|night] <name> <value>` | changes a value of the default profile, or of the current map's entry; with a time of day, that state's value |
 | `$look reset [<name>]` | back to the values loaded from the files |
 | `$look load [<candidate>]` | loads `Data/Render/Candidates/<candidate>/Look.json` and `LightMood.json`, or the shipped files again |
 | `$look save` | writes both files |
@@ -287,7 +360,7 @@ Shorter forms of `$look set`: `$lighting rim <v>`, `$lighting specular <v>`,
 `$lighting diffuse <scale> <ambient> <floor>`, `$lightmood knee <k>`,
 `$dynlights wrap <w>`, `$dynlights smooth <s>`,
 `$dynlights spell <gain> <range> <fade>`, `$dynlights cap <c>`,
-`$dynlights reach <cells>`, `$dynlights shadow <opacity>`, `$dynlights shadowangle <degrees>`, `$dynlights shadowlights <n>`, `$bloom falloff <f>`, `$bloom <strength>`, `$ao <strength>`, `$ao radius <r>`, `$fog <density>`, `$fog height <h>`, `$fog glow <g>`, `$fog sun <f>`, `$fog lights <f>`, `$clouds <strength>`, `$clouds scale <units>`, `$clouds speed <units/s>`, `$clouds cover <f>`, `$sky <f>`, `$rim sun <f>`, `$shafts <strength>`, `$shafts skills <f>`, `$shafts map <f>`, `$sun <strength>`, `$sun softness <f>`, `$sun resolution <texels>`, `$dynlights falloff <f>`, `$dynlights flatsun <f>`, `$time day <minutes>`, `$time dawn <f>`, `$time moon <f>`, `$time <hour>`, `$time off`.
+`$dynlights reach <cells>`, `$dynlights shadow <opacity>`, `$dynlights shadowangle <degrees>`, `$dynlights shadowlights <n>`, `$bloom falloff <f>`, `$bloom <strength>`, `$ao <strength>`, `$ao radius <r>`, `$fog <density>`, `$fog height <h>`, `$fog glow <g>`, `$fog sun <f>`, `$fog lights <f>`, `$clouds <strength>`, `$clouds scale <units>`, `$clouds speed <units/s>`, `$clouds cover <f>`, `$sky <f>`, `$rim sun <f>`, `$shafts <strength>`, `$shafts skills <f>`, `$shafts map <f>`, `$sun <strength>`, `$sun softness <f>`, `$sun resolution <texels>`, `$dynlights falloff <f>`, `$dynlights flatsun <f>`, `$time day <minutes>`, `$time daylight <f>`, `$sun height <degrees>`, `$sun strength <f>`, `$sun warmth <f>`, `$sky brightness <f>`, `$sky far <f>`, `$sky glow <f>`, `$sky night <f>`, `$quality <0-2>`, `$time <hour>`, `$env dawn|day|dusk|night`, `$time off`.
 The DevEditor has the same values in its Look panel.
 
 Feature overrides, to compare one feature on and off. They last for the

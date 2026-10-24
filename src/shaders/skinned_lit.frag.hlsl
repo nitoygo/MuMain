@@ -104,12 +104,33 @@ float4 main(FSInput input) : SV_Target
     const float sunLight = 1.0 - sunShadowParameters.x * (1.0 - sunVisible);
     // Shade turns towards the sky's blue.
     const float3 skyShade = lerp(float3(1.0, 1.0, 1.0), skyFill.rgb, skyFill.w * (1.0 - sunVisible));
-    const float luminosity = max(lightDot * diffuseCurve.x * sunLight + diffuseCurve.y, diffuseCurve.z);
+    // Faces turned from a low sun or moon keep the sky's light.
+    const float diffuseFloor = inWorld ? max(diffuseCurve.z, lightingParameters.z) : diffuseCurve.z;
+    // Shadow dims the light a face receives, never the darkening of faces turned away.
+    const float luminosity =
+        max(lightDot * diffuseCurve.x * (lightDot > 0.0 ? sunLight : 1.0) + diffuseCurve.y, diffuseFloor);
+    // All but the direct sunlight is the sky's: its colour on the side the face turns to.
+    float direct = 0.0;
+    float3 sky = float3(1.0, 1.0, 1.0);
+    if (inWorld)
+    {
+        direct = min(max(lightDot * diffuseCurve.x * sunLight, 0.0), luminosity);
+        const float2 sunSide = sunTowards.xy / max(length(sunTowards.xy), 1e-4);
+        sky = lerp(skyAway.rgb, skyToward.rgb, saturate(0.5 + 0.5 * dot(worldNormal.xy, sunSide)));
+    }
+    const float3 surface = objectLight * skyShade;
     const float3 dynamicLight =
         inWorld ? DynamicLighting(input.worldPositionAndDynamicLights.xyz, worldNormal) : float3(0.0, 0.0, 0.0);
-    float3 diffuse = saturate(objectLight * skyShade * luminosity + dynamicLight);
+    float3 lit = surface * (direct + (luminosity - direct) * sky) + dynamicLight;
+    if (inWorld && lightingParameters.w > 0.0)
+    {
+        const float3 linearSum = ToLinearLight(surface * direct) +
+                                 ToLinearLight(surface * (luminosity - direct) * sky) + ToLinearLight(dynamicLight);
+        lit = lerp(lit, FromLinearLight(linearSum), lightingParameters.w);
+    }
+    float3 diffuse = saturate(lit);
     if (RollsOffHighlight(diffuseCurve.w))
-        diffuse = RollOffHighlight(objectLight * skyShade * luminosity + dynamicLight, diffuseCurve.w);
+        diffuse = RollOffHighlight(lit, diffuseCurve.w);
 
     // Two-sided meshes show back faces; |dot| keeps their interiors from rim-lighting.
     const float facing = saturate(abs(dot(normal, view)));

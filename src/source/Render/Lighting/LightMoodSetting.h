@@ -29,6 +29,10 @@ const Scales& Active();
 // caller then builds the map's static light again (CreateTerrainLight, or spread over frames).
 bool SetSunlight(float daylight, float strength, const float color[3]);
 
+// Changes whenever the active scales do (look values, the tint source, the daylight): the map's static
+// light built with an older one is stale.
+[[nodiscard]] std::uint32_t Revision();
+
 // Logs the scales a map's static light was built with (map load and reload).
 void LogMapLight();
 

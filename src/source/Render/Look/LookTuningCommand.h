@@ -55,8 +55,15 @@
 //   $dynlights falloff <f>         dynamic.physicalFalloff
 //   $dynlights flatsun <f>         dynamic.flatSunShadow
 //   $time day <minutes>            time.dayMinutes
-//   $time dawn <f>                 time.dawnWarmth
-//   $time moon <f>                 time.moonTint
+//   $time daylight <f>             time.daylight
+//   $quality <0-2>                 quality.tier
+//   $sun height <degrees>          sun.height
+//   $sun strength <f>              sun.strength
+//   $sun warmth <f>                sun.warmth
+//   $sky brightness <f>            sky.brightness
+//   $sky far <f>                   sky.farLight
+//   $sky glow <f>                  sky.glow
+//   $sky night <f>                 sky.night
 namespace Render::Look
 {
 
@@ -91,6 +98,8 @@ struct LookCommand
     LookVerb verb = LookVerb::Show;
     // Set: the current map's entry instead of the default.
     bool map = false;
+    // Set: that time of day's value instead of the plain one.
+    std::optional<Data::Maps::TimeState> state;
     // Show, set, reset: the value's name (empty: every value); load: the candidate (empty: the
     // shipped files).
     std::string name;

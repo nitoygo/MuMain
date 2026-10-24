@@ -276,7 +276,7 @@ TEST_CASE("the shipped look profile holds the tuned Enhanced values [data][look]
     {
         CAPTURE(info.name);
         // The file names every value.
-        REQUIRE(loaded.data.defaultOverrides[info.value].has_value());
+        REQUIRE(loaded.data.defaults.overrides[info.value].has_value());
         double expected = info.builtIn;
         for (const auto& [value, number] : accepted)
         {
@@ -285,7 +285,7 @@ TEST_CASE("the shipped look profile holds the tuned Enhanced values [data][look]
                 expected = number;
             }
         }
-        CHECK(*loaded.data.defaultOverrides[info.value] == doctest::Approx(expected));
+        CHECK(*loaded.data.defaults.overrides[info.value] == doctest::Approx(expected));
     }
     // Icarus: less bloom, which widened its fog clouds.
     CHECK(loaded.data.ForWorld(Icarus)[LookValue::BloomStrength] == doctest::Approx(0.3));
@@ -302,4 +302,91 @@ TEST_CASE("the shipped look profile holds the tuned Enhanced values [data][look]
     CHECK(loaded.data.ForWorld(Lorencia)[LookValue::FogDensity] == doctest::Approx(0.25));
     CHECK(loaded.data.ForWorld(1)[LookValue::FogDensity] == doctest::Approx(0.4));
     CHECK(loaded.data.ForWorld(11)[LookValue::FogDensity] == 0.0);
+}
+
+TEST_CASE("each time of day layers its values over its layer's plain ones [data][look]")
+{
+    using Data::Maps::TimeState;
+    const ReadResult result = Read(R"({"formatVersion": 1,
+        "default": {"bloom.strength": 1.0, "night": {"bloom.strength": 1.4, "sun.strength": 0.3}},
+        "environments": {"enclosed": {"sun.shadow": 0, "night": {"sun.strength": 0}}},
+        "maps": [{"world": 1, "environment": "enclosed"},
+                 {"world": 10, "bloom.strength": 0.3}]})");
+    REQUIRE_MESSAGE(!HasErrors(result.issues), Messages(result.issues));
+    // Without a state, the plain values only.
+    CHECK(result.data.ForWorld(Lorencia)[LookValue::BloomStrength] == 1.0);
+    CHECK(result.data.ForWorld(Lorencia, TimeState::Night)[LookValue::BloomStrength] == 1.4);
+    CHECK(result.data.ForWorld(Lorencia, TimeState::Day)[LookValue::BloomStrength] == 1.0);
+    // The environment's own night wins over the default's; a map's plain value over the default's night.
+    CHECK(result.data.ForWorld(Dungeon)[LookValue::SunShadowStrength] == 0.0);
+    CHECK(result.data.ForWorld(Dungeon, TimeState::Night)[LookValue::SunStrength] == 0.0);
+    CHECK(result.data.ForWorld(Lorencia, TimeState::Night)[LookValue::SunStrength] == doctest::Approx(0.3));
+    CHECK(result.data.ForWorld(Icarus, TimeState::Night)[LookValue::BloomStrength] == doctest::Approx(0.3));
+}
+
+TEST_CASE("an unknown environment or a state that is not an object makes the file unusable [data][look]")
+{
+    CheckBuiltInEverywhere(Read(R"({"formatVersion": 1, "maps": [{"world": 1, "environment": "cave"}]})"));
+    CheckBuiltInEverywhere(Read(R"({"formatVersion": 1, "default": {"night": 1}})"));
+    CheckBuiltInEverywhere(Read(R"({"formatVersion": 1, "default": {"night": {"sun.nope": 1}}})"));
+}
+
+TEST_CASE("day and night hold; dawn and dusk blend in and out around their middle [data][look]")
+{
+    using Data::Maps::TimeBlend;
+    using Data::Maps::TimeState;
+    using Data::Maps::TimeStateAt;
+    CHECK(TimeStateAt(13.0) == TimeBlend{TimeState::Day, TimeState::Day, 0.0});
+    CHECK(TimeStateAt(2.0) == TimeBlend{TimeState::Night, TimeState::Night, 0.0});
+    CHECK(TimeStateAt(23.0) == TimeBlend{TimeState::Night, TimeState::Night, 0.0});
+    CHECK(TimeStateAt(Data::Maps::TimeStateHour(TimeState::Dusk)).to == TimeState::Night);
+    CHECK(TimeStateAt(Data::Maps::TimeStateHour(TimeState::Dusk)).from == TimeState::Dusk);
+    CHECK(TimeStateAt(Data::Maps::TimeStateHour(TimeState::Dusk)).amount == 0.0);
+    const TimeBlend evening = TimeStateAt(20.25);
+    CHECK(evening.from == TimeState::Day);
+    CHECK(evening.to == TimeState::Dusk);
+    CHECK(evening.amount == doctest::Approx(0.5));
+    // No jump where one blend hands over to the next.
+    CHECK(TimeStateAt(5.4999).amount == doctest::Approx(1.0).epsilon(0.01));
+    CHECK(TimeStateAt(20.9999).amount == doctest::Approx(1.0).epsilon(0.01));
+    CHECK(TimeStateAt(-1.0) == TimeStateAt(23.0));
+}
+
+TEST_CASE("blended values move between two states; the shadow angle the short way round [data][look]")
+{
+    LookValues from = BuiltInLookValues();
+    LookValues to = BuiltInLookValues();
+    from[LookValue::BloomStrength] = 1.0;
+    to[LookValue::BloomStrength] = 2.0;
+    from[LookValue::GroundShadowAngle] = 350.0;
+    to[LookValue::GroundShadowAngle] = 10.0;
+    const LookValues half = Data::Maps::BlendLookValues(from, to, 0.5);
+    CHECK(half[LookValue::BloomStrength] == doctest::Approx(1.5));
+    CHECK(half[LookValue::GroundShadowAngle] == doctest::Approx(0.0).epsilon(1e-9));
+    CHECK(Data::Maps::BlendLookValues(from, to, 0.0) == from);
+}
+
+TEST_CASE("quality.tier turns the costly passes off on slower settings [data][look]")
+{
+    LookValues values = BuiltInLookValues();
+    values[LookValue::SunShadowStrength] = 1.0;
+    values[LookValue::SunShadowResolution] = 2048.0;
+    values[LookValue::FogDensity] = 0.25;
+    values[LookValue::AmbientOcclusionStrength] = 0.8;
+    values[LookValue::LightShaftStrength] = 0.5;
+    LookValues high = values;
+    Data::Maps::ApplyQualityTier(high);
+    CHECK(high == values);
+    LookValues medium = values;
+    medium[LookValue::QualityTier] = 1.0;
+    Data::Maps::ApplyQualityTier(medium);
+    CHECK(medium[LookValue::LightShaftStrength] == 0.0);
+    CHECK(medium[LookValue::SunShadowResolution] == 1024.0);
+    CHECK(medium[LookValue::SunShadowStrength] == 1.0);
+    LookValues low = values;
+    low[LookValue::QualityTier] = 0.0;
+    Data::Maps::ApplyQualityTier(low);
+    CHECK(low[LookValue::SunShadowStrength] == 0.0);
+    CHECK(low[LookValue::FogDensity] == 0.0);
+    CHECK(low[LookValue::AmbientOcclusionStrength] == 0.0);
 }

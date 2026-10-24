@@ -26,13 +26,20 @@ kernel void main0(constant FogUniforms& _47 [[buffer(0)]], texture2d<float> scen
         {
             break;
         }
-        float2 _217 = (float2(gl_GlobalInvocationID.xy) + float2(0.5)) / float2(_47.target.xy);
-        float4 _222 = sceneDepth.sample(depthSampler, _217, level(0.0));
-        float _223 = _222.x;
-        float2 _192 = _217;
-        float4 _282 = _47.inverseViewProjection * float4((_192.x * 2.0) - 1.0, 1.0 - (_192.y * 2.0), _223, 1.0);
-        float4 _266 = _282;
-        fogLayer.write(fogVolume.sample(volumeSampler, float3(_217, ((_223 >= 1.0) ? 1.0 : fast::clamp(log(fast::max(length((_282.xyz / float3(_266.w)) - _47.camera.xyz), _47.camera.w) / _47.camera.w) / log(_47.color.w / _47.camera.w), 0.0, 1.0)) - (0.5 / float(_47.size.z))), level(0.0)), uint2(gl_GlobalInvocationID.xy));
+        float2 _261 = (float2(gl_GlobalInvocationID.xy) + float2(0.5)) / float2(_47.target.xy);
+        float4 _266 = sceneDepth.sample(depthSampler, _261, level(0.0));
+        float _267 = _266.x;
+        float2 _233 = _261;
+        float4 _362 = _47.inverseViewProjection * float4((_233.x * 2.0) - 1.0, 1.0 - (_233.y * 2.0), _267, 1.0);
+        float4 _346 = _362;
+        float _275 = length((_362.xyz / float3(_346.w)) - _47.camera.xyz);
+        float _284 = _47.camera.w * exp(log(_47.color.w / _47.camera.w) / float(_47.size.z));
+        if ((_267 < 1.0) && (_275 < _284))
+        {
+            fogLayer.write(mix(float4(0.0, 0.0, 0.0, 1.0), fogVolume.sample(volumeSampler, float3(_261, 0.5 / float(_47.size.z)), level(0.0)), float4(_275 / _284)), uint2(gl_GlobalInvocationID.xy));
+            break;
+        }
+        fogLayer.write(fogVolume.sample(volumeSampler, float3(_261, ((_267 >= 1.0) ? 1.0 : fast::clamp(log(_275 / _47.camera.w) / log(_47.color.w / _47.camera.w), 0.0, 1.0)) - (0.5 / float(_47.size.z))), level(0.0)), uint2(gl_GlobalInvocationID.xy));
         break;
     } while(false);
 }

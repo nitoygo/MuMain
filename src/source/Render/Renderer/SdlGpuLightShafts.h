@@ -49,9 +49,10 @@ public:
 
     // Everything, at shutdown.
     void Release();
+    // The targets, while the pass is off.
+    void ReleaseTargets();
 
 private:
-    void ReleaseTargets();
 
     SDL_GPUDevice* m_device = nullptr;
     SDL_GPUGraphicsPipeline* m_pipeline = nullptr;

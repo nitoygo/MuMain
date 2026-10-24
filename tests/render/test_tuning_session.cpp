@@ -289,7 +289,7 @@ TEST_CASE("player tuning writes config.ini only, never the look or mood files [r
     Data::Maps::LookProfileData reread;
     Data::Maps::ReadLookProfileJson(ReadFile(look), look.generic_string(), reread, lookIssues);
     CHECK(reread == loaded.files.lookData);
-    CHECK(reread.defaultOverrides[LookValue::BloomStrength] == 1.0);
+    CHECK(reread.defaults.overrides[LookValue::BloomStrength] == 1.0);
 
     std::error_code ignored;
     std::filesystem::remove_all(dir, ignored);

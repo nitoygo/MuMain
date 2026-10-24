@@ -1643,17 +1643,53 @@
   <data name="Tuning Day Length Help" xml:space="preserve">
     <value>How many real minutes a day of sunrise, noon, sunset and night lasts; the same hour on every client. 0 keeps the sun at noon.</value>
   </data>
-  <data name="Tuning Dawn Warmth" xml:space="preserve">
-    <value>Sunrise and sunset warmth</value>
+  <data name="Tuning Daylight" xml:space="preserve">
+    <value>Daylight</value>
   </data>
-  <data name="Tuning Dawn Warmth Help" xml:space="preserve">
-    <value>How orange the light turns as the sun nears the horizon. 0 keeps it white all day.</value>
+  <data name="Tuning Daylight Help" xml:space="preserve">
+    <value>How much of the map's day mood shows: 100% the day look, 0 the map's night mood.</value>
   </data>
-  <data name="Tuning Moon Tint" xml:space="preserve">
-    <value>Moonlight tint</value>
+  <data name="Tuning Sun Height" xml:space="preserve">
+    <value>Sun height</value>
   </data>
-  <data name="Tuning Moon Tint Help" xml:space="preserve">
-    <value>How blue the moonlight is. 0 makes it white.</value>
+  <data name="Tuning Sun Height Help" xml:space="preserve">
+    <value>How high the sun or the moon stands, in degrees. A low light casts long shadows.</value>
+  </data>
+  <data name="Tuning Sun Strength" xml:space="preserve">
+    <value>Sun strength</value>
+  </data>
+  <data name="Tuning Sun Strength Help" xml:space="preserve">
+    <value>How strong the direct light of the sun or moon is. Its shadows, the clouds and the fog's sunlight follow it.</value>
+  </data>
+  <data name="Tuning Sun Warmth" xml:space="preserve">
+    <value>Sun colour</value>
+  </data>
+  <data name="Tuning Sun Warmth Help" xml:space="preserve">
+    <value>The colour of the direct light: towards 100% the orange of a low sun, towards -100% the blue of moonlight, 0 white.</value>
+  </data>
+  <data name="Tuning Sky Brightness" xml:space="preserve">
+    <value>Sky brightness</value>
+  </data>
+  <data name="Tuning Sky Brightness Help" xml:space="preserve">
+    <value>How bright the painted light and the characters' light are.</value>
+  </data>
+  <data name="Tuning Sky Far Light" xml:space="preserve">
+    <value>Light on the far side</value>
+  </data>
+  <data name="Tuning Sky Far Light Help" xml:space="preserve">
+    <value>The least light the sky leaves on faces turned away from the sun or moon.</value>
+  </data>
+  <data name="Tuning Sky Glow" xml:space="preserve">
+    <value>Sky glow</value>
+  </data>
+  <data name="Tuning Sky Glow Help" xml:space="preserve">
+    <value>How far the sky colours its light orange on the sun's side and violet on the other, as around sunrise and sunset.</value>
+  </data>
+  <data name="Tuning Sky Night" xml:space="preserve">
+    <value>Night sky</value>
+  </data>
+  <data name="Tuning Sky Night Help" xml:space="preserve">
+    <value>How far the sky colours its light blue, as by night.</value>
   </data>
   <data name="Tuning Fog Density" xml:space="preserve">
     <value>Fog density</value>
@@ -1720,6 +1756,18 @@
   </data>
   <data name="Tuning Rim Sun Follow Help" xml:space="preserve">
     <value>How much the edge light on characters comes from the sun: brighter and sun-coloured on its side, gone in shade. 0 keeps the even edge light.</value>
+  </data>
+  <data name="Tuning Quality Tier" xml:space="preserve">
+    <value>Graphics quality</value>
+  </data>
+  <data name="Tuning Quality Tier Help" xml:space="preserve">
+    <value>2 High: everything on. 1 Medium: no light shafts, a smaller shadow map. 0 Low: also no sun shadows, fog or ambient occlusion, for older PCs.</value>
+  </data>
+  <data name="Tuning Linear Light" xml:space="preserve">
+    <value>Lights add up as real light</value>
+  </data>
+  <data name="Tuning Linear Light Help" xml:space="preserve">
+    <value>How far the sun, the sky and point lights on the ground and characters add up as light rather than as screen colours: overlapping lights blend softly instead of brightening too fast. 0 keeps the classic sums.</value>
   </data>
   <data name="Tuning Flat Sun Shadow" xml:space="preserve">
     <value>Flat sun shadow</value>

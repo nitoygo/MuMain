@@ -626,6 +626,9 @@ static bool s_frameHasWorldLit = false;
 static bool s_groundShadowMaskReady = false;
 // Per pixel, 1 minus the darkest shadow alpha drawn there; single-sample, at the frame's size.
 static SDL_GPUTexture* s_groundShadowMask = nullptr;
+// The terrain's direct sunlight per cell (SetTerrainSunLight), which clouds dim; null until the first one.
+static SDL_GPUTexture* s_terrainSunLight = nullptr;
+static constexpr Uint32 kTerrainSunLightSize = 256;
 static Uint32 s_groundShadowMaskW = 0;
 static Uint32 s_groundShadowMaskH = 0;
 // The mask's pipelines, [point light][skinned]: GPU-skinned shadows, and the CPU and cloth shadows
@@ -1290,7 +1293,7 @@ static mu::SdlGpuSunShadowMap s_sunShadowMap;
 static mu::SdlGpuVolumetricFog s_volumetricFog;
 static float s_fogLight[3]{1.0f, 1.0f, 1.0f};
 static float s_fogSun[3]{0.0f, 0.0f, 1.0f};
-static float s_fogDensityScale = 1.0f;
+static float s_fogSunStrength = 1.0f;
 static float s_fogBaseHeight = 0.0f;
 
 // Depth buffer texture for correct 3D depth testing.
@@ -2147,6 +2150,11 @@ public:
         }
 
         ReleaseSunShadowResources();
+        if (s_terrainSunLight)
+        {
+            SDL_ReleaseGPUTexture(s_device, s_terrainSunLight);
+            s_terrainSunLight = nullptr;
+        }
 
         // Release the independently owned white fallback texture.
         if (s_whiteTexture)
@@ -2625,11 +2633,14 @@ public:
         SDL_GPUTexture* const sunShadow = s_sunShadowMap.Bound();
         SDL_GPUSampler* const sunShadowSampler = s_sunShadowMap.Sampler();
         SDL_GPUTexture* const mask = s_groundShadowMaskReady ? s_groundShadowMask : s_whiteTexture;
-        const SDL_GPUTextureSamplerBinding bindings[] = {{sunShadow, sunShadowSampler}, {mask, s_defaultSampler}};
+        // Slot 3, the terrain's direct sunlight (world_lit reads it only while lightingParameters.y is 1).
+        SDL_GPUTexture* const terrainSun = s_terrainSunLight ? s_terrainSunLight : s_whiteTexture;
+        const SDL_GPUTextureSamplerBinding bindings[] = {
+            {sunShadow, sunShadowSampler}, {mask, s_defaultSampler}, {terrainSun, s_defaultSampler}};
         if (sunShadow && sunShadowSampler)
-            SDL_BindGPUFragmentSamplers(s_renderPass, 1, bindings, 2);
+            SDL_BindGPUFragmentSamplers(s_renderPass, 1, bindings, 3);
         else
-            SDL_BindGPUFragmentSamplers(s_renderPass, 2, &bindings[1], 1);
+            SDL_BindGPUFragmentSamplers(s_renderPass, 2, &bindings[1], 2);
     }
 
     // The ground shadow mask at the frame's size, recreated when that changed. Null when it fails.
@@ -2758,7 +2769,7 @@ public:
         const float fogEnd = s_sceneLightingUniform.fogParameters[1];
         uniform.color[3] = std::max(fogEnd > 0.0f ? fogEnd * 1.5f : 5000.0f, NearestSlice * 2.0f);
         // fog.density is the extinction per 1000 world units at the base.
-        uniform.medium[0] = s_postProcessingLook.fogDensity * s_fogDensityScale / 1000.0f;
+        uniform.medium[0] = s_postProcessingLook.fogDensity / 1000.0f;
         uniform.medium[1] = 1.0f / std::max(s_postProcessingLook.fogHeight, 1.0f);
         uniform.medium[2] = s_fogBaseHeight;
         std::memcpy(uniform.sunViewProjection, s_sceneLightingUniform.sunViewProjection,
@@ -2771,8 +2782,9 @@ public:
         // In a shadow the air keeps an ambient share of the light; lit, it adds the sun's.
         constexpr float AmbientShare = 0.35f;
         uniform.scatter[0] = s_postProcessingLook.fogAnisotropy;
-        uniform.scatter[1] = sunShadows ? s_postProcessingLook.fogSunScatter : 0.0f;
-        uniform.scatter[2] = AmbientShare;
+        // Direct sunlight fades with the sun's strength; the ambient share keeps a floor through the night.
+        uniform.scatter[1] = sunShadows ? s_postProcessingLook.fogSunScatter * s_fogSunStrength : 0.0f;
+        uniform.scatter[2] = AmbientShare * (0.3f + 0.7f * s_fogSunStrength);
         // One and a half shadow-map texels between the soft lookup's taps.
         uniform.scatter[3] = 1.5f * s_sceneLightingUniform.sunShadowParameters[2];
         std::copy(std::begin(s_sceneLightingUniform.cloudParameters), std::end(s_sceneLightingUniform.cloudParameters),
@@ -3021,10 +3033,6 @@ public:
         // The volumetric fog lies over the materials' distance fog, which still fades the map's edge.
         const bool volumetricFog =
             s_postProcessingLook.fogDensity > 0.0f && sceneView && s_volumetricFog.IsAvailable();
-        if (!volumetricFog)
-        {
-            s_volumetricFog.ReleaseTargets();
-        }
 
         // The scene texture's format says whether this frame's scene is HDR (EnsureTargets).
         s_hdrScenePass = s_postProcessing.IsHdrScene();
@@ -3041,7 +3049,7 @@ public:
         ReplayCommands(0u, sceneEnd, boneDataReady, ReplaySelection::AllCommands, view);
         EndReplayPass();
 
-        if (s_postProcessingLook.bloomStrength > 0.0f)
+        if (s_postProcessingLook.bloomStrength > 0.0f && s_postProcessing.EnsureBloomTargets())
         {
             RenderBloomSources(sceneEnd, boneDataReady);
         }
@@ -3460,6 +3468,19 @@ public:
         std::optional<FrameProfiler::Scope> replayScope(std::in_place, FrameProfiler::Pass::RendererReplay);
         const Render::PostProcessing::FrameSplit split =
             s_sceneBoundary.Split(s_renderCmds.size(), IsPostProcessingActive());
+        // Passes that will not run this frame free their targets, whichever way the frame is drawn.
+        {
+            const bool scene = split.postProcessed && s_postProcessingView == mu::PostProcessingView::Scene;
+            if (!scene || s_postProcessingLook.fogDensity <= 0.0f)
+                s_volumetricFog.ReleaseTargets();
+            if (!scene || s_postProcessingLook.ambientOcclusionStrength <= 0.0f)
+                s_ambientOcclusion.ReleaseTargets();
+            if (!scene || s_postProcessingLook.lightShaftStrength <= 0.0f)
+                s_lightShafts.ReleaseTargets();
+            // The bloom views show the bloom too.
+            if (!split.postProcessed || s_postProcessingLook.bloomStrength <= 0.0f)
+                s_postProcessing.ReleaseBloomTargets();
+        }
         if (s_mainColorPassOpenedThisFrame && frameColorTexture == FrameColorTexture())
         {
             // FlushRenderCommands already drew part of this frame into its target with one
@@ -5402,7 +5423,7 @@ public:
         s_fogBaseHeight = lighting.fogBase;
         std::copy(std::begin(lighting.fogLight), std::end(lighting.fogLight), s_fogLight);
         std::copy(std::begin(lighting.sunDirection), std::end(lighting.sunDirection), s_fogSun);
-        s_fogDensityScale = lighting.fogDensityScale;
+        s_fogSunStrength = lighting.fogSunStrength;
         SceneFog fog{};
         fog.enabled = m_fogEnabled;
         fog.start = m_fogUniform.fogStart;
@@ -5411,6 +5432,7 @@ public:
         fog.color[1] = m_fogUniform.fogColor[1];
         fog.color[2] = m_fogUniform.fogColor[2];
         s_sceneLightingUniform = PackSceneLightingUniform(lighting, fog);
+        s_sceneLightingUniform.lightingParameters[1] = s_terrainSunLight ? 1.0f : 0.0f;
         // The scene sets its lighting right after its camera, so the model-view is the view and the
         // projection the scene's.
         m_worldFromViewMatrix = glm::inverse(m_modelViewMatrix);
@@ -5441,6 +5463,44 @@ public:
     {
         return s_enhancedLightingAvailable && s_sunShadowPipelines[0] && s_sunShadowPipelines[1] &&
                s_sunShadowMap.IsAvailable();
+    }
+
+    void SetTerrainSunLight(std::span<const std::uint8_t> rgba) override
+    {
+        if (rgba.size() != kTerrainSunLightSize * kTerrainSunLightSize * 4u || !s_device)
+        {
+            return;
+        }
+        if (!s_terrainSunLight)
+        {
+            SDL_GPUTextureCreateInfo info{};
+            info.type = SDL_GPU_TEXTURETYPE_2D;
+            info.format = SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM;
+            info.usage = SDL_GPU_TEXTUREUSAGE_SAMPLER;
+            info.width = kTerrainSunLightSize;
+            info.height = kTerrainSunLightSize;
+            info.layer_count_or_depth = 1;
+            info.num_levels = 1;
+            info.sample_count = SDL_GPU_SAMPLECOUNT_1;
+            s_terrainSunLight = SDL_CreateGPUTexture(s_device, &info);
+            if (!s_terrainSunLight)
+            {
+                return;
+            }
+        }
+        DiscardQueuedTextureUpdates(s_terrainSunLight);
+        TextureUpdateCmd cmd{};
+        cmd.gpuTexture = s_terrainSunLight;
+        cmd.pixelsCopy.assign(rgba.begin(), rgba.end());
+        cmd.width = kTerrainSunLightSize;
+        cmd.height = kTerrainSunLightSize;
+        cmd.bytesPerRow = kTerrainSunLightSize * 4u;
+        s_textureUpdates.push_back(std::move(cmd));
+    }
+
+    [[nodiscard]] bool InScreenSpaceSampling() const override
+    {
+        return s_screenSpaceSamplingDepth > 0;
     }
 
     void SetLightShafts(std::span<const mu::LightShaftLight> lights) override
@@ -6097,7 +6157,7 @@ private:
         s_vertShaderWorldLit = createShader("world_lit", "vert", SDL_GPU_SHADERSTAGE_VERTEX, 0, 0, 1, /*fatal=*/false);
         // world_lit.frag also samples the sun shadow map (s1) and the ground shadow mask (s2).
         s_fragShaderWorldLit =
-            createShader("world_lit", "frag", SDL_GPU_SHADERSTAGE_FRAGMENT, 3, 0, 3, /*fatal=*/false);
+            createShader("world_lit", "frag", SDL_GPU_SHADERSTAGE_FRAGMENT, 4, 0, 3, /*fatal=*/false);
         s_fragShaderShadowMask =
             createShader("shadow_mask", "frag", SDL_GPU_SHADERSTAGE_FRAGMENT, 0, 0, 0, /*fatal=*/false);
         // Light shafts: models' texture (t0) into the occluder mask.

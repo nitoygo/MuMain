@@ -5,6 +5,7 @@
 #include "Render/Look/TuningControls.h"
 
 #include <cstdint>
+#include <optional>
 
 // The effective look profile: the live values of Data/Render/Look.json for the active world, then
 // the player's own values (Render/Look/TuningSetting.h), then the values a developer changed this
@@ -17,8 +18,11 @@ namespace Render::Look
 // hands the light mood its data. Call once at startup.
 void LoadProfile();
 
-// The values of the active world (gMapManager.WorldActive).
+// The values of the active world (gMapManager.WorldActive), at the time of day SetTimeBlend set.
 [[nodiscard]] const Data::Maps::LookValues& Active();
+// The time of day the values blend at from now on (Lighting::UpdateFrameSun, once per frame); none
+// gives the plain values (no clock).
+void SetTimeBlend(const std::optional<Data::Maps::TimeBlend>& blend);
 [[nodiscard]] float Value(Data::Maps::LookValue value);
 
 // Changes whenever the live profile changes (not with the world), so a cache of derived values

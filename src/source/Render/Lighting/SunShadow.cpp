@@ -52,41 +52,6 @@ glm::vec3 FollowSun(const glm::vec3& baked, const glm::vec3& bakedSun, const glm
            glm::vec3(std::cos(raised) * std::cos(turned), std::cos(raised) * std::sin(turned), std::sin(raised));
 }
 
-SunAtTime SunAtHour(float hour, float noonAngleDegrees, float noonFall)
-{
-    const glm::vec3 noon = SunDirection(noonAngleDegrees, noonFall);
-    if (hour == 12.0f)
-    {
-        return {noon, 1.0f, 1.0f, glm::vec3(1.0f)};
-    }
-    const float noonElevation = std::atan2(noon.z, std::hypot(noon.x, noon.y));
-    const float pi = glm::pi<float>();
-    // Where on its arc a light rising at `rise` stands (0 rising, 1 setting), and the light there.
-    const auto onArc = [&](float along)
-    {
-        const float elevation = noonElevation * std::sin(pi * std::clamp(along, 0.0f, 1.0f));
-        const float azimuth = std::atan2(noon.y, noon.x) + (std::clamp(along, 0.0f, 1.0f) - 0.5f) * pi;
-        const float shown = std::max(elevation, glm::radians(1.0f));
-        return std::pair{
-            glm::vec3(std::cos(shown) * std::cos(azimuth), std::cos(shown) * std::sin(azimuth), std::sin(shown)),
-            std::max(std::sin(elevation), 0.0f) / std::sin(noonElevation)};
-    };
-    const float day = (hour - kSunriseHour) / (kSunsetHour - kSunriseHour);
-    if (day > 0.0f && day < 1.0f)
-    {
-        const auto [toSun, strength] = onArc(day);
-        const float elevation = noonElevation * std::sin(pi * day);
-        // Warm through the morning and afternoon, orange at the horizon.
-        const float warmth = std::pow(1.0f - std::min(strength, 1.0f), 0.6f);
-        return {toSun, glm::smoothstep(0.0f, glm::radians(kTwilightElevationDegrees), elevation), strength,
-                glm::mix(glm::vec3(1.0f), kSunHorizonColor, warmth)};
-    }
-    // The moon: the sun's path, half a day later.
-    const float night = std::fmod(hour - kSunsetHour + 24.0f, 24.0f) / (24.0f - (kSunsetHour - kSunriseHour));
-    const auto [toMoon, strength] = onArc(night);
-    return {toMoon, 0.0f, kMoonStrength * strength, kMoonColor};
-}
-
 SunShadowView BuildSunShadowView(const glm::vec3& toSun, const glm::mat4& sceneViewProjection, float groundLow,
                                  float groundHigh, std::uint32_t resolution)
 {
@@ -134,6 +99,34 @@ SunShadowView BuildSunShadowView(const glm::vec3& toSun, const glm::mat4& sceneV
     view.viewProjection = 2.0f * projection * rotation;
     view.sunFromScene = glm::mat4(glm::dmat4(view.viewProjection) * sceneFromClip);
     return view;
+}
+
+glm::vec3 SunColor(float warmth)
+{
+    const float amount = std::clamp(warmth, -1.0f, 1.0f);
+    return amount >= 0.0f ? glm::mix(glm::vec3(1.0f), kSunHorizonColor, amount)
+                          : glm::mix(glm::vec3(1.0f), kMoonColor, -amount);
+}
+
+SkyColors SkyColorsFor(float glow, float night)
+{
+    const auto withLuminanceOne = [](const glm::vec3& color)
+    { return color / glm::dot(color, glm::vec3(0.299f, 0.587f, 0.114f)); };
+    const glm::vec3 open = glm::mix(glm::vec3(1.0f), kNightSky, std::clamp(night, 0.0f, 1.0f));
+    const float amount = std::clamp(glow, 0.0f, 1.0f);
+    return {withLuminanceOne(glm::mix(open, kTwilightGlow, amount)),
+            withLuminanceOne(glm::mix(open, kTwilightShade, amount))};
+}
+
+FlatShadowCast FlatShadowFromSun(const glm::vec3& toSun, float maxFall)
+{
+    const float horizontal = std::hypot(toSun.x, toSun.y);
+    if (horizontal <= 0.0f)
+    {
+        return {0.0f, 0.0f};
+    }
+    const float fall = toSun.z > 0.0f ? std::min(horizontal / toSun.z, maxFall) : maxFall;
+    return {std::atan2(toSun.y, toSun.x), fall};
 }
 
 } // namespace Render::Lighting

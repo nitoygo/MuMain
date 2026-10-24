@@ -88,6 +88,8 @@ struct LookEdit
 {
     std::string name;
     double value = 0.0;
+    // A look value of that time of day: its object in the entry ("night": { ... }), not the plain value.
+    std::optional<Data::Maps::TimeState> state;
 };
 
 struct LookEditResult

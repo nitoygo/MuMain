@@ -21,7 +21,7 @@ cbuffer DynamicLights : register(b1, space2)
 // The sun shadow map (the far 1x1 one without sun shadows), compared as the lit shaders do.
 Texture2D sunShadowMap : register(t0, space0);
 SamplerComparisonState sunShadowSampler : register(s0, space0);
-RWTexture3D<float4> volume : register(u0, space1);
+FOG_STORAGE_FORMAT RWTexture3D<float4> volume : register(u0, space1);
 
 // How much light a point scatters towards the camera, relative to scattering it evenly
 // (Henyey-Greenstein over its isotropic value): above 1 looking towards the light.
@@ -83,8 +83,9 @@ void main(uint3 cell : SV_DispatchThreadID)
     const float2 uv = (float2(cell.xy) + 0.5) / float2(size.xy);
     const float3 direction = normalize(WorldAt(uv, 1.0) - camera.xyz);
     const float growth = SliceGrowth();
-    // Light scattered from the sun back towards the camera: the angle between them.
-    const float sunPhase = PhaseRatio(dot(-direction, normalize(sun.xyz)), scatter.x);
+    // The angle between the sunlight's travel (-sun) and the light reaching the camera (-direction):
+    // brightest looking towards the sun.
+    const float sunPhase = PhaseRatio(dot(direction, normalize(sun.xyz)), scatter.x);
     float3 light = float3(0.0, 0.0, 0.0);
     float transmittance = 1.0;
     float start = 0.0;
@@ -97,10 +98,15 @@ void main(uint3 cell : SV_DispatchThreadID)
         const float kept = exp(-extinction * (end - start));
         // The sun is looked up at a dithered point inside the slice, so shadow edges dissolve into a
         // fine grain instead of banding along the slices.
-        const float3 sunPoint = camera.xyz + direction * lerp(start, end, Dither(float2(cell.xy), float(z)));
-        const float3 lit = color.rgb * (scatter.z + scatter.y * sunPhase * SunVisibility(sunPoint) *
-                                                      CloudLight(sunPoint.xy, clouds, cloudOffset.xy)) +
-                           medium.w * PointLightGlow(position);
+        float3 lit = color.rgb * scatter.z;
+        if (scatter.y > 0.0)
+        {
+            const float3 sunPoint = camera.xyz + direction * lerp(start, end, Dither(float2(cell.xy), float(z)));
+            lit += color.rgb * scatter.y * sunPhase * SunVisibility(sunPoint) *
+                   CloudLight(sunPoint.xy, clouds, cloudOffset.xy);
+        }
+        if (medium.w > 0.0)
+            lit += medium.w * PointLightGlow(position);
         light += transmittance * lit * (1.0 - kept);
         transmittance *= kept;
         volume[uint3(cell.xy, z)] = float4(light, transmittance);

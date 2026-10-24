@@ -100,12 +100,24 @@ constexpr std::array<ControlSpec, TuningControlCount> Specs = {{
      TuningUnit::Percent, 100.0, TuningZero::Plain},
     {TuningControlId::DayMinutes, TuningGroup::DynamicLights, false, LookValue::DayMinutes, 5.0, TuningUnit::None, 1.0,
      TuningZero::Plain},
-    {TuningControlId::DawnWarmth, TuningGroup::DynamicLights, true, LookValue::DawnWarmth, 0.05, TuningUnit::Percent,
+    {TuningControlId::Daylight, TuningGroup::DynamicLights, true, LookValue::Daylight, 0.05, TuningUnit::Percent, 100.0,
+     TuningZero::Plain},
+    {TuningControlId::SunHeight, TuningGroup::DynamicLights, true, LookValue::SunHeight, 1.0, TuningUnit::Degrees, 1.0,
+     TuningZero::Plain},
+    {TuningControlId::SunStrength, TuningGroup::DynamicLights, true, LookValue::SunStrength, 0.05, TuningUnit::Percent,
      100.0, TuningZero::Plain},
-    {TuningControlId::MoonTint, TuningGroup::DynamicLights, true, LookValue::MoonTint, 0.05, TuningUnit::Percent, 100.0,
+    {TuningControlId::SunWarmth, TuningGroup::DynamicLights, true, LookValue::SunWarmth, 0.05, TuningUnit::Percent,
+     100.0, TuningZero::Plain},
+    {TuningControlId::SkyBrightness, TuningGroup::DynamicLights, true, LookValue::SkyBrightness, 0.05,
+     TuningUnit::Percent, 100.0, TuningZero::Plain},
+    {TuningControlId::SkyFarLight, TuningGroup::DynamicLights, true, LookValue::SkyFarLight, 0.05, TuningUnit::Percent,
+     100.0, TuningZero::Plain},
+    {TuningControlId::SkyGlow, TuningGroup::DynamicLights, true, LookValue::SkyGlow, 0.05, TuningUnit::Percent, 100.0,
      TuningZero::Plain},
-    {TuningControlId::FogDensity, TuningGroup::PostProcessing, false, LookValue::FogDensity, 0.05, TuningUnit::None, 1.0,
+    {TuningControlId::SkyNight, TuningGroup::DynamicLights, true, LookValue::SkyNight, 0.05, TuningUnit::Percent, 100.0,
      TuningZero::Plain},
+    {TuningControlId::FogDensity, TuningGroup::PostProcessing, false, LookValue::FogDensity, 0.05, TuningUnit::None,
+     1.0, TuningZero::Plain},
     {TuningControlId::FogHeight, TuningGroup::PostProcessing, false, LookValue::FogHeight, 50.0, TuningUnit::None, 1.0,
      TuningZero::Plain},
     {TuningControlId::FogAnisotropy, TuningGroup::PostProcessing, false, LookValue::FogAnisotropy, 0.05,
@@ -116,8 +128,8 @@ constexpr std::array<ControlSpec, TuningControlCount> Specs = {{
      TuningUnit::None, 1.0, TuningZero::Plain},
     {TuningControlId::CloudStrength, TuningGroup::DynamicLights, false, LookValue::CloudStrength, 0.05,
      TuningUnit::Percent, 100.0, TuningZero::Plain},
-    {TuningControlId::CloudScale, TuningGroup::DynamicLights, true, LookValue::CloudScale, 250.0, TuningUnit::None,
-     1.0, TuningZero::Plain},
+    {TuningControlId::CloudScale, TuningGroup::DynamicLights, true, LookValue::CloudScale, 250.0, TuningUnit::None, 1.0,
+     TuningZero::Plain},
     {TuningControlId::CloudSpeed, TuningGroup::DynamicLights, true, LookValue::CloudSpeed, 5.0, TuningUnit::None, 1.0,
      TuningZero::Plain},
     {TuningControlId::CloudCover, TuningGroup::DynamicLights, true, LookValue::CloudCover, 0.05, TuningUnit::Percent,
@@ -126,6 +138,10 @@ constexpr std::array<ControlSpec, TuningControlCount> Specs = {{
      TuningZero::Plain},
     {TuningControlId::RimSunFollow, TuningGroup::DynamicLights, true, LookValue::RimSunFollow, 0.05,
      TuningUnit::Percent, 100.0, TuningZero::Plain},
+    {TuningControlId::LinearLight, TuningGroup::DynamicLights, true, LookValue::LinearLight, 0.05, TuningUnit::Percent,
+     100.0, TuningZero::Plain},
+    {TuningControlId::QualityTier, TuningGroup::PostProcessing, false, LookValue::QualityTier, 1.0, TuningUnit::None,
+     1.0, TuningZero::Plain},
 }};
 
 constexpr bool SpecsFollowIdOrder()
@@ -352,7 +368,7 @@ bool DeveloperLookEdits::Covers(const Data::Maps::LookProfileData& profile, int 
     // An edited default shows only where no map entry overrides it.
     return std::none_of(profile.maps.begin(), profile.maps.end(),
                         [world, value](const Data::Maps::MapLookOverrides& map)
-                        { return map.world == world && map.overrides[value].has_value(); });
+                        { return map.world == world && map.layer.overrides[value].has_value(); });
 }
 
 TuningGroupSet TuningGroupsApplying(const LookFeatures& features)
@@ -419,9 +435,10 @@ bool PersonalValueApplies(const Data::Maps::LookProfileData& profile, int world,
 
 Data::Maps::LookValues ResolveLookValues(const Data::Maps::LookProfileData& profile, int world,
                                          const Data::Maps::LookOverrides& personal,
-                                         const DeveloperLookEdits& developerEdits, const TuningGroupSet& applying)
+                                         const DeveloperLookEdits& developerEdits, const TuningGroupSet& applying,
+                                         std::optional<Data::Maps::TimeState> state)
 {
-    Data::Maps::LookValues values = profile.ForWorld(world);
+    Data::Maps::LookValues values = profile.ForWorld(world, state);
     for (const Data::Maps::LookValueInfo& info : Data::Maps::LookValueInfos())
     {
         if (PersonalValueApplies(profile, world, personal, developerEdits, applying, info.value))

@@ -8,7 +8,6 @@ namespace mu
 {
 namespace
 {
-constexpr SDL_GPUTextureFormat FogFormat = SDL_GPU_TEXTUREFORMAT_R16G16B16A16_FLOAT;
 
 SDL_GPUComputePipeline* CreatePipeline(SDL_GPUDevice* device, std::span<const Uint8> blob, SDL_GPUShaderFormat format,
                                        Uint32 samplers, Uint32 uniformBuffers)
@@ -48,7 +47,7 @@ SDL_GPUTexture* CreateStorage(SDL_GPUDevice* device, SDL_GPUTextureType type, Ui
 {
     SDL_GPUTextureCreateInfo info{};
     info.type = type;
-    info.format = FogFormat;
+    info.format = SdlGpuVolumetricFog::Format;
     info.width = width;
     info.height = height;
     info.layer_count_or_depth = depth;
@@ -74,8 +73,8 @@ bool SdlGpuVolumetricFog::Create(SDL_GPUDevice* device, const SdlGpuFogBlobs& bl
 {
     m_device = device;
     constexpr SDL_GPUTextureUsageFlags usage = SDL_GPU_TEXTUREUSAGE_SAMPLER | SDL_GPU_TEXTUREUSAGE_COMPUTE_STORAGE_WRITE;
-    if (!SDL_GPUTextureSupportsFormat(device, FogFormat, SDL_GPU_TEXTURETYPE_3D, usage) ||
-        !SDL_GPUTextureSupportsFormat(device, FogFormat, SDL_GPU_TEXTURETYPE_2D, usage))
+    if (!SDL_GPUTextureSupportsFormat(device, SdlGpuVolumetricFog::Format, SDL_GPU_TEXTURETYPE_3D, usage) ||
+        !SDL_GPUTextureSupportsFormat(device, SdlGpuVolumetricFog::Format, SDL_GPU_TEXTURETYPE_2D, usage))
     {
         mu::log::Get("render")->warn("SDL_gpu -- volumetric fog unavailable: no RGBA16F storage textures");
         return false;

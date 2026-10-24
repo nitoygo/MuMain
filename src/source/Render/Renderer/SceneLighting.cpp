@@ -81,6 +81,8 @@ SceneLightingUniform PackSceneLightingUniform(const SceneLighting& lighting, con
     uniform.cameraPosition[1] = lighting.cameraPosition[1];
     uniform.cameraPosition[2] = lighting.cameraPosition[2];
     uniform.lightingParameters[0] = lighting.physicalFalloff;
+    uniform.lightingParameters[2] = lighting.skyFarLight;
+    uniform.lightingParameters[3] = lighting.linearLight;
 
     uniform.cloudParameters[0] = lighting.cloudStrength;
     uniform.cloudParameters[1] = 1.0f / std::max(lighting.cloudScale, 1.0f);
@@ -94,6 +96,8 @@ SceneLightingUniform PackSceneLightingUniform(const SceneLighting& lighting, con
     NormalizeInto(lighting.sunDirection, uniform.sunTowards);
     uniform.sunTowards[3] = lighting.rimSunFollow;
     CopyColor(lighting.sunColor, uniform.sunColor);
+    CopyColor(lighting.skyToward, uniform.skyToward);
+    CopyColor(lighting.skyAway, uniform.skyAway);
     return uniform;
 }
 

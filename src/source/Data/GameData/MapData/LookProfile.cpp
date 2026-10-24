@@ -22,6 +22,9 @@ constexpr const char* DefaultKey = "default";
 constexpr const char* MapsKey = "maps";
 constexpr const char* WorldKey = "world";
 constexpr const char* NameKey = "name";
+constexpr const char* EnvironmentsKey = "environments";
+constexpr const char* EnvironmentKey = "environment";
+constexpr std::array<const char*, TimeStateCount> StateKeys = {"dawn", "day", "dusk", "night"};
 
 // The built-in values are the renderer's behaviour before the profile existed; a doctest checks
 // each against the constant it replaces.
@@ -58,8 +61,14 @@ constexpr std::array<LookValueInfo, LookValueCount> Infos = {{
     {LookValue::DynamicPhysicalFalloff, "dynamic.physicalFalloff", 0.0, 0.0, 1.0},
     {LookValue::FlatSunShadow, "dynamic.flatSunShadow", 1.0, 0.0, 1.0},
     {LookValue::DayMinutes, "time.dayMinutes", 0.0, 0.0, 240.0},
-    {LookValue::DawnWarmth, "time.dawnWarmth", 1.0, 0.0, 1.5},
-    {LookValue::MoonTint, "time.moonTint", 1.0, 0.0, 1.5},
+    {LookValue::Daylight, "time.daylight", 1.0, 0.0, 1.0},
+    {LookValue::SunHeight, "sun.height", 63.0, 5.0, 90.0},
+    {LookValue::SunStrength, "sun.strength", 1.0, 0.0, 1.0},
+    {LookValue::SunWarmth, "sun.warmth", 0.0, -1.0, 1.0},
+    {LookValue::SkyBrightness, "sky.brightness", 1.0, 0.0, 1.0},
+    {LookValue::SkyFarLight, "sky.farLight", 0.0, 0.0, 1.0},
+    {LookValue::SkyGlow, "sky.glow", 0.0, 0.0, 1.0},
+    {LookValue::SkyNight, "sky.night", 0.0, 0.0, 1.0},
     {LookValue::FogDensity, "fog.density", 0.0, 0.0, 2.0},
     {LookValue::FogHeight, "fog.height", 300.0, 50.0, 2000.0},
     {LookValue::FogAnisotropy, "fog.anisotropy", 0.3, 0.0, 0.9},
@@ -71,6 +80,8 @@ constexpr std::array<LookValueInfo, LookValueCount> Infos = {{
     {LookValue::CloudCover, "clouds.cover", 0.45, 0.0, 1.0},
     {LookValue::SkyFill, "sky.fill", 0.0, 0.0, 1.0},
     {LookValue::RimSunFollow, "lighting.rim.sunFollow", 0.0, 0.0, 1.0},
+    {LookValue::LinearLight, "lighting.linear", 0.0, 0.0, 1.0},
+    {LookValue::QualityTier, "quality.tier", 2.0, 0.0, 2.0},
 }};
 
 constexpr bool InfosFollowLookValueOrder()
@@ -162,12 +173,53 @@ bool ReadOverrides(const OrderedJson& json, const std::string& object, std::init
     return valid;
 }
 
+// Reads a layer: its plain values and its time-of-day objects; `allowed` keys are the caller's.
+bool ReadLayer(const OrderedJson& json, const std::string& object, std::initializer_list<const char*> allowed,
+               LayerOverrides& layer, IssueList& issues)
+{
+    std::vector<const char*> keys(allowed);
+    keys.insert(keys.end(), StateKeys.begin(), StateKeys.end());
+    bool valid = true;
+    for (const auto& [key, value] : json.items())
+    {
+        if (std::find_if(keys.begin(), keys.end(), [&key](const char* name) { return key == name; }) != keys.end())
+        {
+            continue;
+        }
+        const std::optional<LookValue> lookValue = FindLookValue(key);
+        if (!lookValue)
+        {
+            issues.Error(Field(object, key), "is not a look value");
+            valid = false;
+            continue;
+        }
+        valid = ReadValue(Info(*lookValue), value, Field(object, key), layer.overrides, issues) && valid;
+    }
+    for (std::size_t index = 0; index < TimeStateCount; ++index)
+    {
+        const auto state = json.find(StateKeys[index]);
+        if (state == json.end())
+        {
+            continue;
+        }
+        const std::string field = Field(object, StateKeys[index]);
+        if (!state->is_object())
+        {
+            issues.Error(field, "must be an object of look values");
+            valid = false;
+            continue;
+        }
+        valid = ReadOverrides(*state, field, {}, layer.states[index], issues) && valid;
+    }
+    return valid;
+}
+
 bool CheckRootKeys(const OrderedJson& root, IssueList& issues)
 {
     bool valid = true;
     for (const auto& [key, value] : root.items())
     {
-        if (key != Items::Json::Keys::FormatVersion && key != DefaultKey && key != MapsKey)
+        if (key != Items::Json::Keys::FormatVersion && key != DefaultKey && key != MapsKey && key != EnvironmentsKey)
         {
             issues.Error(key, "unknown field");
             valid = false;
@@ -176,7 +228,7 @@ bool CheckRootKeys(const OrderedJson& root, IssueList& issues)
     return valid;
 }
 
-bool ReadDefault(const OrderedJson& root, LookOverrides& overrides, IssueList& issues)
+bool ReadDefault(const OrderedJson& root, LayerOverrides& layer, IssueList& issues)
 {
     const auto json = root.find(DefaultKey);
     if (json == root.end())
@@ -188,7 +240,36 @@ bool ReadDefault(const OrderedJson& root, LookOverrides& overrides, IssueList& i
         issues.Error(DefaultKey, "must be an object of look values");
         return false;
     }
-    return ReadOverrides(*json, DefaultKey, {}, overrides, issues);
+    return ReadLayer(*json, DefaultKey, {}, layer, issues);
+}
+
+bool ReadEnvironments(const OrderedJson& root, LookProfileData& data, IssueList& issues)
+{
+    const auto json = root.find(EnvironmentsKey);
+    if (json == root.end())
+    {
+        return true;
+    }
+    if (!json->is_object())
+    {
+        issues.Error(EnvironmentsKey, "must be an object of named environments");
+        return false;
+    }
+    bool valid = true;
+    for (const auto& [name, values] : json->items())
+    {
+        const std::string object = Field(EnvironmentsKey, name);
+        if (!values.is_object())
+        {
+            issues.Error(object, "must be an object of look values");
+            valid = false;
+            continue;
+        }
+        EnvironmentLookOverrides environment{name, {}};
+        valid = ReadLayer(values, object, {}, environment.layer, issues) && valid;
+        data.environments.push_back(std::move(environment));
+    }
+    return valid;
 }
 
 bool ReadWorld(const OrderedJson& json, const std::string& object, int& world, IssueList& issues)
@@ -231,7 +312,21 @@ bool ReadMap(const OrderedJson& json, size_t index, std::set<int>& worlds, LookP
         issues.Error(Field(object, NameKey), "must be text");
         return false;
     }
-    if (!ReadOverrides(json, object, {WorldKey, NameKey}, map.overrides, issues))
+    if (const auto environment = json.find(EnvironmentKey); environment != json.end())
+    {
+        const auto known = environment->is_string()
+                               ? std::find_if(data.environments.begin(), data.environments.end(),
+                                              [&environment](const EnvironmentLookOverrides& entry)
+                                              { return entry.name == environment->get<std::string>(); })
+                               : data.environments.end();
+        if (known == data.environments.end())
+        {
+            issues.Error(Field(object, EnvironmentKey), "must name one of \"environments\"");
+            return false;
+        }
+        map.environment = static_cast<std::size_t>(known - data.environments.begin());
+    }
+    if (!ReadLayer(json, object, {WorldKey, NameKey, EnvironmentKey}, map.layer, issues))
     {
         return false;
     }
@@ -303,15 +398,116 @@ LookValues BuiltInLookValues()
     return builtIn;
 }
 
-LookValues LookProfileData::ForWorld(int world) const
+const char* TimeStateName(TimeState state)
 {
-    LookValues values = BuiltInLookValues();
-    defaultOverrides.ApplyTo(values);
+    return StateKeys[static_cast<std::size_t>(state)];
+}
+
+TimeBlend TimeStateAt(double hour)
+{
+    constexpr double DawnStart = 5.0;
+    constexpr double DayStart = 6.0;
+    constexpr double DuskStart = 20.0;
+    constexpr double NightStart = 21.0;
+    const double h = std::fmod(std::fmod(hour, 24.0) + 24.0, 24.0);
+    // Half a transition's hour each way, eased so a state settles in smoothly.
+    const auto eased = [](double from, double at)
+    {
+        const double t = std::clamp((at - from) * 2.0, 0.0, 1.0);
+        return t * t * (3.0 - 2.0 * t);
+    };
+    if (h >= DayStart && h < DuskStart)
+        return {TimeState::Day, TimeState::Day, 0.0};
+    if (h >= DuskStart && h < DuskStart + 0.5)
+        return {TimeState::Day, TimeState::Dusk, eased(DuskStart, h)};
+    if (h >= DuskStart + 0.5 && h < NightStart)
+        return {TimeState::Dusk, TimeState::Night, eased(DuskStart + 0.5, h)};
+    if (h >= DawnStart && h < DawnStart + 0.5)
+        return {TimeState::Night, TimeState::Dawn, eased(DawnStart, h)};
+    if (h >= DawnStart + 0.5 && h < DayStart)
+        return {TimeState::Dawn, TimeState::Day, eased(DawnStart + 0.5, h)};
+    return {TimeState::Night, TimeState::Night, 0.0};
+}
+
+double TimeStateHour(TimeState state)
+{
+    switch (state)
+    {
+    case TimeState::Dawn:
+        return 5.5;
+    case TimeState::Dusk:
+        return 20.5;
+    case TimeState::Night:
+        return 1.0;
+    default:
+        return 13.0;
+    }
+}
+
+void ApplyQualityTier(LookValues& values)
+{
+    const double tier = std::round(values[LookValue::QualityTier]);
+    if (tier >= 2.0)
+    {
+        return;
+    }
+    values[LookValue::LightShaftStrength] = 0.0;
+    values[LookValue::SunShadowResolution] = std::min(values[LookValue::SunShadowResolution], 1024.0);
+    if (tier >= 1.0)
+    {
+        return;
+    }
+    values[LookValue::SunShadowStrength] = 0.0;
+    values[LookValue::FogDensity] = 0.0;
+    values[LookValue::AmbientOcclusionStrength] = 0.0;
+}
+
+LookValues BlendLookValues(const LookValues& from, const LookValues& to, double amount)
+{
+    LookValues blended;
+    for (std::size_t index = 0; index < LookValueCount; ++index)
+    {
+        double difference = to.values[index] - from.values[index];
+        if (static_cast<LookValue>(index) == LookValue::GroundShadowAngle)
+        {
+            difference = std::remainder(difference, 360.0);
+        }
+        blended.values[index] = from.values[index] + difference * amount;
+        if (static_cast<LookValue>(index) == LookValue::GroundShadowAngle)
+        {
+            blended.values[index] = std::fmod(blended.values[index] + 360.0, 360.0);
+        }
+    }
+    return blended;
+}
+
+void LayerOverrides::ApplyTo(LookValues& target, std::optional<TimeState> state) const
+{
+    overrides.ApplyTo(target);
+    if (state)
+    {
+        states[static_cast<std::size_t>(*state)].ApplyTo(target);
+    }
+}
+
+const MapLookOverrides* LookProfileData::FindMap(int world) const
+{
     const auto map =
         std::find_if(maps.begin(), maps.end(), [world](const MapLookOverrides& entry) { return entry.world == world; });
-    if (map != maps.end())
+    return map != maps.end() ? &*map : nullptr;
+}
+
+LookValues LookProfileData::ForWorld(int world, std::optional<TimeState> state) const
+{
+    LookValues values = BuiltInLookValues();
+    defaults.ApplyTo(values, state);
+    if (const MapLookOverrides* map = FindMap(world))
     {
-        map->overrides.ApplyTo(values);
+        if (map->environment && *map->environment < environments.size())
+        {
+            environments[*map->environment].layer.ApplyTo(values, state);
+        }
+        map->layer.ApplyTo(values, state);
     }
     return values;
 }
@@ -330,9 +526,11 @@ void ReadLookProfileJson(std::string_view text, const std::string& source, LookP
     LookProfileData read;
     // Non-short-circuit: every problem of the file is reported.
     const bool keys = CheckRootKeys(root, list);
-    const bool defaults = ReadDefault(root, read.defaultOverrides, list);
+    const bool defaults = ReadDefault(root, read.defaults, list);
+    // Before the maps, which name them.
+    const bool environments = ReadEnvironments(root, read, list);
     const bool maps = ReadMaps(root, read, list);
-    if (keys && defaults && maps)
+    if (keys && defaults && environments && maps)
     {
         data = std::move(read);
     }

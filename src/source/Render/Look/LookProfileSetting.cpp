@@ -30,6 +30,7 @@ struct State
     // rebuilds the static map light.
     LookLayers layers{[](const Data::Maps::LightMoodData& mood) { Lighting::LightMood::SetMoodData(mood); }};
     std::string source = "shipped";
+    std::optional<Data::Maps::TimeBlend> timeBlend;
 };
 
 State s_state;
@@ -72,7 +73,12 @@ void LoadProfile()
 
 const LookValues& Active()
 {
-    return s_state.layers.Active(gMapManager.WorldActive);
+    return s_state.layers.Active(gMapManager.WorldActive, s_state.timeBlend);
+}
+
+void SetTimeBlend(const std::optional<Data::Maps::TimeBlend>& blend)
+{
+    s_state.timeBlend = blend;
 }
 
 void SetPersonalLookOverrides(const Data::Maps::LookOverrides& overrides)
@@ -278,7 +284,7 @@ bool HandleDeveloperCommand(std::wstring_view command)
         break;
     case LookVerb::Set:
     {
-        const LookEdit edit{look->name, look->value};
+        const LookEdit edit{look->name, look->value, look->state};
         (void)SetLive(std::span<const LookEdit>(&edit, 1), look->map);
         break;
     }
