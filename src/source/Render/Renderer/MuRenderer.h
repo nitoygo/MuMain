@@ -75,6 +75,10 @@ struct PostProcessingLook
     float lightShaftStrength = 0.0f;
     float lightShaftSkills = 1.0f;
     float lightShaftMap = 1.0f;
+    // Volumetric fog: its extinction per 1000 world units at the hero's ground (0: none), and the height
+    // over which it thins by e, in world units.
+    float fogDensity = 0.0f;
+    float fogHeight = 300.0f;
 };
 
 // ---------------------------------------------------------------------------

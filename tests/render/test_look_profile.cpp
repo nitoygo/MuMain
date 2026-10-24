@@ -67,6 +67,9 @@ TEST_CASE("the look profile's built-in values are the renderer's values before i
     // Ambient occlusion: off, at the renderer's default reach.
     CHECK(BuiltIn(LookValue::AmbientOcclusionStrength) == 0.0);
     CHECK(BuiltInFloat(LookValue::AmbientOcclusionRadius) == mu::PostProcessingLook{}.ambientOcclusionRadius);
+    // Volumetric fog: off, at the renderer's default height.
+    CHECK(BuiltIn(LookValue::FogDensity) == 0.0);
+    CHECK(BuiltInFloat(LookValue::FogHeight) == mu::PostProcessingLook{}.fogHeight);
     // Light shafts: off, every kind of light at its full share.
     CHECK(BuiltIn(LookValue::LightShaftStrength) == 0.0);
     CHECK(BuiltInFloat(LookValue::LightShaftSkills) == mu::PostProcessingLook{}.lightShaftSkills);
@@ -241,6 +244,8 @@ TEST_CASE("the developer tuning commands name their look values [render][look]")
     single(L"$bloom falloff 0.6", LookValue::BloomLevelFalloff, 0.6);
     single(L"$bloom 0.9", LookValue::BloomStrength, 0.9);
     single(L"$ao radius 80", LookValue::AmbientOcclusionRadius, 80.0);
+    single(L"$fog height 400", LookValue::FogHeight, 400.0);
+    single(L"$fog 0.5", LookValue::FogDensity, 0.5);
     single(L"$ao 0.5", LookValue::AmbientOcclusionStrength, 0.5);
     single(L"$shafts skills 0.5", LookValue::LightShaftSkills, 0.5);
     single(L"$shafts map 1.5", LookValue::LightShaftMap, 1.5);

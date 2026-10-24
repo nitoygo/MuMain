@@ -109,6 +109,10 @@ const SpecRow Spec[] = {
      TuningZero::Plain},
     {TuningControlId::MoonTint, TuningGroup::DynamicLights, true, LookValue::MoonTint, 0, 1.5, 0.05, TuningUnit::Percent,
      TuningZero::Plain},
+    {TuningControlId::FogDensity, TuningGroup::PostProcessing, false, LookValue::FogDensity, 0, 2, 0.05, TuningUnit::None,
+     TuningZero::Plain},
+    {TuningControlId::FogHeight, TuningGroup::PostProcessing, false, LookValue::FogHeight, 50, 2000, 50, TuningUnit::None,
+     TuningZero::Plain},
 };
 
 Data::Maps::LookProfileData ShippedLikeProfile()
@@ -126,7 +130,7 @@ Data::Maps::LookProfileData ShippedLikeProfile()
 
 TEST_CASE("the 31 tuning controls have the specified bounds, steps, units and placement [render][look][tuning]")
 {
-    REQUIRE(Render::Look::TuningControlCount == 35);
+    REQUIRE(Render::Look::TuningControlCount == 37);
     REQUIRE(std::size(Spec) == Render::Look::TuningControlCount);
     std::set<LookValue> covered;
     for (const SpecRow& row : Spec)

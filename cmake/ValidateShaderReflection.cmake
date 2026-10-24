@@ -321,7 +321,7 @@ foreach(shader_spec IN LISTS shader_specs)
         file(READ "${source_path}" hlsl)
         # As mu_add_shader: declared bindings, except beside storage buffers.
         set(msl_flags)
-        if(NOT hlsl MATCHES "StructuredBuffer|ByteAddressBuffer")
+        if(NOT hlsl MATCHES "StructuredBuffer|ByteAddressBuffer|RWTexture")
             set(msl_flags --msl-decoration-binding)
         endif()
 

@@ -34,7 +34,9 @@
     "dynamic.flatSunShadow": 1,
     "time.dayMinutes": 0,
     "time.dawnWarmth": 1,
-    "time.moonTint": 1
+    "time.moonTint": 1,
+    "fog.density": 0,
+    "fog.height": 300
   },
   "maps": [
     {

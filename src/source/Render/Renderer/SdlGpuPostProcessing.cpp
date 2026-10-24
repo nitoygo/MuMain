@@ -139,7 +139,7 @@ bool SdlGpuPostProcessing::CreatePipelines(SDL_GPUDevice* device, const SdlGpuPo
     m_compositePipeline =
         BuildPipeline(device, shaders.fullscreenVertex, {shaders.composite, frameFormat, sampleCount, false, true});
     if (!m_bloomDownPipeline || !m_bloomUpPipeline || !m_compositePipeline || !CreateSamplers() ||
-        !CreateGradingTexture() || !CreateFogFallback())
+        !CreateGradingTexture())
     {
         log::Get("render")->error("SDL_gpu -- post-processing pipelines failed: {}", SDL_GetError());
         DestroyPipelines();
@@ -186,24 +186,6 @@ bool SdlGpuPostProcessing::CreateSamplers()
         m_linearSampler = SDL_CreateGPUSampler(m_device, &info);
     }
     return m_pointSampler && m_linearSampler;
-}
-
-bool SdlGpuPostProcessing::CreateFogFallback()
-{
-    if (m_fogFallback)
-    {
-        return true;
-    }
-    SDL_GPUTextureCreateInfo info{};
-    info.type = SDL_GPU_TEXTURETYPE_3D;
-    info.format = SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM;
-    info.width = 1;
-    info.height = 1;
-    info.layer_count_or_depth = 1;
-    info.num_levels = 1;
-    info.usage = SDL_GPU_TEXTUREUSAGE_SAMPLER;
-    m_fogFallback = SDL_CreateGPUTexture(m_device, &info);
-    return m_fogFallback != nullptr;
 }
 
 bool SdlGpuPostProcessing::CreateGradingTexture()
@@ -358,7 +340,7 @@ void SdlGpuPostProcessing::RenderBloom(SDL_GPUCommandBuffer* commandBuffer, floa
 void SdlGpuPostProcessing::DrawComposite(SDL_GPUCommandBuffer* commandBuffer, SDL_GPURenderPass* pass,
                                          SdlGpuTargetSize size, const PostProcessingLook& look, PostProcessingView view,
                                          SDL_GPUTexture* ambientOcclusion, SDL_GPUTexture* lightShafts,
-                                         SDL_GPUTexture* fogVolume, float fogStrength)
+                                         SDL_GPUTexture* fogLayer)
 {
     if (!IsAvailable() || !m_sceneTexture || size.width == 0u || size.height == 0u)
     {
@@ -410,7 +392,7 @@ void SdlGpuPostProcessing::DrawComposite(SDL_GPUCommandBuffer* commandBuffer, SD
         {ambientOcclusion ? ambientOcclusion : m_sceneTexture, m_linearSampler},
         {bloomRendered ? m_bloomSourceTexture : m_sceneTexture, m_pointSampler},
         {lightShafts ? lightShafts : m_sceneTexture, m_linearSampler},
-        {fogVolume ? fogVolume : m_fogFallback, m_linearSampler},
+        {fogLayer ? fogLayer : m_sceneTexture, m_pointSampler},
     };
 
     const SDL_GPUViewport viewport{0.0f, 0.0f, static_cast<float>(size.width), static_cast<float>(size.height),
@@ -432,7 +414,7 @@ void SdlGpuPostProcessing::DrawComposite(SDL_GPUCommandBuffer* commandBuffer, SD
         ambientOcclusion && view == PostProcessingView::Scene ? look.ambientOcclusionStrength : 0.0f,
         bloomRendered ? 1.0f : 0.0f,
         lightShafts && view == PostProcessingView::Scene ? look.lightShaftStrength : 0.0f,
-        fogVolume && view == PostProcessingView::Scene ? fogStrength : 0.0f,
+        fogLayer && view == PostProcessingView::Scene ? 1.0f : 0.0f,
         {}};
     SDL_PushGPUFragmentUniformData(commandBuffer, 0, &uniform, sizeof(uniform));
     SDL_DrawGPUPrimitives(pass, FullscreenVertexCount, 1, 0, 0);
@@ -511,7 +493,6 @@ void SdlGpuPostProcessing::Release()
     DestroyPipelines();
     ReleaseTargets();
     ReleaseTexture(m_device, m_gradingTexture);
-    ReleaseTexture(m_device, m_fogFallback);
     m_gradingEnabled = false;
     if (m_pointSampler)
     {

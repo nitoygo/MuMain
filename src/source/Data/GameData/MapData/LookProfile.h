@@ -62,6 +62,8 @@ enum class LookValue : std::uint8_t
     DayMinutes,
     DawnWarmth,
     MoonTint,
+    FogDensity,
+    FogHeight,
     Count,
 };
 

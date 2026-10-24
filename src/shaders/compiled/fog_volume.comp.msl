@@ -3,20 +3,46 @@
 
 using namespace metal;
 
-struct FogVolume
+struct FogUniforms
 {
+    float4x4 inverseViewProjection;
+    float4 camera;
+    float4 color;
+    float4 medium;
     uint4 size;
+    uint4 target;
 };
 
-kernel void main0(constant FogVolume& _17 [[buffer(0)]], texture3d<float, access::write> volume [[texture(0)]], uint3 gl_GlobalInvocationID [[thread_position_in_grid]])
+kernel void main0(constant FogUniforms& _47 [[buffer(0)]], texture3d<float, access::write> volume [[texture(0)]], uint3 gl_GlobalInvocationID [[thread_position_in_grid]])
 {
     do
     {
-        if (any(gl_GlobalInvocationID >= _17.size.xyz))
+        if (any(gl_GlobalInvocationID.xy >= _47.size.xy))
         {
             break;
         }
-        volume.write(float4((float3(gl_GlobalInvocationID) + float3(0.5)) / float3(_17.size.xyz), 1.0), uint3(gl_GlobalInvocationID));
+        float2 _232 = (float2(gl_GlobalInvocationID.xy) + float2(0.5)) / float2(_47.size.xy);
+        float4 _372 = _47.inverseViewProjection * float4((_232.x * 2.0) - 1.0, 1.0 - (_232.y * 2.0), 1.0, 1.0);
+        float4 _357 = _372;
+        float3 _271 = fast::normalize((_372.xyz / float3(_357.w)) - _47.camera.xyz);
+        float _386 = log(_47.color.w / _47.camera.w);
+        float3 _390;
+        _390 = float3(0.0);
+        float _292;
+        float3 _333;
+        float _336;
+        uint _387 = 0u;
+        float _388 = 0.0;
+        float _389 = 1.0;
+        for (; _387 < _47.size.z; _390 = _333, _389 = _336, _388 = _292, _387++)
+        {
+            _292 = _47.camera.w * exp((float(_387 + 1u) / float(_47.size.z)) * _386);
+            float3 _240 = _47.camera.xyz + (_271 * (0.5 * (_388 + _292)));
+            float _323 = exp((-(_47.medium.x * exp((-fast::max(_240.z - _47.medium.z, 0.0)) * _47.medium.y))) * (_292 - _388));
+            _333 = _390 + ((_47.color.xyz * _389) * (1.0 - _323));
+            _336 = _389 * _323;
+            volume.write(float4(_333, _336), uint3(uint3(gl_GlobalInvocationID.xy, _387)));
+        }
         break;
     } while(false);
 }

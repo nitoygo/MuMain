@@ -57,6 +57,10 @@ struct SceneLighting
     // How physically point lights fade: 0 the terrain light's linear fade over the horizontal
     // distance, 1 inverse-square over the full distance (PointLightFalloff).
     float physicalFalloff = 0.0f;
+    // Enhanced volumetric fog: the light the air scatters (the sun's or moon's, through the light mood)
+    // and the height it is thickest at (the hero's ground).
+    float fogLight[3]{1.0f, 1.0f, 1.0f};
+    float fogBase = 0.0f;
 };
 
 // The frame's fog as configured through IMuRenderer::SetFog() when the scene lighting was set.

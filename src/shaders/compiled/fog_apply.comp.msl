@@ -1,0 +1,34 @@
+#include <metal_stdlib>
+#include <simd/simd.h>
+
+using namespace metal;
+
+struct FogUniforms
+{
+    float4x4 inverseViewProjection;
+    float4 camera;
+    float4 color;
+    float4 medium;
+    uint4 size;
+    uint4 target;
+};
+
+kernel void main0(constant FogUniforms& _47 [[buffer(0)]], texture2d<float> sceneDepth [[texture(0)]], texture3d<float> fogVolume [[texture(1)]], texture2d<float, access::write> fogLayer [[texture(2)]], sampler depthSampler [[sampler(0)]], sampler volumeSampler [[sampler(1)]], uint3 gl_GlobalInvocationID [[thread_position_in_grid]])
+{
+    do
+    {
+        if (any(gl_GlobalInvocationID.xy >= _47.target.xy))
+        {
+            break;
+        }
+        float2 _217 = (float2(gl_GlobalInvocationID.xy) + float2(0.5)) / float2(_47.target.xy);
+        float4 _222 = sceneDepth.sample(depthSampler, _217, level(0.0));
+        float _223 = _222.x;
+        float2 _192 = _217;
+        float4 _282 = _47.inverseViewProjection * float4((_192.x * 2.0) - 1.0, 1.0 - (_192.y * 2.0), _223, 1.0);
+        float4 _266 = _282;
+        fogLayer.write(fogVolume.sample(volumeSampler, float3(_217, ((_223 >= 1.0) ? 1.0 : fast::clamp(log(fast::max(length((_282.xyz / float3(_266.w)) - _47.camera.xyz), _47.camera.w) / _47.camera.w) / log(_47.color.w / _47.camera.w), 0.0, 1.0)) - (0.5 / float(_47.size.z))), level(0.0)), uint2(gl_GlobalInvocationID.xy));
+        break;
+    } while(false);
+}
+

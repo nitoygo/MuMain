@@ -1655,6 +1655,18 @@
   <data name="Tuning Moon Tint Help" xml:space="preserve">
     <value>How blue the moonlight is. 0 makes it white.</value>
   </data>
+  <data name="Tuning Fog Density" xml:space="preserve">
+    <value>Fog density</value>
+  </data>
+  <data name="Tuning Fog Density Help" xml:space="preserve">
+    <value>How thick the air's fog is near the ground, lit by the sun or the moon; it hazes the distance and lies in low places. 0 turns it off.</value>
+  </data>
+  <data name="Tuning Fog Height" xml:space="preserve">
+    <value>Fog height</value>
+  </data>
+  <data name="Tuning Fog Height Help" xml:space="preserve">
+    <value>How high the fog reaches, in world units (a terrain cell is 100): above it the fog thins out.</value>
+  </data>
   <data name="Tuning Flat Sun Shadow" xml:space="preserve">
     <value>Flat sun shadow</value>
   </data>

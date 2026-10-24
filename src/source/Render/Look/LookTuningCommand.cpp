@@ -37,6 +37,8 @@ const CommandForm CommandForms[] = {
     {L"$time moon ", {LookValue::MoonTint}},
     {L"$bloom falloff ", {LookValue::BloomLevelFalloff}},
     {L"$ao radius ", {LookValue::AmbientOcclusionRadius}},
+    {L"$fog height ", {LookValue::FogHeight}},
+    {L"$fog ", {LookValue::FogDensity}},
     {L"$ao ", {LookValue::AmbientOcclusionStrength}},
     {L"$shafts skills ", {LookValue::LightShaftSkills}},
     {L"$shafts map ", {LookValue::LightShaftMap}},

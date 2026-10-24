@@ -60,6 +60,8 @@ constexpr std::array<LookValueInfo, LookValueCount> Infos = {{
     {LookValue::DayMinutes, "time.dayMinutes", 0.0, 0.0, 240.0},
     {LookValue::DawnWarmth, "time.dawnWarmth", 1.0, 0.0, 1.5},
     {LookValue::MoonTint, "time.moonTint", 1.0, 0.0, 1.5},
+    {LookValue::FogDensity, "fog.density", 0.0, 0.0, 2.0},
+    {LookValue::FogHeight, "fog.height", 300.0, 50.0, 2000.0},
 }};
 
 constexpr bool InfosFollowLookValueOrder()

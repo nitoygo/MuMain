@@ -8,18 +8,14 @@ namespace mu
 {
 namespace
 {
-constexpr SDL_GPUTextureFormat VolumeFormat = SDL_GPU_TEXTUREFORMAT_R16G16B16A16_FLOAT;
-} // namespace
+constexpr SDL_GPUTextureFormat FogFormat = SDL_GPU_TEXTUREFORMAT_R16G16B16A16_FLOAT;
 
-bool SdlGpuVolumetricFog::Create(SDL_GPUDevice* device, std::span<const Uint8> blob, SDL_GPUShaderFormat format)
+SDL_GPUComputePipeline* CreatePipeline(SDL_GPUDevice* device, std::span<const Uint8> blob, SDL_GPUShaderFormat format,
+                                       Uint32 samplers)
 {
-    m_device = device;
-    if (blob.empty() ||
-        !SDL_GPUTextureSupportsFormat(device, VolumeFormat, SDL_GPU_TEXTURETYPE_3D,
-                                      SDL_GPU_TEXTUREUSAGE_SAMPLER | SDL_GPU_TEXTUREUSAGE_COMPUTE_STORAGE_WRITE))
+    if (blob.empty())
     {
-        mu::log::Get("render")->warn("SDL_gpu -- volumetric fog unavailable (no blob or no RGBA16F 3D storage)");
-        return false;
+        return nullptr;
     }
     SDL_GPUComputePipelineCreateInfo info{};
     info.code = blob.data();
@@ -27,15 +23,71 @@ bool SdlGpuVolumetricFog::Create(SDL_GPUDevice* device, std::span<const Uint8> b
     // spirv-cross renames "main" to "main0" in MSL because Metal reserves "main".
     info.entrypoint = format == SDL_GPU_SHADERFORMAT_MSL ? "main0" : "main";
     info.format = format;
+    info.num_samplers = samplers;
     info.num_readwrite_storage_textures = 1;
     info.num_uniform_buffers = 1;
-    info.threadcount_x = ThreadGroupSize;
-    info.threadcount_y = ThreadGroupSize;
-    info.threadcount_z = ThreadGroupSize;
-    m_pipeline = SDL_CreateGPUComputePipeline(device, &info);
-    if (!m_pipeline)
+    info.threadcount_x = SdlGpuVolumetricFog::ThreadGroupSize;
+    info.threadcount_y = SdlGpuVolumetricFog::ThreadGroupSize;
+    info.threadcount_z = 1;
+    return SDL_CreateGPUComputePipeline(device, &info);
+}
+
+SDL_GPUSampler* CreateSampler(SDL_GPUDevice* device, SDL_GPUFilter filter)
+{
+    SDL_GPUSamplerCreateInfo info{};
+    info.min_filter = filter;
+    info.mag_filter = filter;
+    info.mipmap_mode = SDL_GPU_SAMPLERMIPMAPMODE_NEAREST;
+    info.address_mode_u = SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE;
+    info.address_mode_v = SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE;
+    info.address_mode_w = SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE;
+    return SDL_CreateGPUSampler(device, &info);
+}
+
+SDL_GPUTexture* CreateStorage(SDL_GPUDevice* device, SDL_GPUTextureType type, Uint32 width, Uint32 height, Uint32 depth)
+{
+    SDL_GPUTextureCreateInfo info{};
+    info.type = type;
+    info.format = FogFormat;
+    info.width = width;
+    info.height = height;
+    info.layer_count_or_depth = depth;
+    info.num_levels = 1;
+    info.sample_count = SDL_GPU_SAMPLECOUNT_1;
+    info.usage = SDL_GPU_TEXTUREUSAGE_SAMPLER | SDL_GPU_TEXTUREUSAGE_COMPUTE_STORAGE_WRITE;
+    SDL_GPUTexture* const texture = SDL_CreateGPUTexture(device, &info);
+    if (!texture)
     {
-        mu::log::Get("render")->warn("SDL_gpu -- volumetric fog pipeline failed: {}", SDL_GetError());
+        mu::log::Get("render")->error("SDL_gpu -- fog target creation failed ({}x{}x{}): {}", width, height, depth,
+                                      SDL_GetError());
+    }
+    return texture;
+}
+
+Uint32 Groups(Uint32 cells)
+{
+    return (cells + SdlGpuVolumetricFog::ThreadGroupSize - 1) / SdlGpuVolumetricFog::ThreadGroupSize;
+}
+} // namespace
+
+bool SdlGpuVolumetricFog::Create(SDL_GPUDevice* device, const SdlGpuFogBlobs& blobs, SDL_GPUShaderFormat format)
+{
+    m_device = device;
+    constexpr SDL_GPUTextureUsageFlags usage = SDL_GPU_TEXTUREUSAGE_SAMPLER | SDL_GPU_TEXTUREUSAGE_COMPUTE_STORAGE_WRITE;
+    if (!SDL_GPUTextureSupportsFormat(device, FogFormat, SDL_GPU_TEXTURETYPE_3D, usage) ||
+        !SDL_GPUTextureSupportsFormat(device, FogFormat, SDL_GPU_TEXTURETYPE_2D, usage))
+    {
+        mu::log::Get("render")->warn("SDL_gpu -- volumetric fog unavailable: no RGBA16F storage textures");
+        return false;
+    }
+    m_volumePipeline = CreatePipeline(device, blobs.volume, format, 0u);
+    m_applyPipeline = CreatePipeline(device, blobs.apply, format, 2u);
+    m_pointSampler = CreateSampler(device, SDL_GPU_FILTER_NEAREST);
+    m_linearSampler = CreateSampler(device, SDL_GPU_FILTER_LINEAR);
+    if (!IsAvailable())
+    {
+        mu::log::Get("render")->warn("SDL_gpu -- volumetric fog unavailable: {}", SDL_GetError());
+        Release();
         return false;
     }
     return true;
@@ -43,71 +95,99 @@ bool SdlGpuVolumetricFog::Create(SDL_GPUDevice* device, std::span<const Uint8> b
 
 bool SdlGpuVolumetricFog::IsAvailable() const
 {
-    return m_pipeline != nullptr;
+    return m_volumePipeline && m_applyPipeline && m_pointSampler && m_linearSampler;
 }
 
 void SdlGpuVolumetricFog::Release()
 {
-    ReleaseVolume();
-    if (m_pipeline)
+    ReleaseTargets();
+    for (SDL_GPUComputePipeline** pipeline : {&m_volumePipeline, &m_applyPipeline})
     {
-        SDL_ReleaseGPUComputePipeline(m_device, m_pipeline);
-        m_pipeline = nullptr;
+        if (*pipeline)
+        {
+            SDL_ReleaseGPUComputePipeline(m_device, *pipeline);
+            *pipeline = nullptr;
+        }
+    }
+    for (SDL_GPUSampler** sampler : {&m_pointSampler, &m_linearSampler})
+    {
+        if (*sampler)
+        {
+            SDL_ReleaseGPUSampler(m_device, *sampler);
+            *sampler = nullptr;
+        }
     }
 }
 
-void SdlGpuVolumetricFog::ReleaseVolume()
+void SdlGpuVolumetricFog::ReleaseTargets()
 {
-    if (m_volume)
+    for (SDL_GPUTexture** texture : {&m_volume, &m_layer})
     {
-        SDL_ReleaseGPUTexture(m_device, m_volume);
-        m_volume = nullptr;
+        if (*texture)
+        {
+            SDL_ReleaseGPUTexture(m_device, *texture);
+            *texture = nullptr;
+        }
     }
+    m_layerSize = {};
 }
 
-SDL_GPUTexture* SdlGpuVolumetricFog::Render(SDL_GPUCommandBuffer* commandBuffer)
+bool SdlGpuVolumetricFog::EnsureTargets(SdlGpuTargetSize size)
 {
-    if (!IsAvailable())
+    if (!m_volume)
+    {
+        m_volume = CreateStorage(m_device, SDL_GPU_TEXTURETYPE_3D, Width, Height, Depth);
+    }
+    if (m_layer && (m_layerSize.width != size.width || m_layerSize.height != size.height))
+    {
+        SDL_ReleaseGPUTexture(m_device, m_layer);
+        m_layer = nullptr;
+    }
+    if (!m_layer)
+    {
+        m_layer = CreateStorage(m_device, SDL_GPU_TEXTURETYPE_2D, size.width, size.height, 1u);
+        m_layerSize = m_layer ? size : SdlGpuTargetSize{};
+    }
+    return m_volume && m_layer;
+}
+
+SDL_GPUTexture* SdlGpuVolumetricFog::Render(SDL_GPUCommandBuffer* commandBuffer, SDL_GPUTexture* depth,
+                                            SdlGpuTargetSize size, SdlGpuFogUniform uniform)
+{
+    if (!IsAvailable() || !depth || size.width == 0u || size.height == 0u || !EnsureTargets(size))
     {
         return nullptr;
     }
-    if (!m_volume && (m_volume = CreateVolume()) == nullptr)
-    {
-        return nullptr;
-    }
-    const SDL_GPUStorageTextureReadWriteBinding target{m_volume, 0u, 0u, true};
-    SDL_GPUComputePass* const pass = SDL_BeginGPUComputePass(commandBuffer, &target, 1, nullptr, 0);
+    uniform.size[0] = Width;
+    uniform.size[1] = Height;
+    uniform.size[2] = Depth;
+    uniform.target[0] = size.width;
+    uniform.target[1] = size.height;
+
+    const SDL_GPUStorageTextureReadWriteBinding volumeTarget{m_volume, 0u, 0u, true};
+    SDL_GPUComputePass* pass = SDL_BeginGPUComputePass(commandBuffer, &volumeTarget, 1, nullptr, 0);
     if (!pass)
     {
         return nullptr;
     }
-    SDL_BindGPUComputePipeline(pass, m_pipeline);
-    const SdlGpuFogVolumeUniform uniform{{Width, Height, Depth, 0u}};
+    SDL_BindGPUComputePipeline(pass, m_volumePipeline);
     SDL_PushGPUComputeUniformData(commandBuffer, 0, &uniform, sizeof(uniform));
-    const auto groups = [](Uint32 cells) { return (cells + ThreadGroupSize - 1) / ThreadGroupSize; };
-    SDL_DispatchGPUCompute(pass, groups(Width), groups(Height), groups(Depth));
+    SDL_DispatchGPUCompute(pass, Groups(Width), Groups(Height), 1);
     SDL_EndGPUComputePass(pass);
-    return m_volume;
-}
 
-SDL_GPUTexture* SdlGpuVolumetricFog::CreateVolume() const
-{
-    SDL_GPUTextureCreateInfo info{};
-    info.type = SDL_GPU_TEXTURETYPE_3D;
-    info.format = VolumeFormat;
-    info.width = Width;
-    info.height = Height;
-    info.layer_count_or_depth = Depth;
-    info.num_levels = 1;
-    info.sample_count = SDL_GPU_SAMPLECOUNT_1;
-    info.usage = SDL_GPU_TEXTUREUSAGE_SAMPLER | SDL_GPU_TEXTUREUSAGE_COMPUTE_STORAGE_WRITE;
-    SDL_GPUTexture* const texture = SDL_CreateGPUTexture(m_device, &info);
-    if (!texture)
+    const SDL_GPUStorageTextureReadWriteBinding layerTarget{m_layer, 0u, 0u, true};
+    pass = SDL_BeginGPUComputePass(commandBuffer, &layerTarget, 1, nullptr, 0);
+    if (!pass)
     {
-        mu::log::Get("render")->error("SDL_gpu -- fog volume creation failed ({}x{}x{}): {}", Width, Height, Depth,
-                                      SDL_GetError());
+        return nullptr;
     }
-    return texture;
+    SDL_BindGPUComputePipeline(pass, m_applyPipeline);
+    const SDL_GPUTextureSamplerBinding inputs[] = {{depth, m_pointSampler}, {m_volume, m_linearSampler}};
+    SDL_BindGPUComputeSamplers(pass, 0, inputs, 2);
+    SDL_PushGPUComputeUniformData(commandBuffer, 0, &uniform, sizeof(uniform));
+    SDL_DispatchGPUCompute(pass, Groups(size.width), Groups(size.height), 1);
+    SDL_EndGPUComputePass(pass);
+    return m_layer;
 }
 
 } // namespace mu

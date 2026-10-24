@@ -34,6 +34,8 @@
 //   $bloom falloff <f>             bloom.levelFalloff
 //   $bloom <v>                     bloom.strength
 //   $ao radius <r>                 ao.radius
+//   $fog height <h>                fog.height
+//   $fog <density>                 fog.density
 //   $ao <v>                        ao.strength
 //   $shafts skills <f>             shafts.skills
 //   $shafts map <f>                shafts.map

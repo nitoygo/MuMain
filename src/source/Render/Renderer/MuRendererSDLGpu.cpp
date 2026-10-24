@@ -1286,10 +1286,10 @@ static SDL_GPUGraphicsPipeline* s_sunShadowPipelines[2]{}; // [skinned]
 static SDL_GPUGraphicsPipeline* s_sceneDepthPipelines[2]{}; // [skinned]
 static SDL_GPUShader* s_fragShaderSunDepth = nullptr;      // sun_depth.frag
 static mu::SdlGpuSunShadowMap s_sunShadowMap;
-// Enhanced volumetric fog (compute).
-// shortcut: MU_FOG_SPIKE=1 shows its test volume; replaced by fog.density in the next step.
+// Enhanced volumetric fog (compute), the light its air scatters and the height it is thickest at.
 static mu::SdlGpuVolumetricFog s_volumetricFog;
-static const bool s_fogSpike = SDL_getenv("MU_FOG_SPIKE") != nullptr;
+static float s_fogLight[3]{1.0f, 1.0f, 1.0f};
+static float s_fogBaseHeight = 0.0f;
 
 // Depth buffer texture for correct 3D depth testing.
 // Created in Init() at swapchain dimensions, recreated on window resize.
@@ -2739,6 +2739,29 @@ public:
         s_sunShadowMap.MarkReady();
     }
 
+    // The volumetric fog's uniforms from this frame's scene: its view, the air's light and the look's fog,
+    // its slices out past the distance fog's end.
+    [[nodiscard]] static mu::SdlGpuFogUniform VolumetricFogUniform()
+    {
+        constexpr float NearestSlice = 50.0f;
+        mu::SdlGpuFogUniform uniform{};
+        const glm::mat4 inverse = glm::inverse(glm::make_mat4(s_sceneViewProjection));
+        std::memcpy(uniform.inverseViewProjection, glm::value_ptr(inverse), sizeof(uniform.inverseViewProjection));
+        for (int i = 0; i < 3; ++i)
+        {
+            uniform.camera[i] = s_sceneLightingUniform.cameraPosition[i];
+            uniform.color[i] = s_fogLight[i];
+        }
+        uniform.camera[3] = NearestSlice;
+        const float fogEnd = s_sceneLightingUniform.fogParameters[1];
+        uniform.color[3] = std::max(fogEnd > 0.0f ? fogEnd * 1.5f : 5000.0f, NearestSlice * 2.0f);
+        // fog.density is the extinction per 1000 world units at the base.
+        uniform.medium[0] = s_postProcessingLook.fogDensity / 1000.0f;
+        uniform.medium[1] = 1.0f / std::max(s_postProcessingLook.fogHeight, 1.0f);
+        uniform.medium[2] = s_fogBaseHeight;
+        return uniform;
+    }
+
     // The scene's depth for ambient occlusion: the frame's own with one sample; multisampled, which
     // cannot be read, its solid draws [0, end) again into the single-sample pass depth. Null without.
     [[nodiscard]] static SDL_GPUTexture* RenderSceneDepth(std::size_t end, bool boneDataReady)
@@ -2974,6 +2997,15 @@ public:
         ReplayView view = FullFrameView();
         RenderSunShadowMap(sceneEnd, boneDataReady);
         RenderGroundShadowMask(sceneEnd, boneDataReady);
+        const bool sceneView = s_postProcessingView == mu::PostProcessingView::Scene;
+        // The volumetric fog lies over the materials' distance fog, which still fades the map's edge.
+        const bool volumetricFog =
+            s_postProcessingLook.fogDensity > 0.0f && sceneView && s_volumetricFog.IsAvailable();
+        if (!volumetricFog)
+        {
+            s_volumetricFog.ReleaseTargets();
+        }
+
         // The scene texture's format says whether this frame's scene is HDR (EnsureTargets).
         s_hdrScenePass = s_postProcessing.IsHdrScene();
 
@@ -2995,12 +3027,11 @@ public:
         }
         s_hdrScenePass = false;
 
-        const bool sceneView = s_postProcessingView == mu::PostProcessingView::Scene;
-        SDL_GPUTexture* const sceneDepth = s_postProcessingLook.ambientOcclusionStrength > 0.0f && sceneView
-                                               ? RenderSceneDepth(sceneEnd, boneDataReady)
-                                               : nullptr;
+        const bool ambientOcclusionOn = s_postProcessingLook.ambientOcclusionStrength > 0.0f && sceneView;
+        SDL_GPUTexture* const sceneDepth =
+            ambientOcclusionOn || volumetricFog ? RenderSceneDepth(sceneEnd, boneDataReady) : nullptr;
         SDL_GPUTexture* const ambientOcclusion =
-            sceneDepth ? s_ambientOcclusion.Render(s_cmdBuf, sceneDepth, {s_swapW, s_swapH}, s_sceneProjection,
+            sceneDepth && ambientOcclusionOn ? s_ambientOcclusion.Render(s_cmdBuf, sceneDepth, {s_swapW, s_swapH}, s_sceneProjection,
                                                    s_postProcessingLook.ambientOcclusionRadius)
                        : nullptr;
 
@@ -3008,7 +3039,9 @@ public:
                                                 ? RenderLightShafts(sceneEnd, boneDataReady)
                                                 : nullptr;
 
-        SDL_GPUTexture* const fogVolume = s_fogSpike && sceneView ? s_volumetricFog.Render(s_cmdBuf) : nullptr;
+        SDL_GPUTexture* const fogLayer =
+            volumetricFog && sceneDepth ? s_volumetricFog.Render(s_cmdBuf, sceneDepth, {s_swapW, s_swapH}, VolumetricFogUniform())
+                                        : nullptr;
 
         // The composite covers every pixel: the target's old content is not loaded.
         // A diagnostic view without its image this frame leaves black instead.
@@ -3023,7 +3056,7 @@ public:
             return false;
         }
         s_postProcessing.DrawComposite(s_cmdBuf, s_renderPass, {s_swapW, s_swapH}, s_postProcessingLook,
-                                       s_postProcessingView, ambientOcclusion, lightShafts, fogVolume, 0.3f);
+                                       s_postProcessingView, ambientOcclusion, lightShafts, fogLayer);
         ReplayCommands(sceneEnd, s_renderCmds.size(), boneDataReady, ReplaySelection::AllCommands, view);
         EndReplayPass();
         return true;
@@ -5343,6 +5376,8 @@ public:
 
     void SetSceneLighting(const SceneLighting& lighting) override
     {
+        s_fogBaseHeight = lighting.fogBase;
+        std::copy(std::begin(lighting.fogLight), std::end(lighting.fogLight), s_fogLight);
         SceneFog fog{};
         fog.enabled = m_fogEnabled;
         fog.start = m_fogUniform.fogStart;
@@ -6059,7 +6094,11 @@ private:
         // The composite also reads the ambient occlusion, the bloom source and the light shafts (t3-t5).
         s_fragShaderComposite =
             createShader("post_composite", "frag", SDL_GPU_SHADERSTAGE_FRAGMENT, 7, 0, 1, /*fatal=*/false);
-        (void)s_volumetricFog.Create(s_device, LoadShaderBlob("fog_volume", "comp", driverName), fmt);
+        {
+            const std::vector<Uint8> fogVolume = LoadShaderBlob("fog_volume", "comp", driverName);
+            const std::vector<Uint8> fogApply = LoadShaderBlob("fog_apply", "comp", driverName);
+            (void)s_volumetricFog.Create(s_device, {fogVolume, fogApply}, fmt);
+        }
         // Ambient occlusion: the depth (t0), and for the blur the occlusion (t1); AmbientOcclusion (b0).
         s_fragShaderAmbientOcclusion =
             createShader("post_ao", "frag", SDL_GPU_SHADERSTAGE_FRAGMENT, 1, 0, 1, /*fatal=*/false);
