@@ -24,12 +24,14 @@ struct SdlGpuFogUniform
     float medium[4];  // extinction per world unit at the base, 1 / height, base height, point light glow
     float sun[4];     // towards the sun, w: 1 when the shadow map holds its shadows
     float scatter[4]; // anisotropy, sun scatter, ambient share, shadow lookup step (uv)
+    float clouds[4];  // as SceneLightingUniform::cloudParameters
+    float cloudOffset[4];
     std::uint32_t size[4];
     std::uint32_t target[4];
 };
 static_assert(offsetof(SdlGpuFogUniform, camera) == 128);
-static_assert(offsetof(SdlGpuFogUniform, size) == 208);
-static_assert(sizeof(SdlGpuFogUniform) == 240);
+static_assert(offsetof(SdlGpuFogUniform, size) == 240);
+static_assert(sizeof(SdlGpuFogUniform) == 272);
 
 struct SdlGpuFogBlobs
 {

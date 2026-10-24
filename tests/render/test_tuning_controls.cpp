@@ -119,6 +119,18 @@ const SpecRow Spec[] = {
      TuningUnit::None, TuningZero::Plain},
     {TuningControlId::FogLightScatter, TuningGroup::PostProcessing, false, LookValue::FogLightScatter, 0, 4, 0.1,
      TuningUnit::None, TuningZero::Plain},
+    {TuningControlId::CloudStrength, TuningGroup::DynamicLights, false, LookValue::CloudStrength, 0, 1, 0.05,
+     TuningUnit::Percent, TuningZero::Plain},
+    {TuningControlId::CloudScale, TuningGroup::DynamicLights, true, LookValue::CloudScale, 500, 10000, 250,
+     TuningUnit::None, TuningZero::Plain},
+    {TuningControlId::CloudSpeed, TuningGroup::DynamicLights, true, LookValue::CloudSpeed, 0, 300, 5, TuningUnit::None,
+     TuningZero::Plain},
+    {TuningControlId::CloudCover, TuningGroup::DynamicLights, true, LookValue::CloudCover, 0, 1, 0.05,
+     TuningUnit::Percent, TuningZero::Plain},
+    {TuningControlId::SkyFill, TuningGroup::DynamicLights, false, LookValue::SkyFill, 0, 1, 0.05, TuningUnit::Percent,
+     TuningZero::Plain},
+    {TuningControlId::RimSunFollow, TuningGroup::DynamicLights, true, LookValue::RimSunFollow, 0, 1, 0.05,
+     TuningUnit::Percent, TuningZero::Plain},
 };
 
 Data::Maps::LookProfileData ShippedLikeProfile()
@@ -136,7 +148,7 @@ Data::Maps::LookProfileData ShippedLikeProfile()
 
 TEST_CASE("the 31 tuning controls have the specified bounds, steps, units and placement [render][look][tuning]")
 {
-    REQUIRE(Render::Look::TuningControlCount == 40);
+    REQUIRE(Render::Look::TuningControlCount == 46);
     REQUIRE(std::size(Spec) == Render::Look::TuningControlCount);
     std::set<LookValue> covered;
     for (const SpecRow& row : Spec)
