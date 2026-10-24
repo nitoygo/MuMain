@@ -18,14 +18,18 @@ namespace mu
 struct SdlGpuFogUniform
 {
     float inverseViewProjection[16];
-    float camera[4]; // xyz, w: nearest slice distance
-    float color[4];  // rgb: the fog's light, w: farthest slice distance
-    float medium[4]; // extinction per world unit at the base, 1 / height, base height, unused
+    float sunViewProjection[16];
+    float camera[4];  // xyz, w: nearest slice distance
+    float color[4];   // rgb: the air's light, w: farthest slice distance
+    float medium[4];  // extinction per world unit at the base, 1 / height, base height, unused
+    float sun[4];     // towards the sun, w: 1 when the shadow map holds its shadows
+    float scatter[4]; // anisotropy, sun scatter, ambient share, unused
     std::uint32_t size[4];
     std::uint32_t target[4];
 };
-static_assert(offsetof(SdlGpuFogUniform, camera) == 64);
-static_assert(sizeof(SdlGpuFogUniform) == 144);
+static_assert(offsetof(SdlGpuFogUniform, camera) == 128);
+static_assert(offsetof(SdlGpuFogUniform, size) == 208);
+static_assert(sizeof(SdlGpuFogUniform) == 240);
 
 struct SdlGpuFogBlobs
 {
@@ -48,10 +52,11 @@ public:
     // Everything, at shutdown.
     void Release();
 
-    // The fog layer of `size` for `depth` (single-sample, sampleable), or null when it could not be
-    // rendered. Fills `uniform`'s size and target.
+    // The fog layer of `size` for `depth` (single-sample, sampleable) with the sun's `shadowMap`, or null
+    // when it could not be rendered. Fills `uniform`'s size and target.
     [[nodiscard]] SDL_GPUTexture* Render(SDL_GPUCommandBuffer* commandBuffer, SDL_GPUTexture* depth,
-                                         SdlGpuTargetSize size, SdlGpuFogUniform uniform);
+                                         SDL_GPUTextureSamplerBinding shadowMap, SdlGpuTargetSize size,
+                                         SdlGpuFogUniform uniform);
     // The volume and the layer, while the fog is off.
     void ReleaseTargets();
 

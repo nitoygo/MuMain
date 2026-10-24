@@ -80,7 +80,7 @@ bool SdlGpuVolumetricFog::Create(SDL_GPUDevice* device, const SdlGpuFogBlobs& bl
         mu::log::Get("render")->warn("SDL_gpu -- volumetric fog unavailable: no RGBA16F storage textures");
         return false;
     }
-    m_volumePipeline = CreatePipeline(device, blobs.volume, format, 0u);
+    m_volumePipeline = CreatePipeline(device, blobs.volume, format, 1u);
     m_applyPipeline = CreatePipeline(device, blobs.apply, format, 2u);
     m_pointSampler = CreateSampler(device, SDL_GPU_FILTER_NEAREST);
     m_linearSampler = CreateSampler(device, SDL_GPU_FILTER_LINEAR);
@@ -152,9 +152,10 @@ bool SdlGpuVolumetricFog::EnsureTargets(SdlGpuTargetSize size)
 }
 
 SDL_GPUTexture* SdlGpuVolumetricFog::Render(SDL_GPUCommandBuffer* commandBuffer, SDL_GPUTexture* depth,
-                                            SdlGpuTargetSize size, SdlGpuFogUniform uniform)
+                                            SDL_GPUTextureSamplerBinding shadowMap, SdlGpuTargetSize size,
+                                            SdlGpuFogUniform uniform)
 {
-    if (!IsAvailable() || !depth || size.width == 0u || size.height == 0u || !EnsureTargets(size))
+    if (!IsAvailable() || !depth || !shadowMap.texture || !shadowMap.sampler || size.width == 0u || size.height == 0u || !EnsureTargets(size))
     {
         return nullptr;
     }
@@ -171,6 +172,7 @@ SDL_GPUTexture* SdlGpuVolumetricFog::Render(SDL_GPUCommandBuffer* commandBuffer,
         return nullptr;
     }
     SDL_BindGPUComputePipeline(pass, m_volumePipeline);
+    SDL_BindGPUComputeSamplers(pass, 0, &shadowMap, 1);
     SDL_PushGPUComputeUniformData(commandBuffer, 0, &uniform, sizeof(uniform));
     SDL_DispatchGPUCompute(pass, Groups(Width), Groups(Height), 1);
     SDL_EndGPUComputePass(pass);

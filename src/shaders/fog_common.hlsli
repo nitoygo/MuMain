@@ -6,9 +6,12 @@
 cbuffer FogUniforms : register(b0, space2)
 {
     float4x4 inverseViewProjection; // clip space to world
+    float4x4 sunViewProjection;     // world to the sun shadow map's clip space
     float4 camera;                  // xyz: the camera, w: nearest slice distance
-    float4 color;                   // rgb: the fog's light (the map's fog colour), w: farthest slice distance
+    float4 color;                   // rgb: the air's light (the sun's or moon's), w: farthest slice distance
     float4 medium;                  // x: extinction per world unit at the base, y: 1 / fog.height, z: base height
+    float4 sun;                     // xyz: towards the sun (or moon), w: 1 when the shadow map holds its shadows
+    float4 scatter;                 // x: fog.anisotropy, y: fog.sunScatter, z: the ambient share
     uint4 size;                     // xyz: the volume's cells, w: unused
     uint4 target;                   // xy: the fog layer's pixels
 };

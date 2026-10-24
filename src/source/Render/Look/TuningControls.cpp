@@ -108,6 +108,10 @@ constexpr std::array<ControlSpec, TuningControlCount> Specs = {{
      TuningZero::Plain},
     {TuningControlId::FogHeight, TuningGroup::PostProcessing, false, LookValue::FogHeight, 50.0, TuningUnit::None, 1.0,
      TuningZero::Plain},
+    {TuningControlId::FogAnisotropy, TuningGroup::PostProcessing, false, LookValue::FogAnisotropy, 0.05,
+     TuningUnit::None, 1.0, TuningZero::Plain},
+    {TuningControlId::FogSunScatter, TuningGroup::PostProcessing, false, LookValue::FogSunScatter, 0.1,
+     TuningUnit::None, 1.0, TuningZero::Plain},
 }};
 
 constexpr bool SpecsFollowIdOrder()
