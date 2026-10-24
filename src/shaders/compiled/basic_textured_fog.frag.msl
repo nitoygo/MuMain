@@ -1,18 +1,7 @@
-#pragma clang diagnostic ignored "-Wmissing-prototypes"
-
 #include <metal_stdlib>
 #include <simd/simd.h>
 
 using namespace metal;
-
-struct FSInput
-{
-    float4 pos;
-    float2 uv;
-    float4 color;
-    float fogFactor;
-    float eyeDepth;
-};
 
 struct SceneLighting
 {
@@ -24,6 +13,9 @@ struct SceneLighting
     float4 sceneFogColor;
     float4 sceneFogParameters;
     float4 cameraPosition;
+    float4x4 sunViewProjection;
+    float4 sunShadowParameters;
+    float4 lightingParameters;
 };
 
 struct FogUniforms
@@ -46,61 +38,38 @@ struct main0_in
 {
     float2 input_uv [[user(locn0)]];
     float4 input_color [[user(locn1)]];
-    float input_fogFactor [[user(locn2)]];
     float input_eyeDepth [[user(locn3)]];
 };
 
-static inline __attribute__((always_inline))
-float EnhancedFogAmount(thread const float& eyeDepth, constant SceneLighting& _24)
+fragment main0_out main0(main0_in in [[stage_in]], constant FogUniforms& _73 [[buffer(0)]], constant SceneLighting& _25 [[buffer(1)]], texture2d<float> tex [[texture(0)]], sampler s [[sampler(0)]])
 {
-    float scaledDistance = fast::max(eyeDepth - _24.sceneFogParameters.x, 0.0) * _24.sceneFogParameters.z;
-    return fast::clamp(1.0 - exp((-scaledDistance) * scaledDistance), 0.0, 1.0);
-}
-
-static inline __attribute__((always_inline))
-float4 _main(thread const FSInput& _input, constant SceneLighting& _24, texture2d<float> tex, sampler s, constant FogUniforms& _72)
-{
-    float4 color = tex.sample(s, _input.uv) * _input.color;
-    if (_72.alphaToCoverage != 0u)
+    main0_out out = {};
+    float4 _181 = tex.sample(s, in.input_uv) * in.input_color;
+    if (_73.alphaToCoverage != 0u)
     {
-        float edge = fast::clamp(((color.w - _72.alphaThreshold) / fast::max(fwidth(color.w), 9.9999997473787516355514526367188e-05)) + 0.5, 0.0, 1.0);
-        color.w *= edge;
-        if (color.w <= 0.0)
+        _181.w *= fast::clamp(((_181.w - _73.alphaThreshold) / fast::max(fwidth(_181.w), 9.9999997473787516355514526367188e-05)) + 0.5, 0.0, 1.0);
+        if (_181.w <= 0.0)
         {
             discard_fragment();
         }
     }
     else
     {
-        if ((_72.alphaDiscardEnabled != 0u) && (color.w <= _72.alphaThreshold))
+        if ((_73.alphaDiscardEnabled != 0u) && (_181.w <= _73.alphaThreshold))
         {
             discard_fragment();
         }
     }
-    if ((_72.fogEnabled != 0u) && (_24.sceneFogColor.w > 0.0))
+    if ((_73.fogEnabled != 0u) && (_25.sceneFogColor.w > 0.0))
     {
-        float4 _133 = color;
-        float param = _input.eyeDepth;
-        float3 _145 = mix(_133.xyz, _24.sceneFogColor.xyz, float3(EnhancedFogAmount(param, _24)));
-        color.x = _145.x;
-        color.y = _145.y;
-        color.z = _145.z;
+        float4 _242 = _181;
+        float _271 = fast::max(in.input_eyeDepth - _25.sceneFogParameters.x, 0.0) * _25.sceneFogParameters.z;
+        float3 _251 = mix(_242.xyz, _25.sceneFogColor.xyz, float3(fast::clamp(1.0 - exp((-_271) * _271), 0.0, 1.0)));
+        _181.x = _251.x;
+        _181.y = _251.y;
+        _181.z = _251.z;
     }
-    return color;
-}
-
-fragment main0_out main0(main0_in in [[stage_in]], constant FogUniforms& _72 [[buffer(0)]], constant SceneLighting& _24 [[buffer(1)]], texture2d<float> tex [[texture(0)]], sampler s [[sampler(0)]], float4 gl_FragCoord [[position]])
-{
-    main0_out out = {};
-    FSInput _input;
-    _input.pos = gl_FragCoord;
-    _input.uv = in.input_uv;
-    _input.color = in.input_color;
-    _input.fogFactor = in.input_fogFactor;
-    _input.eyeDepth = in.input_eyeDepth;
-    FSInput param = _input;
-    float4 _179 = _main(param, _24, tex, s, _72);
-    out._entryPointOutput = _179;
+    out._entryPointOutput = _181;
     return out;
 }
 

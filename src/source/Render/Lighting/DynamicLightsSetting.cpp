@@ -4,7 +4,6 @@
 
 #include <chrono>
 #include <cmath>
-#include <cstdint>
 
 #include "Core/Utilities/Log/MuLogger.h"
 #include "Render/Lighting/EnhancedLightingSetting.h"
@@ -39,40 +38,39 @@ bool DynamicLightsActive()
 
 bool SunShadowsActive()
 {
-    return SceneFlag == MAIN_SCENE && DynamicLightsActive() &&
+    const std::optional<FrameSunDirections> sun = FrameSun();
+    return SceneFlag == MAIN_SCENE && DynamicLightsActive() && sun && sun->strength > 0.0f &&
            Render::Look::Value(Data::Maps::LookValue::SunShadowStrength) > 0.0 &&
-           mu::GetRenderer().SunShadowsAvailable() && FrameSun()->strength > 0.0f;
+           mu::GetRenderer().SunShadowsAvailable();
 }
 
 namespace
 {
 std::optional<float> s_timeOverride;
-} // namespace
+std::optional<float> s_frameHour;
+std::optional<FrameSunDirections> s_frameSun;
 
-std::optional<float> FrameHour()
+std::optional<float> ClockHour()
 {
     if (s_timeOverride)
     {
         return s_timeOverride;
     }
     // Maps whose profile keeps the sun at noon (indoors, events) never get a clock, whatever the player's value.
-    static int s_world = -1;
-    static std::uint32_t s_revision = 0;
-    static bool s_mapHasClock = false;
-    if (gMapManager.WorldActive != s_world || Render::Look::Revision() != s_revision)
-    {
-        s_world = gMapManager.WorldActive;
-        s_revision = Render::Look::Revision();
-        s_mapHasClock = Render::Look::InheritedValues()[Data::Maps::LookValue::DayMinutes] > 0.0;
-    }
     const double dayMinutes = Render::Look::Value(Data::Maps::LookValue::DayMinutes);
-    if (!s_mapHasClock || dayMinutes <= 0.0)
+    if (dayMinutes <= 0.0 || Render::Look::InheritedValues()[Data::Maps::LookValue::DayMinutes] <= 0.0)
     {
         return std::nullopt;
     }
     const double seconds = std::chrono::duration<double>(std::chrono::system_clock::now().time_since_epoch()).count();
     const double dayLength = dayMinutes * 60.0;
     return static_cast<float>(std::fmod(seconds, dayLength) / dayLength * 24.0);
+}
+} // namespace
+
+std::optional<float> FrameHour()
+{
+    return s_frameHour;
 }
 
 void SetTimeOverride(std::optional<float> hour)
@@ -82,16 +80,24 @@ void SetTimeOverride(std::optional<float> hour)
 
 std::optional<FrameSunDirections> FrameSun()
 {
+    return s_frameSun;
+}
+
+void UpdateFrameSun()
+{
+    s_frameSun.reset();
+    s_frameHour.reset();
     if (!DynamicLightsActive())
     {
-        return std::nullopt;
+        return;
     }
     const float fall = gMapManager.InBattleCastle() ? kSunShadowFallBattleCastle : kSunShadowFall;
     const float angle = Render::Look::Value(Data::Maps::LookValue::GroundShadowAngle);
     FrameSunDirections directions{SunDirection(angle, fall), SunDirection(kBakedSunShadowAngle, fall)};
-    if (const std::optional<float> hour = FrameHour())
+    s_frameHour = ClockHour();
+    if (s_frameHour)
     {
-        const SunAtTime now = SunAtHour(*hour, angle, fall);
+        const SunAtTime now = SunAtHour(*s_frameHour, angle, fall);
         directions.sun = now.toSun;
         directions.daylight = now.daylight;
         directions.strength = now.strength;
@@ -100,25 +106,12 @@ std::optional<FrameSunDirections> FrameSun()
                                                                     : Data::Maps::LookValue::MoonTint);
         directions.color = glm::vec3(1.0f) + (now.color - glm::vec3(1.0f)) * tint;
     }
-    return directions;
+    s_frameSun = directions;
 }
 
 glm::vec3 FollowFrameSun(const glm::vec3& baked)
 {
-    const std::optional<FrameSunDirections> sun = FrameSun();
-    if (!sun)
-    {
-        return baked;
-    }
-    // Every model asks with the same vector each frame: the last answer is reused.
-    static glm::vec3 s_baked{0.0f}, s_sun{0.0f}, s_followed{0.0f};
-    if (baked != s_baked || sun->sun != s_sun)
-    {
-        s_baked = baked;
-        s_sun = sun->sun;
-        s_followed = FollowSun(baked, sun->baked, sun->sun, 5.0f);
-    }
-    return s_followed;
+    return s_frameSun ? FollowSun(baked, s_frameSun->baked, s_frameSun->sun, 5.0f) : baked;
 }
 
 } // namespace Render::Lighting
