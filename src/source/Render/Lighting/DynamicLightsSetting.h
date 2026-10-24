@@ -22,6 +22,7 @@ void SetDynamicLightsEnabled(bool enabled);
 
 // This frame's sun (towards it): from dynamic.shadowAngle and the map's shadow length, and the sun the
 // map's baked light implies (kBakedSunShadowAngle). None without Enhanced dynamic lights (Classic).
+// Taken once per frame (UpdateFrameSun), so every part of a frame sees the same sun.
 struct FrameSunDirections
 {
     glm::vec3 sun{0.0f, 0.0f, 1.0f};
@@ -36,9 +37,13 @@ struct FrameSunDirections
 [[nodiscard]] std::optional<FrameSunDirections> FrameSun();
 
 // The hour of the day (0 to 24) while the clock runs: the $time override, else UTC time over a day of
-// time.dayMinutes, the same on every client. None while time.dayMinutes is 0 (the sun stays at noon).
+// time.dayMinutes, the same on every client. None while time.dayMinutes is 0 (the sun stays at noon) or
+// the map's own profile value is 0 (indoors, events), and without a frame sun.
 [[nodiscard]] std::optional<float> FrameHour();
-// $time: holds the clock at `hour`, or lets it run again (none). Not saved.
+
+// Takes this frame's sun and hour; called first thing each frame (InitTerrainLight).
+void UpdateFrameSun();
+// $time: holds the clock at `hour`, or lets it run again (none), from the next frame on. Not saved.
 void SetTimeOverride(std::optional<float> hour);
 
 // `baked` (a world-space light vector of the baked light) following this frame's sun (FollowSun), never

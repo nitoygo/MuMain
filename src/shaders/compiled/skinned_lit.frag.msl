@@ -48,7 +48,8 @@ struct DynamicLights
 {
     uint dynamicLightCount;
     float dynamicLightWrap;
-    uint2 dynamicLightPadding;
+    uint dynamicWorldLightCount;
+    float groundShadowOpacity;
     float4 dynamicLightPositionAndRadius[32];
     float4 dynamicLightColor[32];
 };
@@ -81,135 +82,135 @@ struct main0_in
     float3 input_worldNormal [[user(locn8)]];
 };
 
-fragment main0_out main0(main0_in in [[stage_in]], constant FogUniforms& _619 [[buffer(0)]], constant SceneLighting& _121 [[buffer(1)]], constant DynamicLights& _362 [[buffer(2)]], texture2d<float> tex [[texture(0)]], texture2d<float> sunShadowMap [[texture(1)]], sampler s [[sampler(0)]], sampler sunShadowSampler [[sampler(1)]])
+fragment main0_out main0(main0_in in [[stage_in]], constant FogUniforms& _618 [[buffer(0)]], constant SceneLighting& _61 [[buffer(1)]], constant DynamicLights& _361 [[buffer(2)]], texture2d<float> tex [[texture(0)]], texture2d<float> sunShadowMap [[texture(1)]], sampler s [[sampler(0)]], sampler sunShadowSampler [[sampler(1)]])
 {
     main0_out out = {};
-    float _998 = dot(in.input_normal, in.input_normal);
-    float3 _1006 = select(float3(0.0), in.input_normal * rsqrt(_998), bool3(_998 > 9.9999999600419720025001879548654e-13));
-    float _1012 = dot(in.input_viewVector, in.input_viewVector);
-    float3 _1020 = select(float3(0.0), in.input_viewVector * rsqrt(_1012), bool3(_1012 > 9.9999999600419720025001879548654e-13));
-    float _794 = dot(in.input_normal, in.input_lightDirectionAndSpecular.xyz);
-    bool _797 = in.input_worldPositionAndDynamicLights.w > 0.5;
-    float _1026 = dot(in.input_worldNormal, in.input_worldNormal);
-    float3 _1034 = select(float3(0.0), in.input_worldNormal * rsqrt(_1026), bool3(_1026 > 9.9999999600419720025001879548654e-13));
-    float _1481;
+    float _997 = dot(in.input_normal, in.input_normal);
+    float3 _1005 = select(float3(0.0), in.input_normal * rsqrt(_997), bool3(_997 > 9.9999999600419720025001879548654e-13));
+    float _1011 = dot(in.input_viewVector, in.input_viewVector);
+    float3 _1019 = select(float3(0.0), in.input_viewVector * rsqrt(_1011), bool3(_1011 > 9.9999999600419720025001879548654e-13));
+    float _793 = dot(in.input_normal, in.input_lightDirectionAndSpecular.xyz);
+    bool _796 = in.input_worldPositionAndDynamicLights.w > 0.5;
+    float _1025 = dot(in.input_worldNormal, in.input_worldNormal);
+    float3 _1033 = select(float3(0.0), in.input_worldNormal * rsqrt(_1025), bool3(_1025 > 9.9999999600419720025001879548654e-13));
+    float _1480;
     do
     {
-        if (_121.sunShadowParameters.x <= 0.0)
+        if (_61.sunShadowParameters.x <= 0.0)
         {
-            _1481 = 1.0;
+            _1480 = 1.0;
             break;
         }
-        float4 _1067 = _121.sunViewProjection * float4(in.input_worldPositionAndDynamicLights.xyz + (_1034 * (1.5 * _121.sunShadowParameters.w)), 1.0);
-        float4 _1038 = _1067;
-        float3 _1039 = _1067.xyz / float3(_1038.w);
-        float _1077 = (_1039.x * 0.5) + 0.5;
-        float _1081 = 0.5 - (_1039.y * 0.5);
-        float2 _1082 = float2(_1077, _1081);
-        if ((any(_1082 < float2(0.0)) || any(_1082 > float2(1.0))) || (_1039.z >= 1.0))
+        float4 _1066 = _61.sunViewProjection * float4(in.input_worldPositionAndDynamicLights.xyz + (_1033 * (1.5 * _61.sunShadowParameters.w)), 1.0);
+        float4 _1037 = _1066;
+        float3 _1038 = _1066.xyz / float3(_1037.w);
+        float _1076 = (_1038.x * 0.5) + 0.5;
+        float _1080 = 0.5 - (_1038.y * 0.5);
+        float2 _1081 = float2(_1076, _1080);
+        if ((any(_1081 < float2(0.0)) || any(_1081 > float2(1.0))) || (_1038.z >= 1.0))
         {
-            _1481 = 1.0;
+            _1480 = 1.0;
             break;
         }
-        float2 _1101 = _121.sunShadowParameters.zz * _121.sunShadowParameters.y;
-        float _1688 = (((((((spvDepthCast(sunShadowMap).sample_compare(sunShadowSampler, float3(_1082 + (float2(-1.0) * _1101), _1039.z).xy, _1039.z, level(0.0)) + spvDepthCast(sunShadowMap).sample_compare(sunShadowSampler, float3(_1082 + (float2(0.0, -1.0) * _1101), _1039.z).xy, _1039.z, level(0.0))) + spvDepthCast(sunShadowMap).sample_compare(sunShadowSampler, float3(_1082 + (float2(1.0, -1.0) * _1101), _1039.z).xy, _1039.z, level(0.0))) + spvDepthCast(sunShadowMap).sample_compare(sunShadowSampler, float3(_1082 + (float2(-1.0, 0.0) * _1101), _1039.z).xy, _1039.z, level(0.0))) + spvDepthCast(sunShadowMap).sample_compare(sunShadowSampler, float3(_1077, _1081, _1039.z).xy, _1039.z, level(0.0))) + spvDepthCast(sunShadowMap).sample_compare(sunShadowSampler, float3(_1082 + (float2(1.0, 0.0) * _1101), _1039.z).xy, _1039.z, level(0.0))) + spvDepthCast(sunShadowMap).sample_compare(sunShadowSampler, float3(_1082 + (float2(-1.0, 1.0) * _1101), _1039.z).xy, _1039.z, level(0.0))) + spvDepthCast(sunShadowMap).sample_compare(sunShadowSampler, float3(_1082 + (float2(0.0, 1.0) * _1101), _1039.z).xy, _1039.z, level(0.0))) + spvDepthCast(sunShadowMap).sample_compare(sunShadowSampler, float3(_1082 + _1101, _1039.z).xy, _1039.z, level(0.0));
-        _1481 = _1688 * 0.111111111938953399658203125;
+        float2 _1100 = _61.sunShadowParameters.zz * _61.sunShadowParameters.y;
+        float _1687 = (((((((spvDepthCast(sunShadowMap).sample_compare(sunShadowSampler, float3(_1081 + (float2(-1.0) * _1100), _1038.z).xy, _1038.z, level(0.0)) + spvDepthCast(sunShadowMap).sample_compare(sunShadowSampler, float3(_1081 + (float2(0.0, -1.0) * _1100), _1038.z).xy, _1038.z, level(0.0))) + spvDepthCast(sunShadowMap).sample_compare(sunShadowSampler, float3(_1081 + (float2(1.0, -1.0) * _1100), _1038.z).xy, _1038.z, level(0.0))) + spvDepthCast(sunShadowMap).sample_compare(sunShadowSampler, float3(_1081 + (float2(-1.0, 0.0) * _1100), _1038.z).xy, _1038.z, level(0.0))) + spvDepthCast(sunShadowMap).sample_compare(sunShadowSampler, float3(_1076, _1080, _1038.z).xy, _1038.z, level(0.0))) + spvDepthCast(sunShadowMap).sample_compare(sunShadowSampler, float3(_1081 + (float2(1.0, 0.0) * _1100), _1038.z).xy, _1038.z, level(0.0))) + spvDepthCast(sunShadowMap).sample_compare(sunShadowSampler, float3(_1081 + (float2(-1.0, 1.0) * _1100), _1038.z).xy, _1038.z, level(0.0))) + spvDepthCast(sunShadowMap).sample_compare(sunShadowSampler, float3(_1081 + (float2(0.0, 1.0) * _1100), _1038.z).xy, _1038.z, level(0.0))) + spvDepthCast(sunShadowMap).sample_compare(sunShadowSampler, float3(_1081 + _1100, _1038.z).xy, _1038.z, level(0.0));
+        _1480 = _1687 * 0.111111111938953399658203125;
         break;
     } while(false);
-    float _812 = _797 ? (1.0 - (_121.sunShadowParameters.x * (1.0 - _1481))) : 1.0;
-    float _824 = fast::max(((_794 * _121.diffuseCurve.x) * _812) + _121.diffuseCurve.y, _121.diffuseCurve.z);
-    uint _1159 = min(_362.dynamicLightCount, 32u);
-    float3 _1483;
-    _1483 = float3(0.0);
-    float3 _1491;
-    for (uint _1482 = 0u; _1482 < _1159; _1483 = _1491, _1482++)
+    float _811 = _796 ? (1.0 - (_61.sunShadowParameters.x * (1.0 - _1480))) : 1.0;
+    float _823 = fast::max(((_793 * _61.diffuseCurve.x) * _811) + _61.diffuseCurve.y, _61.diffuseCurve.z);
+    uint _1158 = min(_361.dynamicLightCount, 32u);
+    float3 _1482;
+    _1482 = float3(0.0);
+    float3 _1490;
+    for (uint _1481 = 0u; _1481 < _1158; _1482 = _1490, _1481++)
     {
-        float4 _1148 = _362.dynamicLightPositionAndRadius[_1482];
-        float3 _1172 = _362.dynamicLightPositionAndRadius[_1482].xyz - in.input_worldPositionAndDynamicLights.xyz;
-        float _1487;
+        float4 _1147 = _361.dynamicLightPositionAndRadius[_1481];
+        float3 _1171 = _361.dynamicLightPositionAndRadius[_1481].xyz - in.input_worldPositionAndDynamicLights.xyz;
+        float _1486;
         do
         {
-            float _1222 = length(_1172.xy);
-            if (_1222 >= _1148.w)
+            float _1221 = length(_1171.xy);
+            if (_1221 >= _1147.w)
             {
-                _1487 = 0.0;
+                _1486 = 0.0;
                 break;
             }
-            float _1232 = (_1148.w - _1222) / _1148.w;
-            if (_121.lightingParameters.x <= 0.0)
+            float _1231 = (_1147.w - _1221) / _1147.w;
+            if (_61.lightingParameters.x <= 0.0)
             {
-                _1487 = _1232;
+                _1486 = _1231;
                 break;
             }
-            float _1241 = dot(_1172, _1172);
-            float _1248 = _1241 / (_1148.w * _1148.w);
-            float _1253 = fast::clamp(1.0 - (_1248 * _1248), 0.0, 1.0);
-            _1487 = mix(_1232, (((0.16000001132488250732421875 * (_1148.w * _1148.w)) / (_1241 + (0.16000001132488250732421875 * (_1148.w * _1148.w)))) * _1253) * _1253, _121.lightingParameters.x);
+            float _1240 = dot(_1171, _1171);
+            float _1247 = _1240 / (_1147.w * _1147.w);
+            float _1252 = fast::clamp(1.0 - (_1247 * _1247), 0.0, 1.0);
+            _1486 = mix(_1231, (((0.16000001132488250732421875 * (_1147.w * _1147.w)) / (_1240 + (0.16000001132488250732421875 * (_1147.w * _1147.w)))) * _1252) * _1252, _61.lightingParameters.x);
             break;
         } while(false);
-        if (_1487 <= 0.0)
+        if (_1486 <= 0.0)
         {
-            _1491 = _1483;
+            _1490 = _1482;
             continue;
         }
-        float _1279 = dot(_1172, _1172);
-        _1491 = _1483 + (_362.dynamicLightColor[_1482].xyz * (_1487 * fast::clamp((dot(_1034, select(float3(0.0), _1172 * rsqrt(_1279), bool3(_1279 > 9.9999999600419720025001879548654e-13))) * (1.0 - _362.dynamicLightWrap)) + _362.dynamicLightWrap, 0.0, 1.0)));
+        float _1278 = dot(_1171, _1171);
+        _1490 = _1482 + (_361.dynamicLightColor[_1481].xyz * (_1486 * fast::clamp((dot(_1033, select(float3(0.0), _1171 * rsqrt(_1278), bool3(_1278 > 9.9999999600419720025001879548654e-13))) * (1.0 - _361.dynamicLightWrap)) + _361.dynamicLightWrap, 0.0, 1.0)));
     }
-    float3 _832 = select(float3(0.0), _1483, bool3(_797));
+    float3 _831 = select(float3(0.0), _1482, bool3(_796));
+    float3 _1484;
+    if ((_61.diffuseCurve.w > 0.0) && (_61.diffuseCurve.w < 1.0))
+    {
+        float3 _762 = (in.input_color.xyz * _823) + _831;
+        float _1322 = 1.0 - _61.diffuseCurve.w;
+        float _1345 = 1.0 - _61.diffuseCurve.w;
+        float _1368 = 1.0 - _61.diffuseCurve.w;
+        _1484 = fast::clamp(float3((_762.x > _61.diffuseCurve.w) ? (_61.diffuseCurve.w + (_1322 * (1.0 - exp((-fast::max(_762.x - _61.diffuseCurve.w, 0.0)) / _1322)))) : _762.x, (_762.y > _61.diffuseCurve.w) ? (_61.diffuseCurve.w + (_1345 * (1.0 - exp((-fast::max(_762.y - _61.diffuseCurve.w, 0.0)) / _1345)))) : _762.y, (_762.z > _61.diffuseCurve.w) ? (_61.diffuseCurve.w + (_1368 * (1.0 - exp((-fast::max(_762.z - _61.diffuseCurve.w, 0.0)) / _1368)))) : _762.z), float3(0.0), float3(1.0));
+    }
+    else
+    {
+        _1484 = fast::clamp((in.input_color.xyz * _823) + _831, float3(0.0), float3(1.0));
+    }
+    float _872 = in.input_lightDirectionAndSpecular.w * _61.specularParameters.x;
     float3 _1485;
-    if ((_121.diffuseCurve.w > 0.0) && (_121.diffuseCurve.w < 1.0))
+    if ((_872 > 0.0) && (_793 > 0.0))
     {
-        float3 _763 = (in.input_color.xyz * _824) + _832;
-        float _1323 = 1.0 - _121.diffuseCurve.w;
-        float _1346 = 1.0 - _121.diffuseCurve.w;
-        float _1369 = 1.0 - _121.diffuseCurve.w;
-        _1485 = fast::clamp(float3((_763.x > _121.diffuseCurve.w) ? (_121.diffuseCurve.w + (_1323 * (1.0 - exp((-fast::max(_763.x - _121.diffuseCurve.w, 0.0)) / _1323)))) : _763.x, (_763.y > _121.diffuseCurve.w) ? (_121.diffuseCurve.w + (_1346 * (1.0 - exp((-fast::max(_763.y - _121.diffuseCurve.w, 0.0)) / _1346)))) : _763.y, (_763.z > _121.diffuseCurve.w) ? (_121.diffuseCurve.w + (_1369 * (1.0 - exp((-fast::max(_763.z - _121.diffuseCurve.w, 0.0)) / _1369)))) : _763.z), float3(0.0), float3(1.0));
+        float _1392 = dot(in.input_lightDirectionAndSpecular.xyz, in.input_lightDirectionAndSpecular.xyz);
+        float3 _882 = select(float3(0.0), in.input_lightDirectionAndSpecular.xyz * rsqrt(_1392), bool3(_1392 > 9.9999999600419720025001879548654e-13)) + _1019;
+        float _1406 = dot(_882, _882);
+        _1485 = (_61.sceneLightColor.xyz * ((_872 * powr(fast::clamp(dot(_1005, select(float3(0.0), _882 * rsqrt(_1406), bool3(_1406 > 9.9999999600419720025001879548654e-13))), 0.0, 1.0), _61.specularParameters.y)) * _811)) * in.input_color.xyz;
     }
     else
     {
-        _1485 = fast::clamp((in.input_color.xyz * _824) + _832, float3(0.0), float3(1.0));
+        _1485 = float3(0.0);
     }
-    float _873 = in.input_lightDirectionAndSpecular.w * _121.specularParameters.x;
-    float3 _1486;
-    if ((_873 > 0.0) && (_794 > 0.0))
+    float4 _908 = tex.sample(s, in.input_uv);
+    float4 _772 = _908;
+    float4 _773 = float4(((_908.xyz * _1484) + (in.input_color.xyz * (_61.rimParameters.x * powr(1.0 - fast::clamp(abs(dot(_1005, _1019)), 0.0, 1.0), _61.rimParameters.y)))) + _1485, _772.w * in.input_color.w);
+    if (_618.alphaToCoverage != 0u)
     {
-        float _1393 = dot(in.input_lightDirectionAndSpecular.xyz, in.input_lightDirectionAndSpecular.xyz);
-        float3 _883 = select(float3(0.0), in.input_lightDirectionAndSpecular.xyz * rsqrt(_1393), bool3(_1393 > 9.9999999600419720025001879548654e-13)) + _1020;
-        float _1407 = dot(_883, _883);
-        _1486 = (_121.sceneLightColor.xyz * ((_873 * powr(fast::clamp(dot(_1006, select(float3(0.0), _883 * rsqrt(_1407), bool3(_1407 > 9.9999999600419720025001879548654e-13))), 0.0, 1.0), _121.specularParameters.y)) * _812)) * in.input_color.xyz;
-    }
-    else
-    {
-        _1486 = float3(0.0);
-    }
-    float4 _909 = tex.sample(s, in.input_uv);
-    float4 _773 = _909;
-    float4 _774 = float4(((_909.xyz * _1485) + (in.input_color.xyz * (_121.rimParameters.x * powr(1.0 - fast::clamp(abs(dot(_1006, _1020)), 0.0, 1.0), _121.rimParameters.y)))) + _1486, _773.w * in.input_color.w);
-    if (_619.alphaToCoverage != 0u)
-    {
-        _774.w *= fast::clamp(((_774.w - _619.alphaThreshold) / fast::max(fwidth(_774.w), 9.9999997473787516355514526367188e-05)) + 0.5, 0.0, 1.0);
-        if (_774.w <= 0.0)
+        _773.w *= fast::clamp(((_773.w - _618.alphaThreshold) / fast::max(fwidth(_773.w), 9.9999997473787516355514526367188e-05)) + 0.5, 0.0, 1.0);
+        if (_773.w <= 0.0)
         {
             discard_fragment();
         }
     }
     else
     {
-        if ((_619.alphaDiscardEnabled != 0u) && (_774.w <= _619.alphaThreshold))
+        if ((_618.alphaDiscardEnabled != 0u) && (_773.w <= _618.alphaThreshold))
         {
             discard_fragment();
         }
     }
-    if ((_619.fogEnabled != 0u) && (_121.sceneFogColor.w > 0.0))
+    if ((_618.fogEnabled != 0u) && (_61.sceneFogColor.w > 0.0))
     {
-        float4 _974 = _774;
-        float _1426 = fast::max(in.input_eyeDepth - _121.sceneFogParameters.x, 0.0) * _121.sceneFogParameters.z;
-        float3 _983 = mix(_974.xyz, _121.sceneFogColor.xyz, float3(fast::clamp(1.0 - exp((-_1426) * _1426), 0.0, 1.0)));
-        _774.x = _983.x;
-        _774.y = _983.y;
-        _774.z = _983.z;
+        float4 _973 = _773;
+        float _1425 = fast::max(in.input_eyeDepth - _61.sceneFogParameters.x, 0.0) * _61.sceneFogParameters.z;
+        float3 _982 = mix(_973.xyz, _61.sceneFogColor.xyz, float3(fast::clamp(1.0 - exp((-_1425) * _1425), 0.0, 1.0)));
+        _773.x = _982.x;
+        _773.y = _982.y;
+        _773.z = _982.z;
     }
-    out._entryPointOutput = _774;
+    out._entryPointOutput = _773;
     return out;
 }
 

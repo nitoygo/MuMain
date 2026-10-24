@@ -79,6 +79,12 @@ bool DetailLowEnable = false;
 
 char            LodBuffer[64 * 64];
 vec3_t          TerrainNormal[TERRAIN_SIZE * TERRAIN_SIZE];
+// The terrain light, one value per cell, from the map file to the frame:
+// TerrainLight: the map's painted lightmap, as loaded.
+// BackTerrainLight: the static light, the lightmap × the sun's slope shading × the light mood
+//   (CreateStaticLightCell); rebuilt when the sun or the mood changes.
+// PrimaryTerrainLight: this frame's light, the static light plus the frame's dynamic lights (game
+//   code adds them through AddTerrainLight); what the ground and the models sample.
 vec3_t          PrimaryTerrainLight[TERRAIN_SIZE * TERRAIN_SIZE];
 vec3_t          BackTerrainLight[TERRAIN_SIZE * TERRAIN_SIZE];
 vec3_t          TerrainLight[TERRAIN_SIZE * TERRAIN_SIZE];
@@ -544,6 +550,7 @@ void CreateTerrainNormal_Part(int xi, int yi)
 // How much of each cell keeps its Classic brightness under the light mood (its
 // bright weight, the same in all three channels so the grid sampler reads it).
 static vec3_t StaticLightBrightWeight[TERRAIN_SIZE * TERRAIN_SIZE];
+// The static light figures stand in: BackTerrainLight with the mood's figure scale instead of its base.
 static vec3_t FigureStaticTerrainLight[TERRAIN_SIZE * TERRAIN_SIZE];
 
 // The static light of one cell: the baked light, shaded by the slope towards
@@ -2896,6 +2903,7 @@ extern int EnableEvent;
 
 void InitTerrainLight()
 {
+    Render::Lighting::UpdateFrameSun();
     // The sun moved (dynamic.shadowAngle, the clock) or the sunlight changed: the static light follows,
     // at most every kClockBakeInterval while the clock runs, then a few rows a frame.
     constexpr std::chrono::seconds kClockBakeInterval{2};
@@ -2904,7 +2912,7 @@ void InitTerrainLight()
     static Render::Lighting::LightMood::Scales s_bakeScales;
     const auto now = std::chrono::steady_clock::now();
     const std::optional<Render::Lighting::FrameSunDirections> frameSun = Render::Lighting::FrameSun();
-    const bool clock = frameSun && Render::Lighting::FrameHour().has_value();
+    const bool clock = Render::Lighting::FrameHour().has_value();
     if (s_bakeRow < TERRAIN_SIZE)
     {
         FRAME_PROFILE(TerrainBake);
