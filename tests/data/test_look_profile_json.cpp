@@ -268,7 +268,9 @@ TEST_CASE("the shipped look profile holds the tuned Enhanced values [data][look]
         {LookValue::GroundShadowLights, 2},    {LookValue::AmbientOcclusionStrength, 0.8},
         {LookValue::SpecularScale, 0.8},       {LookValue::LightShaftStrength, 0.5},
         {LookValue::SunShadowStrength, 1.0},   {LookValue::DynamicPhysicalFalloff, 0.5},
-        {LookValue::LightShaftMap, 0.25},
+        {LookValue::LightShaftMap, 0.25},      {LookValue::FogAnisotropy, 0.4},
+        {LookValue::FogSunScatter, 0.8},       {LookValue::CloudStrength, 0.35},
+        {LookValue::SkyFill, 0.5},             {LookValue::RimSunFollow, 1.0},
     };
     for (const Data::Maps::LookValueInfo& info : Data::Maps::LookValueInfos())
     {
@@ -296,4 +298,8 @@ TEST_CASE("the shipped look profile holds the tuned Enhanced values [data][look]
         CHECK(loaded.data.ForWorld(world)[LookValue::FlatSunShadow] == 0.0);
     }
     CHECK(loaded.data.ForWorld(Lorencia)[LookValue::FlatSunShadow] == 1.0);
+    // Volumetric fog: a thin haze outdoors, a lower, thicker one indoors, none on event maps.
+    CHECK(loaded.data.ForWorld(Lorencia)[LookValue::FogDensity] == doctest::Approx(0.25));
+    CHECK(loaded.data.ForWorld(1)[LookValue::FogDensity] == doctest::Approx(0.4));
+    CHECK(loaded.data.ForWorld(11)[LookValue::FogDensity] == 0.0);
 }
