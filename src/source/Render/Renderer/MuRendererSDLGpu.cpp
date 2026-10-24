@@ -40,6 +40,7 @@
 #include "SdlGpuPixelFormat.h"
 #include "SdlGpuAmbientOcclusion.h"
 #include "SdlGpuSunShadowMap.h"
+#include "SdlGpuVolumetricFog.h"
 #include "SdlGpuLightShafts.h"
 #include "SdlGpuPostProcessing.h"
 #include "SdlGpuReplayState.h"
@@ -1285,6 +1286,10 @@ static SDL_GPUGraphicsPipeline* s_sunShadowPipelines[2]{}; // [skinned]
 static SDL_GPUGraphicsPipeline* s_sceneDepthPipelines[2]{}; // [skinned]
 static SDL_GPUShader* s_fragShaderSunDepth = nullptr;      // sun_depth.frag
 static mu::SdlGpuSunShadowMap s_sunShadowMap;
+// Enhanced volumetric fog (compute).
+// shortcut: MU_FOG_SPIKE=1 shows its test volume; replaced by fog.density in the next step.
+static mu::SdlGpuVolumetricFog s_volumetricFog;
+static const bool s_fogSpike = SDL_getenv("MU_FOG_SPIKE") != nullptr;
 
 // Depth buffer texture for correct 3D depth testing.
 // Created in Init() at swapchain dimensions, recreated on window resize.
@@ -2202,6 +2207,7 @@ public:
         ReleaseGroundShadowMask();
         s_ambientOcclusion.Release();
         s_lightShafts.Release();
+        s_volumetricFog.Release();
         s_postProcessing.Release();
 
         SDL_ReleaseWindowFromGPUDevice(s_device, s_window);
@@ -3002,6 +3008,8 @@ public:
                                                 ? RenderLightShafts(sceneEnd, boneDataReady)
                                                 : nullptr;
 
+        SDL_GPUTexture* const fogVolume = s_fogSpike && sceneView ? s_volumetricFog.Render(s_cmdBuf) : nullptr;
+
         // The composite covers every pixel: the target's old content is not loaded.
         // A diagnostic view without its image this frame leaves black instead.
         constexpr SDL_FColor black{0.0f, 0.0f, 0.0f, 1.0f};
@@ -3015,7 +3023,7 @@ public:
             return false;
         }
         s_postProcessing.DrawComposite(s_cmdBuf, s_renderPass, {s_swapW, s_swapH}, s_postProcessingLook,
-                                       s_postProcessingView, ambientOcclusion, lightShafts);
+                                       s_postProcessingView, ambientOcclusion, lightShafts, fogVolume, 0.3f);
         ReplayCommands(sceneEnd, s_renderCmds.size(), boneDataReady, ReplaySelection::AllCommands, view);
         EndReplayPass();
         return true;
@@ -6050,7 +6058,8 @@ private:
             createShader("post_bloom_up", "frag", SDL_GPU_SHADERSTAGE_FRAGMENT, 1, 0, 1, /*fatal=*/false);
         // The composite also reads the ambient occlusion, the bloom source and the light shafts (t3-t5).
         s_fragShaderComposite =
-            createShader("post_composite", "frag", SDL_GPU_SHADERSTAGE_FRAGMENT, 6, 0, 1, /*fatal=*/false);
+            createShader("post_composite", "frag", SDL_GPU_SHADERSTAGE_FRAGMENT, 7, 0, 1, /*fatal=*/false);
+        (void)s_volumetricFog.Create(s_device, LoadShaderBlob("fog_volume", "comp", driverName), fmt);
         // Ambient occlusion: the depth (t0), and for the blur the occlusion (t1); AmbientOcclusion (b0).
         s_fragShaderAmbientOcclusion =
             createShader("post_ao", "frag", SDL_GPU_SHADERSTAGE_FRAGMENT, 1, 0, 1, /*fatal=*/false);

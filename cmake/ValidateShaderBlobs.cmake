@@ -30,6 +30,7 @@ set(MU_SHADER_STAGE_NAMES
     shaft_occluder.frag
     post_shafts.frag
     sun_depth.frag
+    fog_volume.comp
 )
 set(MU_SHADER_BLOB_FORMATS spv msl dxil)
 set(MU_SHADER_BLOB_NAMES)

@@ -1,0 +1,23 @@
+#include <metal_stdlib>
+#include <simd/simd.h>
+
+using namespace metal;
+
+struct FogVolume
+{
+    uint4 size;
+};
+
+kernel void main0(constant FogVolume& _17 [[buffer(0)]], texture3d<float, access::write> volume [[texture(0)]], uint3 gl_GlobalInvocationID [[thread_position_in_grid]])
+{
+    do
+    {
+        if (any(gl_GlobalInvocationID >= _17.size.xyz))
+        {
+            break;
+        }
+        volume.write(float4((float3(gl_GlobalInvocationID) + float3(0.5)) / float3(_17.size.xyz), 1.0), uint3(gl_GlobalInvocationID));
+        break;
+    } while(false);
+}
+
