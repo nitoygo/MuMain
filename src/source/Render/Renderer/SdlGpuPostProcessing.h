@@ -51,7 +51,9 @@ struct SdlGpuCompositeUniform
     float ambientOcclusionEffects;
     // How much the light shafts add to the scene; 0 for none.
     float lightShaftStrength;
-    float padding[3];
+    // How much the volumetric fog volume adds; 0 for none.
+    float fogStrength;
+    float padding[2];
 };
 static_assert(offsetof(SdlGpuCompositeUniform, bloomScale) == 8);
 static_assert(offsetof(SdlGpuCompositeUniform, gradingStrength) == 12);
@@ -103,10 +105,10 @@ public:
     // table at the look's grading strength when one is set. The diagnostic
     // views show the bloom source or the bloom instead, ungraded.
     // `ambientOcclusion` (SdlGpuAmbientOcclusion, or null for none) darkens the scene at the look's
-    // strength.
+    // strength. `fogVolume` (SdlGpuVolumetricFog, or null for none) adds its light at `fogStrength`.
     void DrawComposite(SDL_GPUCommandBuffer* commandBuffer, SDL_GPURenderPass* pass, SdlGpuTargetSize size,
                        const PostProcessingLook& look, PostProcessingView view, SDL_GPUTexture* ambientOcclusion,
-                       SDL_GPUTexture* lightShafts);
+                       SDL_GPUTexture* lightShafts, SDL_GPUTexture* fogVolume, float fogStrength);
 
     // Replaces the grading table (Render::PostProcessing::LoadGradingTable's
     // RGBA8 texels), or empty for none. False (and no table) when it cannot be uploaded.
@@ -125,6 +127,8 @@ private:
 
     [[nodiscard]] bool CreateSamplers();
     [[nodiscard]] bool CreateGradingTexture();
+    // The 1x1x1 volume the composite binds without fog.
+    [[nodiscard]] bool CreateFogFallback();
     void ReleaseTargets();
     void RunBloomPass(SDL_GPUCommandBuffer* commandBuffer, SDL_GPUGraphicsPipeline* pipeline, const BloomLevel& target,
                       SDL_GPULoadOp loadOp, SDL_GPUTexture* source, SdlGpuTargetSize sourceSize, float levelWeight);
@@ -146,6 +150,7 @@ private:
     bool m_bloomRendered = false;
 
     SDL_GPUTexture* m_gradingTexture = nullptr;
+    SDL_GPUTexture* m_fogFallback = nullptr;
     bool m_gradingEnabled = false;
 };
 

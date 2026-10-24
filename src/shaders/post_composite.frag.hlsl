@@ -15,6 +15,8 @@ Texture2D bloomSource : register(t4, space2);
 SamplerState bloomSourceSampler : register(s4, space2); // point
 Texture2D lightShafts : register(t5, space2);
 SamplerState lightShaftsSampler : register(s5, space2); // linear: half resolution
+Texture3D fogVolume : register(t6, space2);
+SamplerState fogVolumeSampler : register(s6, space2); // linear: between cells
 cbuffer CompositeUniforms : register(b0, space3)
 {
     float2 inverseTargetSize;
@@ -25,7 +27,8 @@ cbuffer CompositeUniforms : register(b0, space3)
     float ambientOcclusionStrength; // 0: no ambient occlusion
     float ambientOcclusionEffects;  // 1: the bloom source holds this frame's additive light
     float lightShaftStrength;       // 0: no light shafts
-    float3 padding;
+    float fogStrength;              // 0: no volumetric fog
+    float2 padding;
 };
 struct FSInput
 {
@@ -67,6 +70,8 @@ float4 main(FSInput input) : SV_Target
         // The glowing air the light shafts leave, with the streaks the models cut into it.
         color.rgb += lightShafts.Sample(lightShaftsSampler, uv).rgb * lightShaftStrength;
     }
+    if (fogStrength > 0.0)
+        color.rgb += fogVolume.Sample(fogVolumeSampler, float3(uv, 0.5)).rgb * fogStrength;
     if (toneMapKnee < 1.0)
     {
         // Blending over light above 1 (inverse colour) can leave negative values: black.
