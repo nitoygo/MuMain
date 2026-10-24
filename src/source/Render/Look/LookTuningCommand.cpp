@@ -38,6 +38,8 @@ const CommandForm CommandForms[] = {
     {L"$bloom falloff ", {LookValue::BloomLevelFalloff}},
     {L"$ao radius ", {LookValue::AmbientOcclusionRadius}},
     {L"$fog height ", {LookValue::FogHeight}},
+    {L"$fog glow ", {LookValue::FogAnisotropy}},
+    {L"$fog sun ", {LookValue::FogSunScatter}},
     {L"$fog ", {LookValue::FogDensity}},
     {L"$ao ", {LookValue::AmbientOcclusionStrength}},
     {L"$shafts skills ", {LookValue::LightShaftSkills}},

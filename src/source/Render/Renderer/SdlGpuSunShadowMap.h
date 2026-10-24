@@ -37,6 +37,8 @@ public:
     // What the lit shaders sample: this frame's map once drawn, otherwise the far 1x1 one.
     [[nodiscard]] SDL_GPUTexture* Bound() const { return m_ready ? m_map : m_fallback; }
     [[nodiscard]] SDL_GPUSampler* Sampler() const { return m_sampler; }
+    // The far 1x1 map: Bound() is it while no map holds this frame's shadows.
+    [[nodiscard]] SDL_GPUTexture* FallbackMap() const { return m_fallback; }
 
 private:
     [[nodiscard]] SDL_GPUTexture* CreateDepth(Uint32 size) const;

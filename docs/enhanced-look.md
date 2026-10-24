@@ -102,6 +102,8 @@ window.
 | Bloom and colour grading | Contact shadow reach | `ao.radius` | 10–300 | 5 | 60 | common |
 | Bloom and colour grading | Fog density | `fog.density` | 0–2 | 0.05 | 0 | common |
 | Bloom and colour grading | Fog height | `fog.height` | 50–2000 | 50 | 300 | common |
+| Bloom and colour grading | Fog glow towards the sun | `fog.anisotropy` | 0–0.9 | 0.05 | 0.3 | common |
+| Bloom and colour grading | Fog sunlight | `fog.sunScatter` | 0–4 | 0.1 | 1 | common |
 | Bloom and colour grading | Light shafts | `shafts.strength` | 0–2 | 0.05 | 0.5 | common |
 | Bloom and colour grading | Light shafts from skills | `shafts.skills` | 0–200 % | 5 % | 100 % | common |
 | Bloom and colour grading | Light shafts from map lights | `shafts.map` | 0–200 % | 5 % | 25 % | common |
@@ -230,6 +232,8 @@ for the whole file.
 | `ao.radius` | 60 | 60 | 10–300 | how far, in world units, nearby geometry still darkens a surface |
 | `fog.density` | 0 | 0 | 0–2 | volumetric fog: how much of the light it takes away per 1000 world units at the hero's ground, scattering in the frame's sun or moon light through the light mood instead; it thins with height and lies over the distance fog, which still fades the map's edge. Drawn by compute shaders into a 160×90×64 grid fitted to the view. 0 turns it off and frees its textures |
 | `fog.height` | 300 | 300 | 50–2000 | the height in world units over which the volumetric fog thins by e |
+| `fog.anisotropy` | 0.3 | 0.3 | 0–0.9 | how much more light the fog scatters looking towards the sun or moon (Henyey-Greenstein g); 0 the same from every side |
+| `fog.sunScatter` | 1 | 1 | 0–4 | how much of the sun's (or moon's) light the fog catches where the sun shadow map sees the sky, over an ambient share it keeps everywhere: shadows of trees and buildings stay darker, as shafts through the haze |
 | `shafts.strength` | 0.5 | 0 | 0–2 | how brightly strong lights (skills such as Aqua Beam, fires and bonfires) light the air around them; characters in that light block it, leaving a darker streak through the glowing air behind them; their see-through parts (wings, capes, auras) block it partly, by their opacity or, glowing, their brightness. The air only adds light: a streak is glow that is missing, never darker than the scene. The 4 brightest lights on screen cast shafts |
 | `shafts.skills` | 1 | 1 | 0–2 | how much skill and spell lights cast light shafts |
 | `shafts.map` | 0.25 | 1 | 0–2 | how much fires and bonfires cast light shafts; shipped thinner than skills, so a spell's haze is thick enough to show the streak behind a character while torches only glow softly |
@@ -269,7 +273,7 @@ Shorter forms of `$look set`: `$lighting rim <v>`, `$lighting specular <v>`,
 `$lighting diffuse <scale> <ambient> <floor>`, `$lightmood knee <k>`,
 `$dynlights wrap <w>`, `$dynlights smooth <s>`,
 `$dynlights spell <gain> <range> <fade>`, `$dynlights cap <c>`,
-`$dynlights reach <cells>`, `$dynlights shadow <opacity>`, `$dynlights shadowangle <degrees>`, `$dynlights shadowlights <n>`, `$bloom falloff <f>`, `$bloom <strength>`, `$ao <strength>`, `$ao radius <r>`, `$fog <density>`, `$fog height <h>`, `$shafts <strength>`, `$shafts skills <f>`, `$shafts map <f>`, `$sun <strength>`, `$sun softness <f>`, `$sun resolution <texels>`, `$dynlights falloff <f>`, `$dynlights flatsun <f>`, `$time day <minutes>`, `$time dawn <f>`, `$time moon <f>`, `$time <hour>`, `$time off`.
+`$dynlights reach <cells>`, `$dynlights shadow <opacity>`, `$dynlights shadowangle <degrees>`, `$dynlights shadowlights <n>`, `$bloom falloff <f>`, `$bloom <strength>`, `$ao <strength>`, `$ao radius <r>`, `$fog <density>`, `$fog height <h>`, `$fog glow <g>`, `$fog sun <f>`, `$shafts <strength>`, `$shafts skills <f>`, `$shafts map <f>`, `$sun <strength>`, `$sun softness <f>`, `$sun resolution <texels>`, `$dynlights falloff <f>`, `$dynlights flatsun <f>`, `$time day <minutes>`, `$time dawn <f>`, `$time moon <f>`, `$time <hour>`, `$time off`.
 The DevEditor has the same values in its Look panel.
 
 Feature overrides, to compare one feature on and off. They last for the

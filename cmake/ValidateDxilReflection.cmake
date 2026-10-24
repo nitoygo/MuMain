@@ -36,7 +36,7 @@ set(shader_specs
     "shaft_occluder.frag|cb0,space3+s0,space2+t0,space2"
     "post_shafts.frag|cb0,space3+s0,space2+t0,space2"
     "sun_depth.frag|cb0,space3+s0,space2+t0,space2"
-    "fog_volume.comp|cb0,space2+u0,space1"
+    "fog_volume.comp|cb0,space2+s0+t0+u0,space1"
     "fog_apply.comp|cb0,space2+s0+s1+t0+t1+u0,space1"
 )
 

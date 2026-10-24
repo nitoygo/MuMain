@@ -1667,6 +1667,18 @@
   <data name="Tuning Fog Height Help" xml:space="preserve">
     <value>How high the fog reaches, in world units (a terrain cell is 100): above it the fog thins out.</value>
   </data>
+  <data name="Tuning Fog Anisotropy" xml:space="preserve">
+    <value>Fog glow towards the sun</value>
+  </data>
+  <data name="Tuning Fog Anisotropy Help" xml:space="preserve">
+    <value>How much brighter the fog shines looking towards the sun or the moon than away from it. 0 lights it the same from every side.</value>
+  </data>
+  <data name="Tuning Fog Sun Scatter" xml:space="preserve">
+    <value>Fog sunlight</value>
+  </data>
+  <data name="Tuning Fog Sun Scatter Help" xml:space="preserve">
+    <value>How much sunlight (or moonlight) the fog catches where nothing shades it; the shadows of trees and buildings stay darker, as shafts through the haze. 0 lights it evenly.</value>
+  </data>
   <data name="Tuning Flat Sun Shadow" xml:space="preserve">
     <value>Flat sun shadow</value>
   </data>

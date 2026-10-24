@@ -79,6 +79,9 @@ struct PostProcessingLook
     // over which it thins by e, in world units.
     float fogDensity = 0.0f;
     float fogHeight = 300.0f;
+    // How much more it scatters towards the sun (Henyey-Greenstein g) and how much sunlight it catches.
+    float fogAnisotropy = 0.3f;
+    float fogSunScatter = 1.0f;
 };
 
 // ---------------------------------------------------------------------------

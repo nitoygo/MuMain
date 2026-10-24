@@ -1,47 +1,101 @@
+#pragma clang diagnostic ignored "-Wmissing-prototypes"
+
 #include <metal_stdlib>
 #include <simd/simd.h>
 
 using namespace metal;
 
+template <typename T>
+static inline depth2d<T> spvDepthCast(texture2d<T> t)
+{
+    return reinterpret_cast<thread const depth2d<T> &>(t);
+}
+
+template <typename T>
+static inline depth2d_array<T> spvDepthCast(texture2d_array<T> t)
+{
+    return reinterpret_cast<thread const depth2d_array<T> &>(t);
+}
+
+template <typename T>
+static inline depthcube<T> spvDepthCast(texturecube<T> t)
+{
+    return reinterpret_cast<thread const depthcube<T> &>(t);
+}
+
+template <typename T>
+static inline depthcube_array<T> spvDepthCast(texturecube_array<T> t)
+{
+    return reinterpret_cast<thread const depthcube_array<T> &>(t);
+}
+
 struct FogUniforms
 {
     float4x4 inverseViewProjection;
+    float4x4 sunViewProjection;
     float4 camera;
     float4 color;
     float4 medium;
+    float4 sun;
+    float4 scatter;
     uint4 size;
     uint4 target;
 };
 
-kernel void main0(constant FogUniforms& _47 [[buffer(0)]], texture3d<float, access::write> volume [[texture(0)]], uint3 gl_GlobalInvocationID [[thread_position_in_grid]])
+kernel void main0(constant FogUniforms& _57 [[buffer(0)]], texture2d<float> sunShadowMap [[texture(0)]], texture3d<float, access::write> volume [[texture(1)]], sampler sunShadowSampler [[sampler(0)]], uint3 gl_GlobalInvocationID [[thread_position_in_grid]])
 {
     do
     {
-        if (any(gl_GlobalInvocationID.xy >= _47.size.xy))
+        if (any(gl_GlobalInvocationID.xy >= _57.size.xy))
         {
             break;
         }
-        float2 _232 = (float2(gl_GlobalInvocationID.xy) + float2(0.5)) / float2(_47.size.xy);
-        float4 _372 = _47.inverseViewProjection * float4((_232.x * 2.0) - 1.0, 1.0 - (_232.y * 2.0), 1.0, 1.0);
-        float4 _357 = _372;
-        float3 _271 = fast::normalize((_372.xyz / float3(_357.w)) - _47.camera.xyz);
-        float _386 = log(_47.color.w / _47.camera.w);
-        float3 _390;
-        _390 = float3(0.0);
-        float _292;
-        float3 _333;
-        float _336;
-        uint _387 = 0u;
-        float _388 = 0.0;
-        float _389 = 1.0;
-        for (; _387 < _47.size.z; _390 = _333, _389 = _336, _388 = _292, _387++)
+        float2 _365 = (float2(gl_GlobalInvocationID.xy) + float2(0.5)) / float2(_57.size.xy);
+        float4 _532 = _57.inverseViewProjection * float4((_365.x * 2.0) - 1.0, 1.0 - (_365.y * 2.0), 1.0, 1.0);
+        float4 _517 = _532;
+        float3 _409 = fast::normalize((_532.xyz / float3(_517.w)) - _57.camera.xyz);
+        float _546 = log(_57.color.w / _57.camera.w);
+        float _558 = (1.0 + (_57.scatter.x * _57.scatter.x)) - ((2.0 * _57.scatter.x) * dot(-_409, fast::normalize(_57.sun.xyz)));
+        float _567 = (1.0 - (_57.scatter.x * _57.scatter.x)) / (_558 * sqrt(_558));
+        float3 _636;
+        _636 = float3(0.0);
+        float _440;
+        float3 _493;
+        float _496;
+        uint _630 = 0u;
+        float _631 = 0.0;
+        float _634 = 1.0;
+        for (; _630 < _57.size.z; _636 = _493, _634 = _496, _631 = _440, _630++)
         {
-            _292 = _47.camera.w * exp((float(_387 + 1u) / float(_47.size.z)) * _386);
-            float3 _240 = _47.camera.xyz + (_271 * (0.5 * (_388 + _292)));
-            float _323 = exp((-(_47.medium.x * exp((-fast::max(_240.z - _47.medium.z, 0.0)) * _47.medium.y))) * (_292 - _388));
-            _333 = _390 + ((_47.color.xyz * _389) * (1.0 - _323));
-            _336 = _389 * _323;
-            volume.write(float4(_333, _336), uint3(uint3(gl_GlobalInvocationID.xy, _387)));
+            _440 = _57.camera.w * exp((float(_630 + 1u) / float(_57.size.z)) * _546);
+            float3 _450 = _57.camera.xyz + (_409 * (0.5 * (_631 + _440)));
+            float3 _376 = _450;
+            float _471 = exp((-(_57.medium.x * exp((-fast::max(_376.z - _57.medium.z, 0.0)) * _57.medium.y))) * (_440 - _631));
+            float _632;
+            do
+            {
+                if (_57.sun.w <= 0.0)
+                {
+                    _632 = 1.0;
+                    break;
+                }
+                float4 _588 = _57.sunViewProjection * float4(_450, 1.0);
+                float4 _570 = _588;
+                float3 _571 = _588.xyz / float3(_570.w);
+                float _598 = (_571.x * 0.5) + 0.5;
+                float _602 = 0.5 - (_571.y * 0.5);
+                float2 _603 = float2(_598, _602);
+                if ((any(_603 < float2(0.0)) || any(_603 > float2(1.0))) || (_571.z >= 1.0))
+                {
+                    _632 = 1.0;
+                    break;
+                }
+                _632 = spvDepthCast(sunShadowMap).sample_compare(sunShadowSampler, float3(_598, _602, _571.z).xy, _571.z, level(0.0));
+                break;
+            } while(false);
+            _493 = _636 + (((_57.color.xyz * _634) * (_57.scatter.z + ((_57.scatter.y * _567) * _632))) * (1.0 - _471));
+            _496 = _634 * _471;
+            volume.write(float4(_493, _496), uint3(uint3(gl_GlobalInvocationID.xy, _630)));
         }
         break;
     } while(false);

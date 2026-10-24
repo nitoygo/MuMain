@@ -1289,6 +1289,7 @@ static mu::SdlGpuSunShadowMap s_sunShadowMap;
 // Enhanced volumetric fog (compute), the light its air scatters and the height it is thickest at.
 static mu::SdlGpuVolumetricFog s_volumetricFog;
 static float s_fogLight[3]{1.0f, 1.0f, 1.0f};
+static float s_fogSun[3]{0.0f, 0.0f, 1.0f};
 static float s_fogBaseHeight = 0.0f;
 
 // Depth buffer texture for correct 3D depth testing.
@@ -2759,6 +2760,15 @@ public:
         uniform.medium[0] = s_postProcessingLook.fogDensity / 1000.0f;
         uniform.medium[1] = 1.0f / std::max(s_postProcessingLook.fogHeight, 1.0f);
         uniform.medium[2] = s_fogBaseHeight;
+        std::memcpy(uniform.sunViewProjection, s_sceneLightingUniform.sunViewProjection,
+                    sizeof(uniform.sunViewProjection));
+        std::copy(std::begin(s_fogSun), std::end(s_fogSun), uniform.sun);
+        uniform.sun[3] = s_sunShadowMap.Bound() != s_sunShadowMap.FallbackMap() ? 1.0f : 0.0f;
+        // In a shadow the air keeps an ambient share of the light; lit, it adds the sun's.
+        constexpr float AmbientShare = 0.35f;
+        uniform.scatter[0] = s_postProcessingLook.fogAnisotropy;
+        uniform.scatter[1] = s_postProcessingLook.fogSunScatter;
+        uniform.scatter[2] = AmbientShare;
         return uniform;
     }
 
@@ -3040,7 +3050,9 @@ public:
                                                 : nullptr;
 
         SDL_GPUTexture* const fogLayer =
-            volumetricFog && sceneDepth ? s_volumetricFog.Render(s_cmdBuf, sceneDepth, {s_swapW, s_swapH}, VolumetricFogUniform())
+            volumetricFog && sceneDepth ? s_volumetricFog.Render(s_cmdBuf, sceneDepth,
+                                                              {s_sunShadowMap.Bound(), s_sunShadowMap.Sampler()},
+                                                              {s_swapW, s_swapH}, VolumetricFogUniform())
                                         : nullptr;
 
         // The composite covers every pixel: the target's old content is not loaded.
@@ -5378,6 +5390,7 @@ public:
     {
         s_fogBaseHeight = lighting.fogBase;
         std::copy(std::begin(lighting.fogLight), std::end(lighting.fogLight), s_fogLight);
+        std::copy(std::begin(lighting.sunDirection), std::end(lighting.sunDirection), s_fogSun);
         SceneFog fog{};
         fog.enabled = m_fogEnabled;
         fog.start = m_fogUniform.fogStart;

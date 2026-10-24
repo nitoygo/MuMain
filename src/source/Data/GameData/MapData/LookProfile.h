@@ -64,6 +64,8 @@ enum class LookValue : std::uint8_t
     MoonTint,
     FogDensity,
     FogHeight,
+    FogAnisotropy,
+    FogSunScatter,
     Count,
 };
 

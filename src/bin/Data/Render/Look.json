@@ -36,7 +36,9 @@
     "time.dawnWarmth": 1,
     "time.moonTint": 1,
     "fog.density": 0,
-    "fog.height": 300
+    "fog.height": 300,
+    "fog.anisotropy": 0.3,
+    "fog.sunScatter": 1
   },
   "maps": [
     {

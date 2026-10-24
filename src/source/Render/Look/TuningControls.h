@@ -92,6 +92,8 @@ enum class TuningControlId : std::uint8_t
     MoonTint,
     FogDensity,
     FogHeight,
+    FogAnisotropy,
+    FogSunScatter,
     Count,
 };
 inline constexpr std::size_t TuningControlCount = static_cast<std::size_t>(TuningControlId::Count);
