@@ -1,19 +1,36 @@
-// SdlGpuVolumetricFog.h: the Enhanced volumetric fog's volume, a grid of cells (froxels) fitted to the
-// camera's view, filled by a compute shader and read by the composite.
+// SdlGpuVolumetricFog.h: the Enhanced volumetric fog. A grid of cells (froxels) fitted to the camera's
+// view gathers the fog's light front to back (fog_volume.comp); each pixel then reads it at the distance
+// of what it shows (fog_apply.comp) into a fog layer the composite applies.
 #pragma once
+
+#include "SdlGpuPixelFormat.h"
 
 #include <SDL3/SDL_gpu.h>
 
+#include <cstddef>
 #include <cstdint>
 #include <span>
 
 namespace mu
 {
 
-// Mirrors FogVolume in fog_volume.comp.hlsl.
-struct SdlGpuFogVolumeUniform
+// Mirrors FogUniforms in fog_common.hlsli. Matrix column-major, as glm keeps it.
+struct SdlGpuFogUniform
 {
+    float inverseViewProjection[16];
+    float camera[4]; // xyz, w: nearest slice distance
+    float color[4];  // rgb: the fog's light, w: farthest slice distance
+    float medium[4]; // extinction per world unit at the base, 1 / height, base height, unused
     std::uint32_t size[4];
+    std::uint32_t target[4];
+};
+static_assert(offsetof(SdlGpuFogUniform, camera) == 64);
+static_assert(sizeof(SdlGpuFogUniform) == 144);
+
+struct SdlGpuFogBlobs
+{
+    std::span<const Uint8> volume; // fog_volume.comp
+    std::span<const Uint8> apply;  // fog_apply.comp
 };
 
 class SdlGpuVolumetricFog
@@ -22,27 +39,33 @@ public:
     static constexpr Uint32 Width = 160;
     static constexpr Uint32 Height = 90;
     static constexpr Uint32 Depth = 64;
-    // fog_volume.comp's [numthreads].
-    static constexpr Uint32 ThreadGroupSize = 4;
+    // Both shaders' [numthreads] in x and y.
+    static constexpr Uint32 ThreadGroupSize = 8;
 
-    // The compute pipeline from fog_volume.comp's blob. False when it failed: the fog is then unavailable.
-    bool Create(SDL_GPUDevice* device, std::span<const Uint8> blob, SDL_GPUShaderFormat format);
+    // The compute pipelines and samplers. False when any failed: the fog is then unavailable.
+    bool Create(SDL_GPUDevice* device, const SdlGpuFogBlobs& blobs, SDL_GPUShaderFormat format);
     [[nodiscard]] bool IsAvailable() const;
     // Everything, at shutdown.
     void Release();
 
-    // Fills the volume (created on first use) in a compute pass of its own; the volume, or null when
-    // it could not be.
-    [[nodiscard]] SDL_GPUTexture* Render(SDL_GPUCommandBuffer* commandBuffer);
-    // The volume and its memory, while the fog is off.
-    void ReleaseVolume();
+    // The fog layer of `size` for `depth` (single-sample, sampleable), or null when it could not be
+    // rendered. Fills `uniform`'s size and target.
+    [[nodiscard]] SDL_GPUTexture* Render(SDL_GPUCommandBuffer* commandBuffer, SDL_GPUTexture* depth,
+                                         SdlGpuTargetSize size, SdlGpuFogUniform uniform);
+    // The volume and the layer, while the fog is off.
+    void ReleaseTargets();
 
 private:
-    [[nodiscard]] SDL_GPUTexture* CreateVolume() const;
+    [[nodiscard]] bool EnsureTargets(SdlGpuTargetSize size);
 
     SDL_GPUDevice* m_device = nullptr;
-    SDL_GPUComputePipeline* m_pipeline = nullptr;
+    SDL_GPUComputePipeline* m_volumePipeline = nullptr;
+    SDL_GPUComputePipeline* m_applyPipeline = nullptr;
+    SDL_GPUSampler* m_pointSampler = nullptr;
+    SDL_GPUSampler* m_linearSampler = nullptr;
     SDL_GPUTexture* m_volume = nullptr;
+    SDL_GPUTexture* m_layer = nullptr;
+    SdlGpuTargetSize m_layerSize{};
 };
 
 } // namespace mu

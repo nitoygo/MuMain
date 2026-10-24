@@ -68,6 +68,10 @@ ControlTexts TextsOf(TuningControlId id)
         return {I18N::Game::TuningDawnWarmth, I18N::Game::TuningDawnWarmthHelp};
     case TuningControlId::MoonTint:
         return {I18N::Game::TuningMoonTint, I18N::Game::TuningMoonTintHelp};
+    case TuningControlId::FogDensity:
+        return {I18N::Game::TuningFogDensity, I18N::Game::TuningFogDensityHelp};
+    case TuningControlId::FogHeight:
+        return {I18N::Game::TuningFogHeight, I18N::Game::TuningFogHeightHelp};
     case TuningControlId::FlatSunShadow:
         return {I18N::Game::TuningFlatSunShadow, I18N::Game::TuningFlatSunShadowHelp};
     case TuningControlId::SunShadowSoftness:

@@ -15,8 +15,8 @@ Texture2D bloomSource : register(t4, space2);
 SamplerState bloomSourceSampler : register(s4, space2); // point
 Texture2D lightShafts : register(t5, space2);
 SamplerState lightShaftsSampler : register(s5, space2); // linear: half resolution
-Texture3D fogVolume : register(t6, space2);
-SamplerState fogVolumeSampler : register(s6, space2); // linear: between cells
+Texture2D fogLayer : register(t6, space2);
+SamplerState fogLayerSampler : register(s6, space2); // point: one fog texel per pixel
 cbuffer CompositeUniforms : register(b0, space3)
 {
     float2 inverseTargetSize;
@@ -27,7 +27,7 @@ cbuffer CompositeUniforms : register(b0, space3)
     float ambientOcclusionStrength; // 0: no ambient occlusion
     float ambientOcclusionEffects;  // 1: the bloom source holds this frame's additive light
     float lightShaftStrength;       // 0: no light shafts
-    float fogStrength;              // 0: no volumetric fog
+    float fogStrength;              // 0: no volumetric fog, 1: the fog layer applies
     float2 padding;
 };
 struct FSInput
@@ -71,7 +71,11 @@ float4 main(FSInput input) : SV_Target
         color.rgb += lightShafts.Sample(lightShaftsSampler, uv).rgb * lightShaftStrength;
     }
     if (fogStrength > 0.0)
-        color.rgb += fogVolume.Sample(fogVolumeSampler, float3(uv, 0.5)).rgb * fogStrength;
+    {
+        // The air between the camera and the pixel: what it lets through, plus the light it scatters.
+        const float4 fog = fogLayer.Sample(fogLayerSampler, uv);
+        color.rgb = color.rgb * fog.a + fog.rgb;
+    }
     if (toneMapKnee < 1.0)
     {
         // Blending over light above 1 (inverse colour) can leave negative values: black.

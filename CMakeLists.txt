@@ -104,7 +104,8 @@ if(MU_ENABLE_SHADER_COMPILATION)
         set(dxil "${MU_SHADER_OUTPUT_DIR}/${shader_name}.${stage}.dxil")
         # SDL binds uniform buffer, texture and sampler slot N to MSL index N: keep the declared
         # bindings (spirv-cross otherwise numbers them in order of use). Not with storage buffers,
-        # which share the MSL buffer indices and follow the uniform buffers.
+        # which share the MSL buffer indices and follow the uniform buffers, nor with read-write
+        # textures, which follow the sampled ones (declare and use them last).
         file(READ "${src}" shader_source)
         # Storage buffers may be declared in an included .hlsli.
         string(REGEX MATCHALL "#include \"[^\"]+\"" shader_includes "${shader_source}")
@@ -114,7 +115,7 @@ if(MU_ENABLE_SHADER_COMPILATION)
             string(APPEND shader_source "${include_source}")
         endforeach()
         set(msl_flags)
-        if(NOT shader_source MATCHES "StructuredBuffer|ByteAddressBuffer")
+        if(NOT shader_source MATCHES "StructuredBuffer|ByteAddressBuffer|RWTexture")
             set(msl_flags --msl-decoration-binding)
         endif()
 

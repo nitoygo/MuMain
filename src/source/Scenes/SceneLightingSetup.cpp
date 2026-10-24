@@ -75,6 +75,14 @@ void SubmitSceneLighting()
         lighting.groundLow = Hero->Object.Position[2] - GroundReach;
         lighting.groundHigh = Hero->Object.Position[2] + GroundReach;
     }
+    // The air takes the frame's light: the sun's or moon's colour, dimmer as it stands lower, through
+    // the mood's darkening; without the clock, white.
+    const float fogLight = Render::Lighting::LightMood::Active().base * (sun ? 0.3f + 0.7f * sun->strength : 1.0f);
+    const glm::vec3 fogColor = (sun ? sun->color : glm::vec3(1.0f)) * fogLight;
+    lighting.fogLight[0] = fogColor.r;
+    lighting.fogLight[1] = fogColor.g;
+    lighting.fogLight[2] = fogColor.b;
+    lighting.fogBase = Hero ? Hero->Object.Position[2] : 0.0f;
     mu::GetRenderer().SetSceneLighting(lighting);
 }
 

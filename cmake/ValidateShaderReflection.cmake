@@ -329,7 +329,7 @@ foreach(shader_spec IN LISTS shader_specs)
             string(APPEND hlsl "${include_source}")
         endforeach()
         set(msl_flags)
-        if(NOT hlsl MATCHES "StructuredBuffer|ByteAddressBuffer")
+        if(NOT hlsl MATCHES "StructuredBuffer|ByteAddressBuffer|RWTexture")
             set(msl_flags --msl-decoration-binding)
         endif()
 
