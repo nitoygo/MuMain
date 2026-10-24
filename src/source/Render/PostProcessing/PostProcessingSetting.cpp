@@ -71,7 +71,8 @@ void SubmitPostProcessingLook()
          Render::Look::Value(LookValue::AmbientOcclusionRadius), Render::Look::Value(LookValue::LightShaftStrength),
          Render::Look::Value(LookValue::LightShaftSkills), Render::Look::Value(LookValue::LightShaftMap),
          Render::Look::Value(LookValue::FogDensity), Render::Look::Value(LookValue::FogHeight),
-         Render::Look::Value(LookValue::FogAnisotropy), Render::Look::Value(LookValue::FogSunScatter)});
+         Render::Look::Value(LookValue::FogAnisotropy), Render::Look::Value(LookValue::FogSunScatter),
+         Render::Look::Value(LookValue::FogLightScatter)});
 }
 
 } // namespace Render::PostProcessing
