@@ -37,141 +37,165 @@
     "time.moonTint": 1,
     "fog.density": 0,
     "fog.height": 300,
-    "fog.anisotropy": 0.3,
-    "fog.sunScatter": 1,
+    "fog.anisotropy": 0.4,
+    "fog.sunScatter": 0.8,
     "fog.lightScatter": 1,
-    "clouds.strength": 0,
+    "clouds.strength": 0.35,
     "clouds.scale": 3000,
     "clouds.speed": 40,
     "clouds.cover": 0.45,
-    "sky.fill": 0,
-    "lighting.rim.sunFollow": 0
+    "sky.fill": 0.5,
+    "lighting.rim.sunFollow": 1
   },
   "maps": [
     {
       "world": 0,
       "name": "Lorencia",
-      "time.dayMinutes": 60
+      "time.dayMinutes": 60,
+      "fog.density": 0.25
     },
     {
       "world": 1,
       "name": "Dungeon",
       "sun.shadow": 0,
-      "dynamic.flatSunShadow": 0
+      "dynamic.flatSunShadow": 0,
+      "fog.density": 0.4
     },
     {
       "world": 2,
       "name": "Devias",
-      "time.dayMinutes": 60
+      "time.dayMinutes": 60,
+      "fog.density": 0.25
     },
     {
       "world": 3,
       "name": "Noria",
-      "time.dayMinutes": 60
+      "time.dayMinutes": 60,
+      "fog.density": 0.25
     },
     {
       "world": 4,
       "name": "Lost Tower",
       "sun.shadow": 0,
-      "dynamic.flatSunShadow": 0
+      "dynamic.flatSunShadow": 0,
+      "fog.density": 0.4
     },
     {
       "world": 6,
       "name": "Arena",
-      "time.dayMinutes": 60
+      "time.dayMinutes": 60,
+      "fog.density": 0.25
     },
     {
       "world": 7,
       "name": "Atlans",
-      "time.dayMinutes": 60
+      "time.dayMinutes": 60,
+      "fog.density": 0.25
     },
     {
       "world": 8,
       "name": "Tarkan",
-      "time.dayMinutes": 60
+      "time.dayMinutes": 60,
+      "fog.density": 0.25
     },
     {
       "world": 10,
       "name": "Icarus",
       "bloom.strength": 0.3,
-      "time.dayMinutes": 60
+      "time.dayMinutes": 60,
+      "fog.density": 0.25
     },
     {
       "world": 30,
       "name": "Valley of Loren",
-      "time.dayMinutes": 60
+      "time.dayMinutes": 60,
+      "fog.density": 0.25
     },
     {
       "world": 31,
       "name": "Land of Trials",
-      "time.dayMinutes": 60
+      "time.dayMinutes": 60,
+      "fog.density": 0.25
     },
     {
       "world": 33,
       "name": "Aida",
-      "time.dayMinutes": 60
+      "time.dayMinutes": 60,
+      "fog.density": 0.25
     },
     {
       "world": 34,
       "name": "Crywolf",
-      "time.dayMinutes": 60
+      "time.dayMinutes": 60,
+      "fog.density": 0.25
     },
     {
       "world": 37,
       "name": "Kanturu",
-      "time.dayMinutes": 60
+      "time.dayMinutes": 60,
+      "fog.density": 0.25
     },
     {
       "world": 38,
       "name": "Kanturu Relics",
       "sun.shadow": 0,
-      "dynamic.flatSunShadow": 0
+      "dynamic.flatSunShadow": 0,
+      "fog.density": 0.4
     },
     {
       "world": 39,
       "name": "Refinery Tower",
       "sun.shadow": 0,
-      "dynamic.flatSunShadow": 0
+      "dynamic.flatSunShadow": 0,
+      "fog.density": 0.4
     },
     {
       "world": 51,
       "name": "Elbeland",
-      "time.dayMinutes": 60
+      "time.dayMinutes": 60,
+      "fog.density": 0.25
     },
     {
       "world": 56,
       "name": "Swamp of Peace",
-      "time.dayMinutes": 60
+      "time.dayMinutes": 60,
+      "fog.density": 0.25
     },
     {
       "world": 57,
       "name": "Raklion",
-      "time.dayMinutes": 60
+      "time.dayMinutes": 60,
+      "fog.density": 0.25
     },
     {
       "world": 62,
       "name": "Santa Village",
-      "time.dayMinutes": 60
+      "time.dayMinutes": 60,
+      "fog.density": 0.25
     },
     {
       "world": 63,
       "name": "Vulcanus",
-      "time.dayMinutes": 60
+      "time.dayMinutes": 60,
+      "fog.density": 0.25
     },
     {
       "world": 79,
       "name": "Loren Market",
-      "time.dayMinutes": 60
+      "time.dayMinutes": 60,
+      "fog.density": 0.25
     },
     {
       "world": 80,
       "name": "Karutan 1",
-      "time.dayMinutes": 60
+      "time.dayMinutes": 60,
+      "fog.density": 0.25
     },
     {
       "world": 81,
       "name": "Karutan 2",
-      "time.dayMinutes": 60
+      "time.dayMinutes": 60,
+      "fog.density": 0.25
     }
   ]
 }

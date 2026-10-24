@@ -94,22 +94,22 @@ window.
 | Dynamic lights | Sunrise and sunset warmth | `time.dawnWarmth` | 0–150 % | 5 % | 100 % | More settings |
 | Dynamic lights | Moonlight tint | `time.moonTint` | 0–150 % | 5 % | 100 % | More settings |
 | Dynamic lights | Flat sun shadow | `dynamic.flatSunShadow` | 0–100 % | 5 % | 100 % (0 indoors) | More settings |
-| Dynamic lights | Cloud shadows | `clouds.strength` | 0–100 % | 5 % | 0 | common |
+| Dynamic lights | Cloud shadows | `clouds.strength` | 0–100 % | 5 % | 35 % | common |
 | Dynamic lights | Cloud size | `clouds.scale` | 500–10000 | 250 | 3000 | More settings |
 | Dynamic lights | Cloud speed | `clouds.speed` | 0–300 | 5 | 40 | More settings |
 | Dynamic lights | Cloud cover | `clouds.cover` | 0–100 % | 5 % | 45 % | More settings |
-| Dynamic lights | Sky-blue shade | `sky.fill` | 0–100 % | 5 % | 0 | common |
-| Dynamic lights | Rim light follows the sun | `lighting.rim.sunFollow` | 0–100 % | 5 % | 0 | More settings |
+| Dynamic lights | Sky-blue shade | `sky.fill` | 0–100 % | 5 % | 50 % | common |
+| Dynamic lights | Rim light follows the sun | `lighting.rim.sunFollow` | 0–100 % | 5 % | 100 % | More settings |
 | Darker map light | Mood strength | `mood.strengthPercent` | 0–100 % | 1 % | 100 % | common |
 | Bloom and colour grading | Bloom intensity | `bloom.strength` | 0–2 | 0.05 | 1 (Icarus 0.3) | common |
 | Bloom and colour grading | Bloom spread | `bloom.levelFalloff` | 0.25–1 | 0.05 | 0.6 | common |
 | Bloom and colour grading | Colour grading strength | `grading.strength` | 0–100 % | 1 % | 100 % | common |
 | Bloom and colour grading | Contact shadows | `ao.strength` | 0–2 | 0.05 | 0.8 | common |
 | Bloom and colour grading | Contact shadow reach | `ao.radius` | 10–300 | 5 | 60 | common |
-| Bloom and colour grading | Fog density | `fog.density` | 0–2 | 0.05 | 0 | common |
+| Bloom and colour grading | Fog density | `fog.density` | 0–2 | 0.05 | 0.25 on outdoor maps, 0.4 indoors, 0 elsewhere | common |
 | Bloom and colour grading | Fog height | `fog.height` | 50–2000 | 50 | 300 | common |
-| Bloom and colour grading | Fog glow towards the sun | `fog.anisotropy` | 0–0.9 | 0.05 | 0.3 | common |
-| Bloom and colour grading | Fog sunlight | `fog.sunScatter` | 0–4 | 0.1 | 1 | common |
+| Bloom and colour grading | Fog glow towards the sun | `fog.anisotropy` | 0–0.9 | 0.05 | 0.4 | common |
+| Bloom and colour grading | Fog sunlight | `fog.sunScatter` | 0–4 | 0.1 | 0.8 | common |
 | Bloom and colour grading | Fog glow around lights | `fog.lightScatter` | 0–4 | 0.1 | 1 | common |
 | Bloom and colour grading | Light shafts | `shafts.strength` | 0–2 | 0.05 | 0.5 | common |
 | Bloom and colour grading | Light shafts from skills | `shafts.skills` | 0–200 % | 5 % | 100 % | common |
@@ -237,10 +237,10 @@ for the whole file.
 | `grading.strength` | 1 | 1 | 0–1 | how much of a map's grading table applies; 0 grades nothing while the bloom stays |
 | `ao.strength` | 0.8 | 0 | 0–2 | how much screen-space ambient occlusion darkens corners, wall bases and the ground under objects; additive effects are left alone. With anti-aliasing on, the scene's solid parts are drawn once more for the depth it reads |
 | `ao.radius` | 60 | 60 | 10–300 | how far, in world units, nearby geometry still darkens a surface |
-| `fog.density` | 0 | 0 | 0–2 | volumetric fog: how much of the light it takes away per 1000 world units at the hero's ground, scattering in the frame's sun or moon light through the light mood instead; it thins with height and lies over the distance fog, which still fades the map's edge. Drawn by compute shaders into a 160×90×64 grid fitted to the view. 0 turns it off and frees its textures |
+| `fog.density` | 0 (outdoor maps 0.25; Dungeon, Lost Tower, Kanturu Relics, Refinery Tower 0.4) | 0 | 0–2 | volumetric fog: how much of the light it takes away per 1000 world units at the hero's ground, scattering in the frame's sun or moon light through the light mood instead; it thins with height and lies over the distance fog, which still fades the map's edge. Drawn by compute shaders into a 160×90×64 grid fitted to the view. 0 turns it off and frees its textures |
 | `fog.height` | 300 | 300 | 50–2000 | the height in world units over which the volumetric fog thins by e |
-| `fog.anisotropy` | 0.3 | 0.3 | 0–0.9 | how much more light the fog scatters looking towards the sun or moon (Henyey-Greenstein g); 0 the same from every side |
-| `fog.sunScatter` | 1 | 1 | 0–4 | how much of the sun's (or moon's) light the fog catches where the sun shadow map sees the sky, over an ambient share it keeps everywhere: shadows of trees and buildings stay darker, as shafts through the haze |
+| `fog.anisotropy` | 0.4 | 0.3 | 0–0.9 | how much more light the fog scatters looking towards the sun or moon (Henyey-Greenstein g); 0 the same from every side |
+| `fog.sunScatter` | 0.8 | 1 | 0–4 | how much of the sun's (or moon's) light the fog catches where the sun shadow map sees the sky, over an ambient share it keeps everywhere: shadows of trees and buildings stay darker, as shafts through the haze |
 | `fog.lightScatter` | 1 | 1 | 0–4 | how brightly the frame's point lights (torches, fires, skills) light the fog around them, fading to nothing at each light's radius |
 | `shafts.strength` | 0.5 | 0 | 0–2 | how brightly strong lights (skills such as Aqua Beam, fires and bonfires) light the air around them; characters in that light block it, leaving a darker streak through the glowing air behind them; their see-through parts (wings, capes, auras) block it partly, by their opacity or, glowing, their brightness. The air only adds light: a streak is glow that is missing, never darker than the scene. The 4 brightest lights on screen cast shafts |
 | `shafts.skills` | 1 | 1 | 0–2 | how much skill and spell lights cast light shafts |
@@ -252,12 +252,12 @@ for the whole file.
 | `time.dawnWarmth` | 1 | 1 | 0–1.5 | how far the low sun's light turns orange (0 keeps it white all day) |
 | `time.moonTint` | 1 | 1 | 0–1.5 | how far the moonlight turns blue (0 makes it white) |
 | `dynamic.flatSunShadow` | 1 (Dungeon, Lost Tower, Kanturu Relics, Refinery Tower: 0) | 1 | 0–1 | how dark the flat shadow under characters is while sun shadows are off (`sun.shadow` 0), on top of the shadow's own darkness. The indoor and underground maps set both to 0: no sun there, so only torches and spells cast character shadows. Classic always draws it |
-| `clouds.strength` | 0 | 0 | 0–1 | how much a passing cloud dims the sun's (or moon's) light on the ground, characters and fog; drifting procedural clouds whose shadows fall slanted by the sun, fading with its strength. Only with sun shadows |
+| `clouds.strength` | 0.35 | 0 | 0–1 | how much a passing cloud dims the sun's (or moon's) light on the ground, characters and fog; drifting procedural clouds whose shadows fall slanted by the sun, fading with its strength. Only with sun shadows |
 | `clouds.scale` | 3000 | 3000 | 500–10000 | the cloud pattern's size in world units |
 | `clouds.speed` | 40 | 40 | 0–300 | how fast the clouds drift along a fixed wind, in world units per second |
 | `clouds.cover` | 0.45 | 0.45 | 0–1 | the share of the sky the clouds cover |
-| `sky.fill` | 0 | 0 | 0–1 | how far shade (from shadows and clouds) turns towards the sky's blue while sunlit places keep the sun's colour; replaces the light mood's `shadeCool` while sun shadows are on. Only with sun shadows |
-| `lighting.rim.sunFollow` | 0 | 0 | 0–1 | how much the characters' edge light comes from the sun: brighter and sun-coloured on its side, gone in its shadow; 0 the even Enhanced rim |
+| `sky.fill` | 0.5 | 0 | 0–1 | how far shade (from shadows and clouds) turns towards the sky's blue while sunlit places keep the sun's colour; replaces the light mood's `shadeCool` while sun shadows are on. Only with sun shadows |
+| `lighting.rim.sunFollow` | 1 | 0 | 0–1 | how much the characters' edge light comes from the sun: brighter and sun-coloured on its side, gone in its shadow; 0 the even Enhanced rim |
 | `sun.resolution` | 2048 | 2048 | 1024–4096 | the sun shadow map's size in texels (1024, 2048 or 4096): sharper shadows for more graphics memory and time |
 
 ## Developer commands
