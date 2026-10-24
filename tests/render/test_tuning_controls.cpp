@@ -117,6 +117,8 @@ const SpecRow Spec[] = {
      TuningUnit::None, TuningZero::Plain},
     {TuningControlId::FogSunScatter, TuningGroup::PostProcessing, false, LookValue::FogSunScatter, 0, 4, 0.1,
      TuningUnit::None, TuningZero::Plain},
+    {TuningControlId::FogLightScatter, TuningGroup::PostProcessing, false, LookValue::FogLightScatter, 0, 4, 0.1,
+     TuningUnit::None, TuningZero::Plain},
 };
 
 Data::Maps::LookProfileData ShippedLikeProfile()
@@ -134,7 +136,7 @@ Data::Maps::LookProfileData ShippedLikeProfile()
 
 TEST_CASE("the 31 tuning controls have the specified bounds, steps, units and placement [render][look][tuning]")
 {
-    REQUIRE(Render::Look::TuningControlCount == 39);
+    REQUIRE(Render::Look::TuningControlCount == 40);
     REQUIRE(std::size(Spec) == Render::Look::TuningControlCount);
     std::set<LookValue> covered;
     for (const SpecRow& row : Spec)

@@ -61,6 +61,8 @@ struct SceneLighting
     // and the height it is thickest at (the hero's ground).
     float fogLight[3]{1.0f, 1.0f, 1.0f};
     float fogBase = 0.0f;
+    // fog.density's factor: thicker as the sun stands lower, 1 at noon, by night and without the clock.
+    float fogDensityScale = 1.0f;
 };
 
 // The frame's fog as configured through IMuRenderer::SetFog() when the scene lighting was set.

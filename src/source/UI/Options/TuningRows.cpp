@@ -76,6 +76,8 @@ ControlTexts TextsOf(TuningControlId id)
         return {I18N::Game::TuningFogAnisotropy, I18N::Game::TuningFogAnisotropyHelp};
     case TuningControlId::FogSunScatter:
         return {I18N::Game::TuningFogSunScatter, I18N::Game::TuningFogSunScatterHelp};
+    case TuningControlId::FogLightScatter:
+        return {I18N::Game::TuningFogLightScatter, I18N::Game::TuningFogLightScatterHelp};
     case TuningControlId::FlatSunShadow:
         return {I18N::Game::TuningFlatSunShadow, I18N::Game::TuningFlatSunShadowHelp};
     case TuningControlId::SunShadowSoftness:

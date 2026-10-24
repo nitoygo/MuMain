@@ -1290,6 +1290,7 @@ static mu::SdlGpuSunShadowMap s_sunShadowMap;
 static mu::SdlGpuVolumetricFog s_volumetricFog;
 static float s_fogLight[3]{1.0f, 1.0f, 1.0f};
 static float s_fogSun[3]{0.0f, 0.0f, 1.0f};
+static float s_fogDensityScale = 1.0f;
 static float s_fogBaseHeight = 0.0f;
 
 // Depth buffer texture for correct 3D depth testing.
@@ -2757,18 +2758,23 @@ public:
         const float fogEnd = s_sceneLightingUniform.fogParameters[1];
         uniform.color[3] = std::max(fogEnd > 0.0f ? fogEnd * 1.5f : 5000.0f, NearestSlice * 2.0f);
         // fog.density is the extinction per 1000 world units at the base.
-        uniform.medium[0] = s_postProcessingLook.fogDensity / 1000.0f;
+        uniform.medium[0] = s_postProcessingLook.fogDensity * s_fogDensityScale / 1000.0f;
         uniform.medium[1] = 1.0f / std::max(s_postProcessingLook.fogHeight, 1.0f);
         uniform.medium[2] = s_fogBaseHeight;
         std::memcpy(uniform.sunViewProjection, s_sceneLightingUniform.sunViewProjection,
                     sizeof(uniform.sunViewProjection));
         std::copy(std::begin(s_fogSun), std::end(s_fogSun), uniform.sun);
-        uniform.sun[3] = s_sunShadowMap.Bound() != s_sunShadowMap.FallbackMap() ? 1.0f : 0.0f;
+        // Without this frame's shadow map (indoors, sun shadows off) the air has no sun to catch.
+        const bool sunShadows = s_sunShadowMap.Bound() != s_sunShadowMap.FallbackMap();
+        uniform.sun[3] = sunShadows ? 1.0f : 0.0f;
+        uniform.medium[3] = s_postProcessingLook.fogLightScatter;
         // In a shadow the air keeps an ambient share of the light; lit, it adds the sun's.
         constexpr float AmbientShare = 0.35f;
         uniform.scatter[0] = s_postProcessingLook.fogAnisotropy;
-        uniform.scatter[1] = s_postProcessingLook.fogSunScatter;
+        uniform.scatter[1] = sunShadows ? s_postProcessingLook.fogSunScatter : 0.0f;
         uniform.scatter[2] = AmbientShare;
+        // One and a half shadow-map texels between the soft lookup's taps.
+        uniform.scatter[3] = 1.5f * s_sceneLightingUniform.sunShadowParameters[2];
         return uniform;
     }
 
@@ -3052,6 +3058,7 @@ public:
         SDL_GPUTexture* const fogLayer =
             volumetricFog && sceneDepth ? s_volumetricFog.Render(s_cmdBuf, sceneDepth,
                                                               {s_sunShadowMap.Bound(), s_sunShadowMap.Sampler()},
+                                                              std::as_bytes(std::span{&s_dynamicLightsUniform, 1}),
                                                               {s_swapW, s_swapH}, VolumetricFogUniform())
                                         : nullptr;
 
@@ -5391,6 +5398,7 @@ public:
         s_fogBaseHeight = lighting.fogBase;
         std::copy(std::begin(lighting.fogLight), std::end(lighting.fogLight), s_fogLight);
         std::copy(std::begin(lighting.sunDirection), std::end(lighting.sunDirection), s_fogSun);
+        s_fogDensityScale = lighting.fogDensityScale;
         SceneFog fog{};
         fog.enabled = m_fogEnabled;
         fog.start = m_fogUniform.fogStart;

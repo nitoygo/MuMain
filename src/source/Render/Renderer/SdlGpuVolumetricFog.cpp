@@ -11,7 +11,7 @@ namespace
 constexpr SDL_GPUTextureFormat FogFormat = SDL_GPU_TEXTUREFORMAT_R16G16B16A16_FLOAT;
 
 SDL_GPUComputePipeline* CreatePipeline(SDL_GPUDevice* device, std::span<const Uint8> blob, SDL_GPUShaderFormat format,
-                                       Uint32 samplers)
+                                       Uint32 samplers, Uint32 uniformBuffers)
 {
     if (blob.empty())
     {
@@ -25,7 +25,7 @@ SDL_GPUComputePipeline* CreatePipeline(SDL_GPUDevice* device, std::span<const Ui
     info.format = format;
     info.num_samplers = samplers;
     info.num_readwrite_storage_textures = 1;
-    info.num_uniform_buffers = 1;
+    info.num_uniform_buffers = uniformBuffers;
     info.threadcount_x = SdlGpuVolumetricFog::ThreadGroupSize;
     info.threadcount_y = SdlGpuVolumetricFog::ThreadGroupSize;
     info.threadcount_z = 1;
@@ -80,8 +80,8 @@ bool SdlGpuVolumetricFog::Create(SDL_GPUDevice* device, const SdlGpuFogBlobs& bl
         mu::log::Get("render")->warn("SDL_gpu -- volumetric fog unavailable: no RGBA16F storage textures");
         return false;
     }
-    m_volumePipeline = CreatePipeline(device, blobs.volume, format, 1u);
-    m_applyPipeline = CreatePipeline(device, blobs.apply, format, 2u);
+    m_volumePipeline = CreatePipeline(device, blobs.volume, format, 1u, 2u);
+    m_applyPipeline = CreatePipeline(device, blobs.apply, format, 2u, 1u);
     m_pointSampler = CreateSampler(device, SDL_GPU_FILTER_NEAREST);
     m_linearSampler = CreateSampler(device, SDL_GPU_FILTER_LINEAR);
     if (!IsAvailable())
@@ -152,7 +152,8 @@ bool SdlGpuVolumetricFog::EnsureTargets(SdlGpuTargetSize size)
 }
 
 SDL_GPUTexture* SdlGpuVolumetricFog::Render(SDL_GPUCommandBuffer* commandBuffer, SDL_GPUTexture* depth,
-                                            SDL_GPUTextureSamplerBinding shadowMap, SdlGpuTargetSize size,
+                                            SDL_GPUTextureSamplerBinding shadowMap,
+                                            std::span<const std::byte> dynamicLights, SdlGpuTargetSize size,
                                             SdlGpuFogUniform uniform)
 {
     if (!IsAvailable() || !depth || !shadowMap.texture || !shadowMap.sampler || size.width == 0u || size.height == 0u || !EnsureTargets(size))
@@ -174,6 +175,7 @@ SDL_GPUTexture* SdlGpuVolumetricFog::Render(SDL_GPUCommandBuffer* commandBuffer,
     SDL_BindGPUComputePipeline(pass, m_volumePipeline);
     SDL_BindGPUComputeSamplers(pass, 0, &shadowMap, 1);
     SDL_PushGPUComputeUniformData(commandBuffer, 0, &uniform, sizeof(uniform));
+    SDL_PushGPUComputeUniformData(commandBuffer, 1, dynamicLights.data(), static_cast<Uint32>(dynamicLights.size()));
     SDL_DispatchGPUCompute(pass, Groups(Width), Groups(Height), 1);
     SDL_EndGPUComputePass(pass);
 

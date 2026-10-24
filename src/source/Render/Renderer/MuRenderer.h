@@ -82,6 +82,8 @@ struct PostProcessingLook
     // How much more it scatters towards the sun (Henyey-Greenstein g) and how much sunlight it catches.
     float fogAnisotropy = 0.3f;
     float fogSunScatter = 1.0f;
+    // How brightly the frame's point lights light the fog around them.
+    float fogLightScatter = 1.0f;
 };
 
 // ---------------------------------------------------------------------------

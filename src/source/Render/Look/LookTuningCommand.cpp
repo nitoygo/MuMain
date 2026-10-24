@@ -40,6 +40,7 @@ const CommandForm CommandForms[] = {
     {L"$fog height ", {LookValue::FogHeight}},
     {L"$fog glow ", {LookValue::FogAnisotropy}},
     {L"$fog sun ", {LookValue::FogSunScatter}},
+    {L"$fog lights ", {LookValue::FogLightScatter}},
     {L"$fog ", {LookValue::FogDensity}},
     {L"$ao ", {LookValue::AmbientOcclusionStrength}},
     {L"$shafts skills ", {LookValue::LightShaftSkills}},

@@ -83,6 +83,9 @@ void SubmitSceneLighting()
     lighting.fogLight[1] = fogColor.g;
     lighting.fogLight[2] = fogColor.b;
     lighting.fogBase = Hero ? Hero->Object.Position[2] : 0.0f;
+    // Morning and evening haze: up to 2.5 times the fog as the sun nears the horizon.
+    constexpr float LowSunFog = 1.5f;
+    lighting.fogDensityScale = sun ? 1.0f + LowSunFog * (1.0f - sun->strength) * sun->daylight : 1.0f;
     mu::GetRenderer().SetSceneLighting(lighting);
 }
 

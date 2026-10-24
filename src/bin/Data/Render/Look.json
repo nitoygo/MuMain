@@ -38,7 +38,8 @@
     "fog.density": 0,
     "fog.height": 300,
     "fog.anisotropy": 0.3,
-    "fog.sunScatter": 1
+    "fog.sunScatter": 1,
+    "fog.lightScatter": 1
   },
   "maps": [
     {

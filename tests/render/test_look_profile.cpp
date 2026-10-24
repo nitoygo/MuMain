@@ -72,6 +72,7 @@ TEST_CASE("the look profile's built-in values are the renderer's values before i
     CHECK(BuiltInFloat(LookValue::FogHeight) == mu::PostProcessingLook{}.fogHeight);
     CHECK(BuiltInFloat(LookValue::FogAnisotropy) == mu::PostProcessingLook{}.fogAnisotropy);
     CHECK(BuiltInFloat(LookValue::FogSunScatter) == mu::PostProcessingLook{}.fogSunScatter);
+    CHECK(BuiltInFloat(LookValue::FogLightScatter) == mu::PostProcessingLook{}.fogLightScatter);
     // Light shafts: off, every kind of light at its full share.
     CHECK(BuiltIn(LookValue::LightShaftStrength) == 0.0);
     CHECK(BuiltInFloat(LookValue::LightShaftSkills) == mu::PostProcessingLook{}.lightShaftSkills);
@@ -249,6 +250,7 @@ TEST_CASE("the developer tuning commands name their look values [render][look]")
     single(L"$fog height 400", LookValue::FogHeight, 400.0);
     single(L"$fog glow 0.5", LookValue::FogAnisotropy, 0.5);
     single(L"$fog sun 2", LookValue::FogSunScatter, 2.0);
+    single(L"$fog lights 1.5", LookValue::FogLightScatter, 1.5);
     single(L"$fog 0.5", LookValue::FogDensity, 0.5);
     single(L"$ao 0.5", LookValue::AmbientOcclusionStrength, 0.5);
     single(L"$shafts skills 0.5", LookValue::LightShaftSkills, 0.5);

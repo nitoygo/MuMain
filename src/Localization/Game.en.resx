@@ -1679,6 +1679,12 @@
   <data name="Tuning Fog Sun Scatter Help" xml:space="preserve">
     <value>How much sunlight (or moonlight) the fog catches where nothing shades it; the shadows of trees and buildings stay darker, as shafts through the haze. 0 lights it evenly.</value>
   </data>
+  <data name="Tuning Fog Light Scatter" xml:space="preserve">
+    <value>Fog glow around lights</value>
+  </data>
+  <data name="Tuning Fog Light Scatter Help" xml:space="preserve">
+    <value>How brightly torches, fires and skills light the fog around them. 0 leaves the fog unlit by them.</value>
+  </data>
   <data name="Tuning Flat Sun Shadow" xml:space="preserve">
     <value>Flat sun shadow</value>
   </data>

@@ -37,6 +37,7 @@
 //   $fog height <h>                fog.height
 //   $fog glow <g>                  fog.anisotropy
 //   $fog sun <f>                   fog.sunScatter
+//   $fog lights <f>                fog.lightScatter
 //   $fog <density>                 fog.density
 //   $ao <v>                        ao.strength
 //   $shafts skills <f>             shafts.skills
