@@ -1,7 +1,16 @@
+#pragma clang diagnostic ignored "-Wmissing-prototypes"
+
 #include <metal_stdlib>
 #include <simd/simd.h>
 
 using namespace metal;
+
+struct FSInput
+{
+    float4 pos;
+    float2 uv;
+    float4 color;
+};
 
 struct FogUniforms
 {
@@ -25,26 +34,32 @@ struct main0_in
     float4 input_color [[user(locn1)]];
 };
 
-fragment main0_out main0(main0_in in [[stage_in]], constant FogUniforms& _40 [[buffer(0)]], texture2d<float> tex [[texture(0)]], sampler s [[sampler(0)]])
+static inline __attribute__((always_inline))
+float4 _main(thread const FSInput& _input, texture2d<float> tex, sampler s, constant FogUniforms& _40)
+{
+    float4 texel = tex.sample(s, _input.uv) * _input.color;
+    if (_40.coverageMode == 0u)
+    {
+        if (texel.w < 0.25)
+        {
+            discard_fragment();
+        }
+        return float4(1.0);
+    }
+    float coverage = (_40.coverageMode == 1u) ? texel.w : (fast::max(texel.x, fast::max(texel.y, texel.z)) * texel.w);
+    return float4(coverage);
+}
+
+fragment main0_out main0(main0_in in [[stage_in]], constant FogUniforms& _40 [[buffer(0)]], texture2d<float> tex [[texture(0)]], sampler s [[sampler(0)]], float4 gl_FragCoord [[position]])
 {
     main0_out out = {};
-    float4 _171;
-    do
-    {
-        float4 _113 = tex.sample(s, in.input_uv) * in.input_color;
-        if (_40.coverageMode == 0u)
-        {
-            if (_113.w < 0.25)
-            {
-                discard_fragment();
-            }
-            _171 = float4(1.0);
-            break;
-        }
-        _171 = float4((_40.coverageMode == 1u) ? _113.w : (fast::max(_113.x, fast::max(_113.y, _113.z)) * _113.w));
-        break;
-    } while(false);
-    out._entryPointOutput = _171;
+    FSInput _input;
+    _input.pos = gl_FragCoord;
+    _input.uv = in.input_uv;
+    _input.color = in.input_color;
+    FSInput param = _input;
+    float4 _102 = _main(param, tex, s, _40);
+    out._entryPointOutput = _102;
     return out;
 }
 

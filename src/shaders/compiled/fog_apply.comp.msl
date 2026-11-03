@@ -1,3 +1,5 @@
+#pragma clang diagnostic ignored "-Wmissing-prototypes"
+
 #include <metal_stdlib>
 #include <simd/simd.h>
 
@@ -18,29 +20,49 @@ struct FogUniforms
     uint4 target;
 };
 
+static inline __attribute__((always_inline))
+float3 WorldAt(thread const float2& uv, thread const float& depth, constant FogUniforms& _47)
+{
+    float4 world = _47.inverseViewProjection * float4((uv.x * 2.0) - 1.0, 1.0 - (uv.y * 2.0), depth, 1.0);
+    return world.xyz / float3(world.w);
+}
+
+static inline __attribute__((always_inline))
+float SliceGrowth(constant FogUniforms& _47)
+{
+    return log(_47.color.w / _47.camera.w);
+}
+
+static inline __attribute__((always_inline))
+void _main(thread const uint3& pixel, constant FogUniforms& _47, texture2d<float> sceneDepth, sampler depthSampler, texture3d<float> fogVolume, sampler volumeSampler, texture2d<float, access::write> fogLayer)
+{
+    if (any(pixel.xy >= _47.target.xy))
+    {
+        return;
+    }
+    float2 uv = (float2(pixel.xy) + float2(0.5)) / float2(_47.target.xy);
+    float depth = sceneDepth.sample(depthSampler, uv, level(0.0)).x;
+    float2 param = uv;
+    float param_1 = depth;
+    float _distance = length(WorldAt(param, param_1, _47) - _47.camera.xyz);
+    float firstEnd = _47.camera.w * exp(SliceGrowth(_47) / float(_47.size.z));
+    if ((depth < 1.0) && (_distance < firstEnd))
+    {
+        float4 first = fogVolume.sample(volumeSampler, float3(uv, 0.5 / float(_47.size.z)), level(0.0));
+        float4 storeTemp = mix(float4(0.0, 0.0, 0.0, 1.0), first, float4(_distance / firstEnd));
+        fogLayer.write(storeTemp, uint2(pixel.xy));
+        return;
+    }
+    float along = (depth >= 1.0) ? 1.0 : fast::clamp(log(_distance / _47.camera.w) / SliceGrowth(_47), 0.0, 1.0);
+    float slice = along - (0.5 / float(_47.size.z));
+    float4 storeTemp_1 = fogVolume.sample(volumeSampler, float3(uv, slice), level(0.0));
+    fogLayer.write(storeTemp_1, uint2(pixel.xy));
+}
+
 kernel void main0(constant FogUniforms& _47 [[buffer(0)]], texture2d<float> sceneDepth [[texture(0)]], texture3d<float> fogVolume [[texture(1)]], texture2d<float, access::write> fogLayer [[texture(2)]], sampler depthSampler [[sampler(0)]], sampler volumeSampler [[sampler(1)]], uint3 gl_GlobalInvocationID [[thread_position_in_grid]])
 {
-    do
-    {
-        if (any(gl_GlobalInvocationID.xy >= _47.target.xy))
-        {
-            break;
-        }
-        float2 _261 = (float2(gl_GlobalInvocationID.xy) + float2(0.5)) / float2(_47.target.xy);
-        float4 _266 = sceneDepth.sample(depthSampler, _261, level(0.0));
-        float _267 = _266.x;
-        float2 _233 = _261;
-        float4 _362 = _47.inverseViewProjection * float4((_233.x * 2.0) - 1.0, 1.0 - (_233.y * 2.0), _267, 1.0);
-        float4 _346 = _362;
-        float _275 = length((_362.xyz / float3(_346.w)) - _47.camera.xyz);
-        float _284 = _47.camera.w * exp(log(_47.color.w / _47.camera.w) / float(_47.size.z));
-        if ((_267 < 1.0) && (_275 < _284))
-        {
-            fogLayer.write(mix(float4(0.0, 0.0, 0.0, 1.0), fogVolume.sample(volumeSampler, float3(_261, 0.5 / float(_47.size.z)), level(0.0)), float4(_275 / _284)), uint2(gl_GlobalInvocationID.xy));
-            break;
-        }
-        fogLayer.write(fogVolume.sample(volumeSampler, float3(_261, ((_267 >= 1.0) ? 1.0 : fast::clamp(log(_275 / _47.camera.w) / log(_47.color.w / _47.camera.w), 0.0, 1.0)) - (0.5 / float(_47.size.z))), level(0.0)), uint2(gl_GlobalInvocationID.xy));
-        break;
-    } while(false);
+    uint3 pixel = gl_GlobalInvocationID;
+    uint3 param = pixel;
+    _main(param, _47, sceneDepth, depthSampler, fogVolume, volumeSampler, fogLayer);
 }
 

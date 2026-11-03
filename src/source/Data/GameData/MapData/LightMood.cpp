@@ -198,7 +198,7 @@ bool ReadNight(const OrderedJson& json, const std::string& object, LightMood& ni
     const std::string name = object.empty() ? std::string(NightKey) : Field(object, NightKey);
     if (!field->is_object())
     {
-        issues.Error(name, "must be an object of mood values");
+        issues.Fatal(name, "must be an object of mood values");
         return false;
     }
     WarnUnknownKeys(*field, name, true, {}, issues);

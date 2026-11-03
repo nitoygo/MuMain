@@ -189,7 +189,7 @@ bool ReadLayer(const OrderedJson& json, const std::string& object, std::initiali
         const std::optional<LookValue> lookValue = FindLookValue(key);
         if (!lookValue)
         {
-            issues.Error(Field(object, key), "is not a look value");
+            issues.Fatal(Field(object, key), "is not a look value");
             valid = false;
             continue;
         }
@@ -205,7 +205,7 @@ bool ReadLayer(const OrderedJson& json, const std::string& object, std::initiali
         const std::string field = Field(object, StateKeys[index]);
         if (!state->is_object())
         {
-            issues.Error(field, "must be an object of look values");
+            issues.Fatal(field, "must be an object of look values");
             valid = false;
             continue;
         }
@@ -252,7 +252,7 @@ bool ReadEnvironments(const OrderedJson& root, LookProfileData& data, IssueList&
     }
     if (!json->is_object())
     {
-        issues.Error(EnvironmentsKey, "must be an object of named environments");
+        issues.Fatal(EnvironmentsKey, "must be an object of named environments");
         return false;
     }
     bool valid = true;
@@ -261,7 +261,7 @@ bool ReadEnvironments(const OrderedJson& root, LookProfileData& data, IssueList&
         const std::string object = Field(EnvironmentsKey, name);
         if (!values.is_object())
         {
-            issues.Error(object, "must be an object of look values");
+            issues.Fatal(object, "must be an object of look values");
             valid = false;
             continue;
         }
@@ -321,7 +321,7 @@ bool ReadMap(const OrderedJson& json, size_t index, std::set<int>& worlds, LookP
                                : data.environments.end();
         if (known == data.environments.end())
         {
-            issues.Error(Field(object, EnvironmentKey), "must name one of \"environments\"");
+            issues.Fatal(Field(object, EnvironmentKey), "must name one of \"environments\"");
             return false;
         }
         map.environment = static_cast<std::size_t>(known - data.environments.begin());

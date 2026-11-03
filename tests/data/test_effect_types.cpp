@@ -1219,7 +1219,7 @@ TEST_CASE("An effect's dynamic light values are read, checked, written and looke
         CAPTURE(field);
         CHECK(HasIssue(result.issues, ItemDataIssueSeverity::Warning, field));
     }
-    CHECK_FALSE(Data::Items::HasErrors(result.issues));
+    CHECK_FALSE(Data::Items::HasFatal(result.issues));
 
     // A colour that is 0 or infinite as floats is refused too.
     for (const char* color : {"[1e-300, 0, 0]", "[1e300, 1, 1]"})

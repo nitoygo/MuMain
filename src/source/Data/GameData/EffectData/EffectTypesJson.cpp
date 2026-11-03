@@ -154,7 +154,7 @@ void ReadDynamicLight(const OrderedJson& json, const std::string& entryField, co
     const std::string field = entryField + "." + Keys::DynamicLight;
     if (!light->is_object())
     {
-        AddError(issues, source, field, "must be an object with the light's values");
+        AddFatal(issues, source, field, "must be an object with the light's values");
         return;
     }
     EffectDynamicLight values;

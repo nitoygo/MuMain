@@ -38,8 +38,8 @@ set(shader_specs
     "shaft_occluder.frag|cb0,space3+s0,space2+t0,space2"
     "post_shafts.frag|cb0,space3+s0,space2+t0,space2"
     "sun_depth.frag|cb0,space3+s0,space2+t0,space2"
-    "fog_volume.comp|cb0,space2+cb1,space2+s0+t0+u0,space1"
-    "fog_apply.comp|cb0,space2+s0+s1+t0+t1+u0,space1"
+    "fog_volume.comp|cb0,space2+cb1,space2+s0,space0+t0,space0+u0,space1"
+    "fog_apply.comp|cb0,space2+s0,space0+s1,space0+t0,space0+t1,space0+u0,space1"
 )
 
 foreach(shader_spec IN LISTS shader_specs)
@@ -62,6 +62,10 @@ foreach(shader_spec IN LISTS shader_specs)
 
     string(FIND "${dump_output}" "Resource Bindings:" binding_table_start)
     string(FIND "${dump_output}" "ViewId state:" binding_table_end)
+    if(binding_table_end EQUAL -1)
+        # Compute shaders have no view-id section.
+        string(FIND "${dump_output}" "target datalayout" binding_table_end)
+    endif()
     if(binding_table_start EQUAL -1 OR binding_table_end EQUAL -1)
         mu_add_dxil_validation_error("${shader_name}: resource binding table not found")
         continue()

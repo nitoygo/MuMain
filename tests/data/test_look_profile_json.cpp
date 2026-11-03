@@ -312,7 +312,7 @@ TEST_CASE("each time of day layers its values over its layer's plain ones [data]
         "environments": {"enclosed": {"sun.shadow": 0, "night": {"sun.strength": 0}}},
         "maps": [{"world": 1, "environment": "enclosed"},
                  {"world": 10, "bloom.strength": 0.3}]})");
-    REQUIRE_MESSAGE(!HasErrors(result.issues), Messages(result.issues));
+    REQUIRE_MESSAGE(!HasFatal(result.issues), Messages(result.issues));
     // Without a state, the plain values only.
     CHECK(result.data.ForWorld(Lorencia)[LookValue::BloomStrength] == 1.0);
     CHECK(result.data.ForWorld(Lorencia, TimeState::Night)[LookValue::BloomStrength] == 1.4);

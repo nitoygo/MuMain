@@ -1,7 +1,15 @@
+#pragma clang diagnostic ignored "-Wmissing-prototypes"
+
 #include <metal_stdlib>
 #include <simd/simd.h>
 
 using namespace metal;
+
+struct FSInput
+{
+    float4 pos;
+    float2 uv;
+};
 
 struct LightShafts
 {
@@ -23,43 +31,70 @@ struct main0_in
     float2 input_uv [[user(locn0)]];
 };
 
+static inline __attribute__((always_inline))
+float MarchJitter(thread const float2& pixel)
+{
+    return fract(52.98291778564453125 * fract(dot(pixel, float2(0.067110560834407806396484375, 0.005837149918079376220703125))));
+}
+
+static inline __attribute__((always_inline))
+float2 NearestPoint(thread const float4& segment, thread const float2& uv, constant LightShafts& _43)
+{
+    float2 along = (segment.zw - segment.xy) * float2(_43.aspect, 1.0);
+    float2 offset = (uv - segment.xy) * float2(_43.aspect, 1.0);
+    float lengthSquared = dot(along, along);
+    float t = (lengthSquared > 0.0) ? fast::clamp(dot(offset, along) / lengthSquared, 0.0, 1.0) : 0.0;
+    return segment.xy + ((segment.zw - segment.xy) * t);
+}
+
+static inline __attribute__((always_inline))
+float Glow(thread const float4& segment, thread const float2& uv, constant LightShafts& _43)
+{
+    float4 param = segment;
+    float2 param_1 = uv;
+    float2 gap = (uv - NearestPoint(param, param_1, _43)) * float2(_43.aspect, 1.0);
+    return exp((-dot(gap, gap)) / (_43.glowWidth * _43.glowWidth));
+}
+
+static inline __attribute__((always_inline))
+float4 _main(thread const FSInput& _input, constant LightShafts& _43, texture2d<float> occluders, sampler occluderSampler)
+{
+    float2 param = _input.pos.xy;
+    float jitter = MarchJitter(param);
+    float3 light = float3(0.0);
+    for (uint i = 0u; i < _43.shaftCount; i++)
+    {
+        float4 param_1 = _43.segments[i];
+        float2 param_2 = _input.uv;
+        float2 target = NearestPoint(param_1, param_2, _43);
+        float2 _step = (target - _input.uv) / float2(40.0);
+        float2 uv = _input.uv + (_step * jitter);
+        float weight = 1.0;
+        float gathered = 0.0;
+        float total = 0.0;
+        for (uint s = 0u; s < 40u; s++)
+        {
+            float4 param_3 = _43.segments[i];
+            float2 param_4 = uv;
+            float glow = Glow(param_3, param_4, _43) * weight;
+            gathered += (glow * (1.0 - occluders.sample(occluderSampler, uv, level(0.0)).x));
+            total += weight;
+            weight *= _43.decay;
+            uv += _step;
+        }
+        light += (_43.colors[i].xyz * (gathered / total));
+    }
+    return float4(light, 0.0);
+}
+
 fragment main0_out main0(main0_in in [[stage_in]], constant LightShafts& _43 [[buffer(0)]], texture2d<float> occluders [[texture(0)]], sampler occluderSampler [[sampler(0)]], float4 gl_FragCoord [[position]])
 {
     main0_out out = {};
-    float _373 = fract(52.98291778564453125 * fract(dot(gl_FragCoord.xy, float2(0.067110560834407806396484375, 0.005837149918079376220703125))));
-    float3 _499;
-    _499 = float3(0.0);
-    float3 _357;
-    for (uint _498 = 0u; _498 < _43.shaftCount; _499 = _357, _498++)
-    {
-        float2 _388 = (_43.segments[_498].zw - _43.segments[_498].xy) * float2(_43.aspect, 1.0);
-        float _399 = dot(_388, _388);
-        float2 _304 = ((_43.segments[_498].xy + ((_43.segments[_498].zw - _43.segments[_498].xy) * ((_399 > 0.0) ? fast::clamp(dot((in.input_uv - _43.segments[_498].xy) * float2(_43.aspect, 1.0), _388) / _399, 0.0, 1.0) : 0.0))) - in.input_uv) * float2(0.02500000037252902984619140625);
-        float _502;
-        float _503;
-        float2 _505;
-        _505 = in.input_uv + (_304 * _373);
-        _503 = 0.0;
-        _502 = 0.0;
-        float _333;
-        float _336;
-        float _340;
-        float2 _343;
-        uint _500 = 0u;
-        float _506 = 1.0;
-        for (; _500 < 40u; _506 = _340, _505 = _343, _503 = _336, _502 = _333, _500++)
-        {
-            float2 _458 = (_43.segments[_498].zw - _43.segments[_498].xy) * float2(_43.aspect, 1.0);
-            float _469 = dot(_458, _458);
-            float2 _432 = (_505 - (_43.segments[_498].xy + ((_43.segments[_498].zw - _43.segments[_498].xy) * ((_469 > 0.0) ? fast::clamp(dot((_505 - _43.segments[_498].xy) * float2(_43.aspect, 1.0), _458) / _469, 0.0, 1.0) : 0.0)))) * float2(_43.aspect, 1.0);
-            _333 = _502 + ((exp((-dot(_432, _432)) / (_43.glowWidth * _43.glowWidth)) * _506) * (1.0 - occluders.sample(occluderSampler, _505, level(0.0)).x));
-            _336 = _503 + _506;
-            _340 = _506 * _43.decay;
-            _343 = _505 + _304;
-        }
-        _357 = _499 + (_43.colors[_498].xyz * (_502 / _503));
-    }
-    out._entryPointOutput = float4(_499, 0.0);
+    FSInput _input;
+    _input.pos = gl_FragCoord;
+    _input.uv = in.input_uv;
+    FSInput param = _input;
+    out._entryPointOutput = _main(param, _43, occluders, occluderSampler);
     return out;
 }
 

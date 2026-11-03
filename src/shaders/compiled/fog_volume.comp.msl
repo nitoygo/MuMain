@@ -5,30 +5,6 @@
 
 using namespace metal;
 
-template <typename T>
-static inline depth2d<T> spvDepthCast(texture2d<T> t)
-{
-    return reinterpret_cast<thread const depth2d<T> &>(t);
-}
-
-template <typename T>
-static inline depth2d_array<T> spvDepthCast(texture2d_array<T> t)
-{
-    return reinterpret_cast<thread const depth2d_array<T> &>(t);
-}
-
-template <typename T>
-static inline depthcube<T> spvDepthCast(texturecube<T> t)
-{
-    return reinterpret_cast<thread const depthcube<T> &>(t);
-}
-
-template <typename T>
-static inline depthcube_array<T> spvDepthCast(texturecube_array<T> t)
-{
-    return reinterpret_cast<thread const depthcube_array<T> &>(t);
-}
-
 struct FogUniforms
 {
     float4x4 inverseViewProjection;
@@ -54,118 +30,166 @@ struct DynamicLights
     float4 dynamicLightColor[32];
 };
 
-kernel void main0(constant FogUniforms& _79 [[buffer(0)]], constant DynamicLights& _390 [[buffer(1)]], texture2d<float> sunShadowMap [[texture(0)]], texture3d<float, access::write> volume [[texture(1)]], sampler sunShadowSampler [[sampler(0)]], uint3 gl_GlobalInvocationID [[thread_position_in_grid]])
+static inline __attribute__((always_inline))
+float3 WorldAt(thread const float2& uv, thread const float& depth, constant FogUniforms& _79)
 {
-    do
+    float4 world = _79.inverseViewProjection * float4((uv.x * 2.0) - 1.0, 1.0 - (uv.y * 2.0), depth, 1.0);
+    return world.xyz / float3(world.w);
+}
+
+static inline __attribute__((always_inline))
+float SliceGrowth(constant FogUniforms& _79)
+{
+    return log(_79.color.w / _79.camera.w);
+}
+
+static inline __attribute__((always_inline))
+float PhaseRatio(thread const float& cosine, thread const float& g)
+{
+    float denominator = (1.0 + (g * g)) - ((2.0 * g) * cosine);
+    return (1.0 - (g * g)) / (denominator * sqrt(denominator));
+}
+
+static inline __attribute__((always_inline))
+float Dither(thread const float2& cell, thread const float& slice)
+{
+    float2 p = cell + float2(slice * 5.588237762451171875);
+    return fract(52.98291778564453125 * fract(dot(p, float2(0.067110560834407806396484375, 0.005837149918079376220703125))));
+}
+
+static inline __attribute__((always_inline))
+float SunVisibility(thread const float3& position, constant FogUniforms& _79, depth2d<float> sunShadowMap, sampler sunShadowSampler)
+{
+    if (_79.sun.w <= 0.0)
     {
-        if (any(gl_GlobalInvocationID.xy >= _79.size.xy))
+        return 1.0;
+    }
+    float4 clip = _79.sunViewProjection * float4(position, 1.0);
+    float3 ndc = clip.xyz / float3(clip.w);
+    float2 uv = float2((ndc.x * 0.5) + 0.5, 0.5 - (ndc.y * 0.5));
+    if ((any(uv < float2(0.0)) || any(uv > float2(1.0))) || (ndc.z >= 1.0))
+    {
+        return 1.0;
+    }
+    float visible = 0.0;
+    for (int y = -1; y <= 1; y++)
+    {
+        for (int x = -1; x <= 1; x++)
         {
-            break;
+            float3 _367 = float3(uv + (float2(float(x), float(y)) * _79.scatter.w), ndc.z);
+            visible += sunShadowMap.sample_compare(sunShadowSampler, _367.xy, _367.z, level(0.0));
         }
-        float2 _674 = (float2(gl_GlobalInvocationID.xy) + float2(0.5)) / float2(_79.size.xy);
-        float4 _893 = _79.inverseViewProjection * float4((_674.x * 2.0) - 1.0, 1.0 - (_674.y * 2.0), 1.0, 1.0);
-        float4 _878 = _893;
-        float3 _725 = fast::normalize((_893.xyz / float3(_878.w)) - _79.camera.xyz);
-        float _907 = log(_79.color.w / _79.camera.w);
-        float _919 = (1.0 + (_79.scatter.x * _79.scatter.x)) - ((2.0 * _79.scatter.x) * dot(_725, fast::normalize(_79.sun.xyz)));
-        float _928 = (1.0 - (_79.scatter.x * _79.scatter.x)) / (_919 * sqrt(_919));
-        float3 _1397;
-        _1397 = float3(0.0);
-        float _755;
-        float3 _854;
-        float _857;
-        uint _1369 = 0u;
-        float _1370 = 0.0;
-        float _1388 = 1.0;
-        for (; _1369 < _79.size.z; _1397 = _854, _1388 = _857, _1370 = _755, _1369++)
+    }
+    return visible / 9.0;
+}
+
+static inline __attribute__((always_inline))
+float CloudHash(thread const float2& p)
+{
+    return fract(sin(dot(p, float2(127.09999847412109375, 311.70001220703125))) * 43758.546875);
+}
+
+static inline __attribute__((always_inline))
+float CloudNoise(thread const float2& p)
+{
+    float2 cell = floor(p);
+    float2 f = fract(p);
+    float2 u = (f * f) * (float2(3.0) - (f * 2.0));
+    float2 param = cell;
+    float a = CloudHash(param);
+    float2 param_1 = cell + float2(1.0, 0.0);
+    float b = CloudHash(param_1);
+    float2 param_2 = cell + float2(0.0, 1.0);
+    float c = CloudHash(param_2);
+    float2 param_3 = cell + float2(1.0);
+    float d = CloudHash(param_3);
+    return mix(mix(a, b, u.x), mix(c, d, u.x), u.y);
+}
+
+static inline __attribute__((always_inline))
+float CloudLight(thread const float2& xy, thread const float4& parameters, thread const float2& offset)
+{
+    if (parameters.x <= 0.0)
+    {
+        return 1.0;
+    }
+    float2 p = (xy + offset) * parameters.y;
+    float2 param = p;
+    float2 param_1 = (p * 2.0299999713897705078125) + float2(17.1000003814697265625);
+    float2 param_2 = (p * 4.070000171661376953125) + float2(31.700000762939453125);
+    float cover = ((0.550000011920928955078125 * CloudNoise(param)) + (0.300000011920928955078125 * CloudNoise(param_1))) + (0.1500000059604644775390625 * CloudNoise(param_2));
+    float threshold = 1.0 - parameters.z;
+    float cloud = smoothstep(threshold - 0.119999997317790985107421875, threshold + 0.119999997317790985107421875, cover);
+    return 1.0 - (parameters.x * cloud);
+}
+
+static inline __attribute__((always_inline))
+float3 PointLightGlow(thread const float3& position, constant DynamicLights& _390)
+{
+    float3 glow = float3(0.0);
+    uint count = min(_390.dynamicLightCount, 32u);
+    for (uint i = 0u; i < count; i++)
+    {
+        float4 positionAndRadius = _390.dynamicLightPositionAndRadius[i];
+        float reach = fast::clamp(1.0 - (length(positionAndRadius.xyz - position) / positionAndRadius.w), 0.0, 1.0);
+        glow += (_390.dynamicLightColor[i].xyz * (reach * reach));
+    }
+    return glow;
+}
+
+static inline __attribute__((always_inline))
+void _main(thread const uint3& cell, constant FogUniforms& _79, depth2d<float> sunShadowMap, sampler sunShadowSampler, constant DynamicLights& _390, texture3d<float, access::write> volume)
+{
+    if (any(cell.xy >= _79.size.xy))
+    {
+        return;
+    }
+    float2 uv = (float2(cell.xy) + float2(0.5)) / float2(_79.size.xy);
+    float2 param = uv;
+    float param_1 = 1.0;
+    float3 direction = fast::normalize(WorldAt(param, param_1, _79) - _79.camera.xyz);
+    float growth = SliceGrowth(_79);
+    float param_2 = dot(direction, fast::normalize(_79.sun.xyz));
+    float param_3 = _79.scatter.x;
+    float sunPhase = PhaseRatio(param_2, param_3);
+    float3 light = float3(0.0);
+    float transmittance = 1.0;
+    float start = 0.0;
+    for (uint z = 0u; z < _79.size.z; z++)
+    {
+        float end = _79.camera.w * exp((float(z + 1u) / float(_79.size.z)) * growth);
+        float3 position = _79.camera.xyz + (direction * (0.5 * (start + end)));
+        float extinction = _79.medium.x * exp((-fast::max(position.z - _79.medium.z, 0.0)) * _79.medium.y);
+        float kept = exp((-extinction) * (end - start));
+        float3 lit = _79.color.xyz * _79.scatter.z;
+        if (_79.scatter.y > 0.0)
         {
-            _755 = _79.camera.w * exp((float(_1369 + 1u) / float(_79.size.z)) * _907);
-            float3 _765 = _79.camera.xyz + (_725 * (0.5 * (_1370 + _755)));
-            float3 _685 = _765;
-            float _786 = exp((-(_79.medium.x * exp((-fast::max(_685.z - _79.medium.z, 0.0)) * _79.medium.y))) * (_755 - _1370));
-            float3 _792 = _79.color.xyz * _79.scatter.z;
-            float3 _1385;
-            if (_79.scatter.y > 0.0)
-            {
-                float3 _811 = _79.camera.xyz + (_725 * mix(_1370, _755, fract(52.98291778564453125 * fract(dot(float2(gl_GlobalInvocationID.xy) + float2(float(_1369) * 5.588237762451171875), float2(0.067110560834407806396484375, 0.005837149918079376220703125))))));
-                float _1376;
-                do
-                {
-                    if (_79.sun.w <= 0.0)
-                    {
-                        _1376 = 1.0;
-                        break;
-                    }
-                    float4 _965 = _79.sunViewProjection * float4(_811, 1.0);
-                    float4 _944 = _965;
-                    float3 _945 = _965.xyz / float3(_944.w);
-                    float _975 = (_945.x * 0.5) + 0.5;
-                    float _979 = 0.5 - (_945.y * 0.5);
-                    float2 _980 = float2(_975, _979);
-                    if ((any(_980 < float2(0.0)) || any(_980 > float2(1.0))) || (_945.z >= 1.0))
-                    {
-                        _1376 = 1.0;
-                        break;
-                    }
-                    float _1601 = ((((((spvDepthCast(sunShadowMap).sample_compare(sunShadowSampler, float3(_980 + (float2(-1.0) * _79.scatter.w), _945.z).xy, _945.z, level(0.0)) + spvDepthCast(sunShadowMap).sample_compare(sunShadowSampler, float3(_980 + (float2(0.0, -1.0) * _79.scatter.w), _945.z).xy, _945.z, level(0.0))) + spvDepthCast(sunShadowMap).sample_compare(sunShadowSampler, float3(_980 + (float2(1.0, -1.0) * _79.scatter.w), _945.z).xy, _945.z, level(0.0))) + spvDepthCast(sunShadowMap).sample_compare(sunShadowSampler, float3(_980 + (float2(-1.0, 0.0) * _79.scatter.w), _945.z).xy, _945.z, level(0.0))) + spvDepthCast(sunShadowMap).sample_compare(sunShadowSampler, float3(_975, _979, _945.z).xy, _945.z, level(0.0))) + spvDepthCast(sunShadowMap).sample_compare(sunShadowSampler, float3(_980 + (float2(1.0, 0.0) * _79.scatter.w), _945.z).xy, _945.z, level(0.0))) + spvDepthCast(sunShadowMap).sample_compare(sunShadowSampler, float3(_980 + (float2(-1.0, 1.0) * _79.scatter.w), _945.z).xy, _945.z, level(0.0))) + spvDepthCast(sunShadowMap).sample_compare(sunShadowSampler, float3(_980 + (float2(0.0, 1.0) * _79.scatter.w), _945.z).xy, _945.z, level(0.0));
-                    _1376 = (_1601 + spvDepthCast(sunShadowMap).sample_compare(sunShadowSampler, float3(_980 + (float2(1.0) * _79.scatter.w), _945.z).xy, _945.z, level(0.0))) * 0.111111111938953399658203125;
-                    break;
-                } while(false);
-                float4 _694 = _79.clouds;
-                float _1377;
-                do
-                {
-                    if (_694.x <= 0.0)
-                    {
-                        _1377 = 1.0;
-                        break;
-                    }
-                    float2 _1060 = (_811.xy + _79.cloudOffset.xy) * _694.y;
-                    float2 _1108 = floor(_1060);
-                    float2 _1110 = fract(_1060);
-                    float2 _1096 = (_1110 * _1110) * (float2(3.0) - (_1110 * 2.0));
-                    float2 _1067 = (_1060 * 2.0299999713897705078125) + float2(17.1000003814697265625);
-                    float2 _1185 = floor(_1067);
-                    float2 _1187 = fract(_1067);
-                    float2 _1173 = (_1187 * _1187) * (float2(3.0) - (_1187 * 2.0));
-                    float2 _1074 = (_1060 * 4.070000171661376953125) + float2(31.700000762939453125);
-                    float2 _1262 = floor(_1074);
-                    float2 _1264 = fract(_1074);
-                    float2 _1250 = (_1264 * _1264) * (float2(3.0) - (_1264 * 2.0));
-                    float _1086 = smoothstep(0.87999999523162841796875 - _694.z, 1.12000000476837158203125 - _694.z, ((0.550000011920928955078125 * mix(mix(fract(sin(dot(_1108, float2(127.09999847412109375, 311.70001220703125))) * 43758.546875), fract(sin(dot(_1108 + float2(1.0, 0.0), float2(127.09999847412109375, 311.70001220703125))) * 43758.546875), _1096.x), mix(fract(sin(dot(_1108 + float2(0.0, 1.0), float2(127.09999847412109375, 311.70001220703125))) * 43758.546875), fract(sin(dot(_1108 + float2(1.0), float2(127.09999847412109375, 311.70001220703125))) * 43758.546875), _1096.x), _1096.y)) + (0.300000011920928955078125 * mix(mix(fract(sin(dot(_1185, float2(127.09999847412109375, 311.70001220703125))) * 43758.546875), fract(sin(dot(_1185 + float2(1.0, 0.0), float2(127.09999847412109375, 311.70001220703125))) * 43758.546875), _1173.x), mix(fract(sin(dot(_1185 + float2(0.0, 1.0), float2(127.09999847412109375, 311.70001220703125))) * 43758.546875), fract(sin(dot(_1185 + float2(1.0), float2(127.09999847412109375, 311.70001220703125))) * 43758.546875), _1173.x), _1173.y))) + (0.1500000059604644775390625 * mix(mix(fract(sin(dot(_1262, float2(127.09999847412109375, 311.70001220703125))) * 43758.546875), fract(sin(dot(_1262 + float2(1.0, 0.0), float2(127.09999847412109375, 311.70001220703125))) * 43758.546875), _1250.x), mix(fract(sin(dot(_1262 + float2(0.0, 1.0), float2(127.09999847412109375, 311.70001220703125))) * 43758.546875), fract(sin(dot(_1262 + float2(1.0), float2(127.09999847412109375, 311.70001220703125))) * 43758.546875), _1250.x), _1250.y)));
-                    _1377 = 1.0 - (_694.x * _1086);
-                    break;
-                } while(false);
-                _1385 = _792 + ((((_79.color.xyz * _79.scatter.y) * _928) * _1376) * _1377);
-            }
-            else
-            {
-                _1385 = _792;
-            }
-            float3 _1394;
-            if (_79.medium.w > 0.0)
-            {
-                uint _1334 = min(_390.dynamicLightCount, 32u);
-                float3 _1383;
-                _1383 = float3(0.0);
-                float3 _1363;
-                for (uint _1382 = 0u; _1382 < _1334; _1383 = _1363, _1382++)
-                {
-                    float4 _1328 = _390.dynamicLightPositionAndRadius[_1382];
-                    float _1353 = fast::clamp(1.0 - (length(_390.dynamicLightPositionAndRadius[_1382].xyz - _765) / _1328.w), 0.0, 1.0);
-                    _1363 = _1383 + (_390.dynamicLightColor[_1382].xyz * (_1353 * _1353));
-                }
-                _1394 = _1385 + (_1383 * _79.medium.w);
-            }
-            else
-            {
-                _1394 = _1385;
-            }
-            _854 = _1397 + ((_1394 * _1388) * (1.0 - _786));
-            _857 = _1388 * _786;
-            volume.write(float4(_854, _857), uint3(uint3(gl_GlobalInvocationID.xy, _1369)));
+            float2 param_4 = float2(cell.xy);
+            float param_5 = float(z);
+            float3 sunPoint = _79.camera.xyz + (direction * mix(start, end, Dither(param_4, param_5)));
+            float3 param_6 = sunPoint;
+            float2 param_7 = sunPoint.xy;
+            float4 param_8 = _79.clouds;
+            float2 param_9 = _79.cloudOffset.xy;
+            lit += ((((_79.color.xyz * _79.scatter.y) * sunPhase) * SunVisibility(param_6, _79, sunShadowMap, sunShadowSampler)) * CloudLight(param_7, param_8, param_9));
         }
-        break;
-    } while(false);
+        if (_79.medium.w > 0.0)
+        {
+            float3 param_10 = position;
+            lit += (PointLightGlow(param_10, _390) * _79.medium.w);
+        }
+        light += ((lit * transmittance) * (1.0 - kept));
+        transmittance *= kept;
+        float4 storeTemp = float4(light, transmittance);
+        volume.write(storeTemp, uint3(uint3(cell.xy, z)));
+        start = end;
+    }
+}
+
+kernel void main0(constant FogUniforms& _79 [[buffer(0)]], constant DynamicLights& _390 [[buffer(1)]], depth2d<float> sunShadowMap [[texture(0)]], texture3d<float, access::write> volume [[texture(1)]], sampler sunShadowSampler [[sampler(0)]], uint3 gl_GlobalInvocationID [[thread_position_in_grid]])
+{
+    uint3 cell = gl_GlobalInvocationID;
+    uint3 param = cell;
+    _main(param, _79, sunShadowMap, sunShadowSampler, _390, volume);
 }
 
