@@ -605,7 +605,11 @@ static void RenderGameWorld(BYTE& byWaterMap, int width, int height)
         RenderBoids();
     }
 
-    { FRAME_PROFILE(Characters); RenderCharactersClient(); }
+    {
+        FRAME_PROFILE(Characters);
+        mu::ScopedCharacterDraws characterDraws;
+        RenderCharactersClient();
+    }
 
     if (EditFlag != EDIT_NONE && renderTerrain)
     {
