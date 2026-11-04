@@ -462,7 +462,7 @@ public:
     virtual void BeginGroundShadow(GroundShadowSource /*source*/) {}
     virtual void EndGroundShadow(GroundShadowSource /*source*/) {}
     // Draws between BeginCharacterDraws and EndCharacterDraws are the characters, apart from the world's
-    // objects. Scopes nest; use ScopedCharacterDraws.
+    // objects. Scopes nest; use Render::Drawing::ScopedCharacterDraws.
     virtual void BeginCharacterDraws() {}
     virtual void EndCharacterDraws() {}
     // Whether SetSceneLighting's sun shadow settings draw a shadow map.
@@ -917,20 +917,6 @@ public:
     }
     ScopedWorldLitGeometry(const ScopedWorldLitGeometry&) = delete;
     ScopedWorldLitGeometry& operator=(const ScopedWorldLitGeometry&) = delete;
-};
-class ScopedCharacterDraws
-{
-public:
-    ScopedCharacterDraws()
-    {
-        GetRenderer().BeginCharacterDraws();
-    }
-    ~ScopedCharacterDraws()
-    {
-        GetRenderer().EndCharacterDraws();
-    }
-    ScopedCharacterDraws(const ScopedCharacterDraws&) = delete;
-    ScopedCharacterDraws& operator=(const ScopedCharacterDraws&) = delete;
 };
 class ScopedGroundShadow
 {
