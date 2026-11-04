@@ -27,6 +27,7 @@
 #include "UI/Core/WindowSystem.h"
 #include "Engine/Object/ZzzInterface.h"
 #include "Scenes/MainScene.h"
+#include "Render/Lighting/DynamicLightHistory.h"
 
 PARTICLE  Particles[MAX_PARTICLES];
 #ifdef DEVIAS_XMAS_EVENT
@@ -7685,6 +7686,7 @@ void MoveEffects()
         OBJECT* o = &Effects[i];
         if (o->Live)
         {
+            const Render::Lighting::EffectLightScope effectLight(o->Type);
             MoveEffect(o, i);
         }
     }

@@ -213,7 +213,7 @@ for the whole file.
 | `lighting.specular.power` | 32 | 32 | 4–128 | how small the highlight is |
 | `dynamic.wrap` | 0.3 | 0.5 | 0–0.5 | how far a point light reaches round a model |
 | `dynamic.mapSmoothing` | 0.5 | 0 | 0–2 | seconds over which flickering map and character lights (candles, fires) ease to their new brightness |
-| `dynamic.effectGain` | 0.5 | 1 | 0–4 | brightness factor of spell and effect lights |
+| `dynamic.effectGain` | 0.5 | 1 | 0–4 | brightness factor of spell and effect lights; each effect can also set its own intensity, radius, colour and shadows (`dynamicLight` in `Data/Effects/EffectTypes.json`, docs/effect-data.md), on top of which this applies |
 | `dynamic.effectRange` | 2 | 1 | 0.5–4 | range factor of spell and effect lights |
 | `dynamic.effectRangeMax` | 8 | 0 (none) | 0–16 | the most terrain cells the range factor may widen a light to |
 | `dynamic.effectFade` | 0.5 | 0 | 0–2 | seconds over which a spell's light fades out after it ends |
