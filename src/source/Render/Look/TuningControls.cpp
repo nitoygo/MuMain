@@ -68,6 +68,8 @@ constexpr std::array<ControlSpec, TuningControlCount> Specs = {{
      TuningUnit::Seconds, 1.0, TuningZero::Immediate},
     {TuningControlId::EffectRangeMax, TuningGroup::DynamicLights, true, LookValue::DynamicEffectRangeMax, 1.0,
      TuningUnit::Cells, 1.0, TuningZero::NoCap},
+    {TuningControlId::PhysicalFalloff, TuningGroup::DynamicLights, true, LookValue::DynamicPhysicalFalloff, 0.05,
+     TuningUnit::Percent, 100.0, TuningZero::Plain},
     {TuningControlId::MoodStrength, TuningGroup::LightMood, false, std::nullopt, 1.0, TuningUnit::Percent, 1.0,
      TuningZero::Plain},
     {TuningControlId::BloomStrength, TuningGroup::PostProcessing, false, LookValue::BloomStrength, 0.05,

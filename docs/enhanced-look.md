@@ -76,6 +76,7 @@ window.
 | Enhanced lighting | Highlight knee | `lighting.highlightKnee` | 0.5–0.9 | 0.01 | 0.8 | More settings |
 | Enhanced lighting | Rim concentration | `lighting.rim.power` | 1–8 | 0.1 | 3 | More settings |
 | Enhanced lighting | Shine concentration | `lighting.specular.power` | 4–128 | 1 | 32 | More settings |
+| Dynamic lights | Physical light falloff | `dynamic.physicalFalloff` | 0–100 % | 5 % | 50 % | More settings |
 | Dynamic lights | Skill intensity | `dynamic.effectGain` | 0–4× | 0.1× | 0.5× | common |
 | Dynamic lights | Skill radius | `dynamic.effectRange` | 0.5–4× | 0.1× | 2× | common |
 | Dynamic lights | Skill fade | `dynamic.effectFade` | 0–2 s | 0.05 s | 0.5 s | common |
@@ -220,6 +221,7 @@ for the whole file.
 | `dynamic.shadowOpacity` | 0.6 | 0.6 | 0–1 | how much characters' shadows darken the ground's own light; overlapping shadows darken it once, and point lights still light shadowed ground |
 | `dynamic.shadowLights` | 1 (`enclosed` 2) | 0 | 0–4 | how many of the strongest point lights near a character cast its shadow away from them; each darkens the point light on the ground by its share of the character's point light, and a light at the character casts none. A shadow is projected from the light's own position, so a near, low light (a skill cast at mid-body, a torch beside you) casts a long shadow and a far or high one a short shadow; lights falling the same way (the segments of a beam such as Aqua Beam, a cluster of candles) cast one shadow together. Skill and spell lights cast shadows like any other. Torches, fires and bonfires shine from their flame, so a high torch casts a shorter shadow than a bonfire; other lights shine from 150 above the ground for the map's lamps and 100 for characters' and skills' glows |
 | `dynamic.shadowAngle` | 135 | 180 | 0–360 | not a player slider, since painted shadows cannot follow it; which way characters' shadows fall, in degrees counter-clockwise from world +x; 135 falls away from the sun the maps' baked light was made for, 180 is the Classic direction. The sun turns with it: its shadow map, the terrain's slope shading and the models' light all follow, each keeping the offset the map's baked light has from that sun, so at 135 every map looks as it always did |
+| `dynamic.physicalFalloff` | 0.5 | 0 | 0–1 | how point lights fade: 0 the terrain light's linear fade over the horizontal distance, 1 inverse-square over the full distance, height included, ending smoothly at the light's reach; in between, a blend. Ground, models and the point-light shadows' strength all fade the same way; lights baked into the ground's vertex colour (beyond the per-pixel ones) keep the linear fade |
 | `bloom.strength` | 1.0 (Icarus 0.3) | 0.6 | 0–2 | how strong the halo around light effects is |
 | `bloom.levelFalloff` | 0.6 | 0.5 | 0.25–1 | how wide the halo spreads |
 | `grading.strength` | 1 | 1 | 0–1 | how much of a map's grading table applies; 0 grades nothing while the bloom stays |
@@ -281,7 +283,7 @@ Shorter forms of `$look set`: `$lighting rim <v>`, `$lighting specular <v>`,
 `$lighting diffuse <scale> <ambient> <floor>`, `$lightmood knee <k>`,
 `$dynlights wrap <w>`, `$dynlights smooth <s>`,
 `$dynlights spell <gain> <range> <fade>`, `$dynlights cap <c>`,
-`$dynlights reach <cells>`, `$dynlights shadow <opacity>`, `$dynlights shadowangle <degrees>`, `$dynlights shadowlights <n>`, `$bloom falloff <f>`, `$bloom <strength>`, `$ao <strength>`, `$ao radius <r>`, `$sun <strength>`, `$sun softness <f>`, `$sun resolution <texels>`, `$dynlights flatsun <f>`, `$clouds <strength>`, `$clouds scale <units>`, `$clouds speed <units/s>`, `$clouds cover <f>`, `$sky <f>`, `$rim sun <f>`.
+`$dynlights reach <cells>`, `$dynlights shadow <opacity>`, `$dynlights falloff <f>`, `$dynlights shadowangle <degrees>`, `$dynlights shadowlights <n>`, `$bloom falloff <f>`, `$bloom <strength>`, `$ao <strength>`, `$ao radius <r>`, `$sun <strength>`, `$sun softness <f>`, `$sun resolution <texels>`, `$dynlights flatsun <f>`, `$clouds <strength>`, `$clouds scale <units>`, `$clouds speed <units/s>`, `$clouds cover <f>`, `$sky <f>`, `$rim sun <f>`.
 The DevEditor has the same values in its Look panel.
 
 Feature overrides, to compare one feature on and off. They last for the

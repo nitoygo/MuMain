@@ -1132,6 +1132,12 @@
   <data name="Tuning Shine Concentration Help" xml:space="preserve">
     <value>How small the metal highlight is. Higher is a smaller, sharper highlight.</value>
   </data>
+  <data name="Tuning Physical Light Falloff" xml:space="preserve">
+    <value>Physical light falloff</value>
+  </data>
+  <data name="Tuning Physical Light Falloff Help" xml:space="preserve">
+    <value>How real point lights fade: 0% the classic straight fade over the ground, 100% bright near the light and dimming with the square of the distance, height included, ending smoothly at its reach.</value>
+  </data>
   <data name="Tuning Skill Intensity" xml:space="preserve">
     <value>Skill intensity</value>
   </data>

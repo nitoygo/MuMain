@@ -55,10 +55,21 @@ float SunVisibility(float3 worldPosition, float3 worldNormal)
 }
 
 // How much of a point light reaches a point `toLight` away from it: the terrain light's linear fade
-// over the horizontal distance.
+// over the horizontal distance, blended by lightingParameters.x towards inverse-square over the full
+// distance, which ends smoothly at the radius (mu::PointLightFalloff).
 float PointLightFalloff(float3 toLight, float radius)
 {
     const float horizontal = length(toLight.xy);
-    return horizontal < radius ? (radius - horizontal) / radius : 0.0;
+    if (horizontal >= radius)
+        return 0.0;
+    const float linearFade = (radius - horizontal) / radius;
+    if (lightingParameters.x <= 0.0)
+        return linearFade;
+    const float distanceSquared = dot(toLight, toLight);
+    const float core = 0.4 * radius;
+    const float ratio = distanceSquared / (radius * radius);
+    const float window = saturate(1.0 - ratio * ratio);
+    const float inverseSquare = core * core / (distanceSquared + core * core) * window * window;
+    return lerp(linearFade, inverseSquare, lightingParameters.x);
 }
 #endif

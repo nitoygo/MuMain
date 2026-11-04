@@ -38,6 +38,9 @@ struct SceneLighting
     // Diffuse-lit colours above this roll off towards 1 instead of being cut off there (the
     // light mood's highlight shoulder); 1 is the Classic cut-off.
     float highlightKnee = 1.0f;
+    // How point lights fade: 0 linearly over the horizontal distance, 1 inverse-square over the full
+    // distance (PointLightFalloff).
+    float physicalFalloff = 0.0f;
     float rimStrength = kDefaultRimStrength;
     float rimPower = kDefaultRimPower;
     // Multiplies every item model's declared specular strength; 0 turns highlights off.
@@ -90,7 +93,7 @@ struct SceneLightingUniform
     float cameraPosition[4];     // xyz world space, w unused
     float sunViewProjection[16]; // column-major, world to the sun shadow map's clip space
     float sunShadowParameters[4]; // darkness (0: no shadow map), softness in texels, 1 / map size, texel size
-    float lightingParameters[4];  // unused, terrain sunlight grid bound, unused, unused
+    float lightingParameters[4];  // physical falloff, terrain sunlight grid bound, unused, unused
     float cloudParameters[4];     // strength (0: no clouds), 1 / pattern size, sky cover, unused
     float cloudOffset[4];         // xy: drift plus the sun's slant through the clouds, zw unused
     float skyFill[4];             // rgb: the sky's tint of the shade, w: how far shade takes it
@@ -150,6 +153,10 @@ static_assert(offsetof(DynamicLightsUniform, wrap) == sizeof(std::uint32_t));
 static_assert(offsetof(DynamicLightsUniform, positionAndRadius) == 1 * kSceneLightingRegisterSize);
 static_assert(offsetof(DynamicLightsUniform, color) == (1 + kMaxDynamicLights) * kSceneLightingRegisterSize);
 static_assert(sizeof(DynamicLightsUniform) == (1 + 2 * kMaxDynamicLights) * kSceneLightingRegisterSize);
+
+// How much of a point light reaches a point `toLight` away from it, `physical` as
+// SceneLighting::physicalFalloff; PointLightFalloff() in dynamic_lighting.hlsli.
+[[nodiscard]] float PointLightFalloff(const float (&toLight)[3], float radius, float physical);
 
 // Enhanced fog: amount = 1 - exp(-(density * max(depth - start, 0))^2). The density makes the
 // amount reach kEnhancedFogCoverageAtEnd at the fog end, so Enhanced fog is clear before the

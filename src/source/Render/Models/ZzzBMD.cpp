@@ -2663,7 +2663,8 @@ void TakeShadowLight(Render::ModelDrawing::ShadowDraw& draw)
         const auto maxCasters =
             static_cast<std::size_t>(Render::Look::Value(Data::Maps::LookValue::GroundShadowLights));
         const Render::Lighting::LightShadowCasters casters = Render::Lighting::SelectLightShadowCasters(
-            worldLights.Selection().uniform, {draw.bodyOrigin[0], draw.bodyOrigin[1], draw.bodyOrigin[2]}, maxCasters);
+            worldLights.Selection().uniform, {draw.bodyOrigin[0], draw.bodyOrigin[1], draw.bodyOrigin[2]}, maxCasters,
+            Render::Look::Value(Data::Maps::LookValue::DynamicPhysicalFalloff));
         constexpr float HalfTurn = 3.14159265358979f;
         for (std::size_t i = 0; i < casters.count; ++i)
         {

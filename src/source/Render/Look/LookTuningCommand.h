@@ -45,6 +45,7 @@
 //   $sun resolution <texels>       sun.resolution
 //   $sun <v>                       sun.shadow
 //   $dynlights flatsun <f>         dynamic.flatSunShadow
+//   $dynlights falloff <f>         dynamic.physicalFalloff
 namespace Render::Look
 {
 

@@ -78,6 +78,8 @@ ControlTexts TextsOf(TuningControlId id)
         return {I18N::Game::TuningSunShadowSoftness, I18N::Game::TuningSunShadowSoftnessHelp};
     case TuningControlId::SunShadowResolution:
         return {I18N::Game::TuningSunShadowResolution, I18N::Game::TuningSunShadowResolutionHelp};
+    case TuningControlId::PhysicalFalloff:
+        return {I18N::Game::TuningPhysicalLightFalloff, I18N::Game::TuningPhysicalLightFalloffHelp};
     case TuningControlId::Wrap:
         return {I18N::Game::TuningLightWrap, I18N::Game::TuningLightWrapHelp};
     case TuningControlId::MapSmoothing:

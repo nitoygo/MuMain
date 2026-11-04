@@ -71,6 +71,7 @@ void SubmitSceneLighting()
     lighting.cameraPosition[2] = g_Camera.Position[2];
     Render::Lighting::ApplyTuning(lighting);
     lighting.highlightKnee = Render::Lighting::LightMood::Active().highlightKnee;
+    lighting.physicalFalloff = Render::Look::Value(Data::Maps::LookValue::DynamicPhysicalFalloff);
     const std::optional<Render::Lighting::FrameSunDirections> sun = Render::Lighting::FrameSun();
     if (Render::Lighting::SunShadowsActive() && Hero && sun)
     {

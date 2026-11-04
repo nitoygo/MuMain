@@ -73,6 +73,8 @@ const SpecRow Spec[] = {
      TuningUnit::Seconds, TuningZero::Immediate},
     {TuningControlId::EffectRangeMax, TuningGroup::DynamicLights, true, LookValue::DynamicEffectRangeMax, 0, 16, 1,
      TuningUnit::Cells, TuningZero::NoCap},
+    {TuningControlId::PhysicalFalloff, TuningGroup::DynamicLights, true, LookValue::DynamicPhysicalFalloff, 0, 1, 0.05,
+     TuningUnit::Percent, TuningZero::Plain},
     {TuningControlId::MoodStrength, TuningGroup::LightMood, false, std::nullopt, 0, 100, 1, TuningUnit::Percent,
      TuningZero::Plain},
     {TuningControlId::BloomStrength, TuningGroup::PostProcessing, false, LookValue::BloomStrength, 0, 2, 0.05,
@@ -122,7 +124,7 @@ Data::Maps::LookProfileData ShippedLikeProfile()
 
 TEST_CASE("the 33 tuning controls have the specified bounds, steps, units and placement [render][look][tuning]")
 {
-    REQUIRE(Render::Look::TuningControlCount == 33);
+    REQUIRE(Render::Look::TuningControlCount == 34);
     REQUIRE(std::size(Spec) == Render::Look::TuningControlCount);
     std::set<LookValue> covered;
     for (const SpecRow& row : Spec)
