@@ -113,8 +113,10 @@ good. What some ends mean:
   once instead of easing it.
 - A Skill intensity of 0 removes the light skills cast on models and the
   ground; the skill effects themselves are still drawn. Skill intensity is not
-  the only source of light during a fight: map lights, and the darker map
-  light's own boost of every light (Mood strength), add to it.
+  the only source of light during a fight: map lights add to it, and a skill's
+  final brightness is the effect's own intensity × Skill intensity × the darker
+  map light's `dynamicGain` (1.7 at full Mood strength). The shipped 0.5× is
+  therefore about 0.85× an effect's own light.
 - A Colour grading strength of 0 % applies no grading at all while the bloom
   stays on.
 - A Mood strength of 0 % is the map's original light; the rest of the Enhanced

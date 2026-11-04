@@ -1142,7 +1142,7 @@
     <value>Skill intensity</value>
   </data>
   <data name="Tuning Skill Intensity Help" xml:space="preserve">
-    <value>Brightness of the light skills and effects cast on models and the ground, not of the skill sprites themselves: 0 removes only their light. Map lights and the darker map light also add to the total.</value>
+    <value>Brightness of the light skills and effects cast on models and the ground, not of the skill sprites themselves: 0 removes only their light. The final brightness is the effect's own intensity times this value times the darker map light's boost (1.7× by default), and map lights also add to the total.</value>
   </data>
   <data name="Tuning Skill Radius" xml:space="preserve">
     <value>Skill radius</value>
