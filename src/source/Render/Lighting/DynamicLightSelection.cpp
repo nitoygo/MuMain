@@ -56,20 +56,15 @@ void PackLight(const DynamicLight& light, std::size_t slot, mu::DynamicLightsUni
 }
 } // namespace
 
-float ContributionAt(const DynamicLight& light, const float (&position)[3])
+float ContributionAt(const DynamicLight& light, const float (&position)[3], float physicalFalloff)
 {
-    if (light.radius <= 0.f)
-    {
-        return 0.f;
-    }
-    const float distance = std::sqrt(HorizontalDistanceSquared(light, position));
-    const float falloff = std::max((light.radius - distance) / light.radius, 0.f);
-    const float brightness =
-        std::max(light.color[0], 0.f) + std::max(light.color[1], 0.f) + std::max(light.color[2], 0.f);
-    return brightness * falloff;
+    const float toLight[3] = {light.position[0] - position[0], light.position[1] - position[1],
+                              light.position[2] - position[2]};
+    return LightBrightness(light.color) * mu::PointLightFalloff(toLight, light.radius, physicalFalloff);
 }
 
-DynamicLightSelection SelectDynamicLights(std::span<const DynamicLight> lights, const float (&reference)[3])
+DynamicLightSelection SelectDynamicLights(std::span<const DynamicLight> lights, const float (&reference)[3],
+                                          float physicalFalloff)
 {
     // Main-thread, once per frame: a reused buffer instead of a per-frame allocation.
     thread_local std::array<Candidate, DynamicLightList::kCapacity> candidates;
@@ -81,7 +76,7 @@ DynamicLightSelection SelectDynamicLights(std::span<const DynamicLight> lights, 
         {
             continue;
         }
-        candidates[candidateCount++] = {ContributionAt(lights[i], reference),
+        candidates[candidateCount++] = {ContributionAt(lights[i], reference, physicalFalloff),
                                         HorizontalDistanceSquared(lights[i], reference), static_cast<std::uint32_t>(i)};
     }
 
@@ -102,9 +97,10 @@ DynamicLightSelection SelectDynamicLights(std::span<const DynamicLight> lights, 
 }
 
 DynamicLightSelection SelectDynamicLights(const DynamicLightSelection& pinned,
-                                          std::span<const DynamicLight> laterLights, const float (&reference)[3])
+                                          std::span<const DynamicLight> laterLights, const float (&reference)[3],
+                                          float physicalFalloff)
 {
-    const DynamicLightSelection later = SelectDynamicLights(laterLights, reference);
+    const DynamicLightSelection later = SelectDynamicLights(laterLights, reference, physicalFalloff);
     DynamicLightSelection selection = pinned;
     const std::size_t pinnedCount = pinned.uniform.lightCount;
     const std::size_t added = std::min<std::size_t>(later.uniform.lightCount, mu::kMaxDynamicLights - pinnedCount);

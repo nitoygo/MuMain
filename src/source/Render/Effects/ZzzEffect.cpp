@@ -27,6 +27,7 @@
 #include "UI/Core/WindowSystem.h"
 #include "Engine/Object/ZzzInterface.h"
 #include "Scenes/MainScene.h"
+#include "Data/GameData/EffectData/EffectTypeCatalogue.h"
 #include "Render/Lighting/DynamicLightHistory.h"
 
 PARTICLE  Particles[MAX_PARTICLES];
@@ -7686,7 +7687,7 @@ void MoveEffects()
         OBJECT* o = &Effects[i];
         if (o->Live)
         {
-            const Render::Lighting::EffectLightScope effectLight(o->Type);
+            const Render::Lighting::EffectLightScope effectLight(g_EffectTypeCatalogue.GetDynamicLight(o->Type));
             MoveEffect(o, i);
         }
     }

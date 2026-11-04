@@ -18,7 +18,7 @@ public:
     // Pins the selection SelectDynamicLights makes of `lights` at `reference`, all of them world lights
     // (worldLightCount), and marks the list,
     // so the lights added after it are told apart. A second call in the frame keeps the first pin.
-    void Pin(DynamicLightList& lights, const float (&reference)[3]);
+    void Pin(DynamicLightList& lights, const float (&reference)[3], float physicalFalloff = 0.f);
 
     [[nodiscard]] bool IsPinned() const
     {

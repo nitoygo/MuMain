@@ -10,13 +10,13 @@ void WorldDynamicLights::Clear()
     m_pinned = false;
 }
 
-void WorldDynamicLights::Pin(DynamicLightList& lights, const float (&reference)[3])
+void WorldDynamicLights::Pin(DynamicLightList& lights, const float (&reference)[3], float physicalFalloff)
 {
     if (m_pinned)
     {
         return;
     }
-    m_selection = SelectDynamicLights(lights.Lights(), reference);
+    m_selection = SelectDynamicLights(lights.Lights(), reference, physicalFalloff);
     m_selection.uniform.worldLightCount = m_selection.uniform.lightCount;
     lights.Mark();
     m_pinned = true;
