@@ -15,6 +15,7 @@
 #include "Engine/Object/ZzzInterface.h"
 #include "WindowsConsole.h"
 
+#include "Render/Effects/PuddleReflection.h"
 #include "Render/Lighting/DynamicLightHistory.h"
 #include "Render/PostProcessing/PostProcessingSetting.h"
 #include "Render/Look/LookPresetSetting.h"
@@ -133,6 +134,22 @@ bool CheckDeveloperLookCommand(const std::wstring& command)
         return true;
     }
     return false;
+}
+
+// "$puddle on|off": the water and its reflection, to compare the look and the cost.
+bool CheckPuddleCommand(const std::wstring& command)
+{
+    if (!command.starts_with(L"$puddle"))
+    {
+        return false;
+    }
+    if (command != L"$puddle on" && command != L"$puddle off")
+    {
+        mu::log::Get("render")->warn("{}: not understood (on or off)", Core::Text::ToUtf8(command.c_str()));
+        return true;
+    }
+    Render::PuddleReflection::SetOn(command == L"$puddle on");
+    return true;
 }
 #endif
 } // namespace
@@ -341,7 +358,7 @@ bool CmuConsoleDebug::CheckCommand(const std::wstring& strCommand)
     }
 
 #if defined(MU_ENABLE_CONTROL_SOCKET) || defined(_EDITOR)
-    if (CheckDeveloperLookCommand(strCommand))
+    if (CheckDeveloperLookCommand(strCommand) || CheckPuddleCommand(strCommand))
     {
         return true;
     }

@@ -454,3 +454,12 @@ mu_add_test(
         ${CMAKE_SOURCE_DIR}/src/source/Render/Sprites/GlobalBitmapLoad.cpp
     LINK_LIBS MuClient
 )
+
+mu_add_test(
+    NAME test_puddle_reflection
+    SOURCES
+        test_puddle_reflection.cpp
+        ${CMAKE_SOURCE_DIR}/src/source/App/Platform/Windows/Winmain.cpp
+    LINK_LIBS
+        MuClient
+)

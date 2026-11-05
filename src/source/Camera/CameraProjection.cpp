@@ -5,6 +5,7 @@
 #include "Render/Renderer/MuRenderer.h"
 #include "UI/Scaling/UITransform.h"
 
+#include <algorithm>
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 
@@ -47,6 +48,22 @@ void CameraProjection::UpdateView(CameraState& state, int x, int y, int width, i
     state.PerspectiveY = tanf(fovRad) / (float)(height / 2);
 }
 
+static void LoadViewMatrix(const CameraState& state)
+{
+    float view[16] = {};
+    for (int i = 0; i < 3; i++)
+    {
+        for (int j = 0; j < 4; j++)
+        {
+            view[j * 4 + i] = state.Matrix[i][j];
+        }
+    }
+    view[15] = 1.f;
+    auto& renderer = mu::GetRenderer();
+    renderer.SetMatrixMode(GL_MODELVIEW);
+    renderer.LoadMatrix(view);
+}
+
 void CameraProjection::ApplyView(const CameraState& state, int width, int height)
 {
     width = std::max(width, 1);
@@ -57,18 +74,36 @@ void CameraProjection::ApplyView(const CameraState& state, int width, int height
     renderer.LoadIdentity();
     gluPerspective(state.FOV, static_cast<float>(width) / height, state.ViewNear,
                    state.ViewFar * RENDER_DISTANCE_MULTIPLIER);
+    LoadViewMatrix(state);
+}
 
-    float view[16] = {};
-    for (int i = 0; i < 3; i++)
-    {
-        for (int j = 0; j < 4; j++)
-        {
-            view[j * 4 + i] = state.Matrix[i][j];
-        }
-    }
-    view[15] = 1.f;
-    renderer.SetMatrixMode(GL_MODELVIEW);
-    renderer.LoadMatrix(view);
+void CameraProjection::ApplyMirroredView(const CameraState& state, int width, int height, float planeZ)
+{
+    width = std::max(width, 1);
+    height = std::max(height, 1);
+
+    auto& renderer = mu::GetRenderer();
+    renderer.SetMatrixMode(GL_PROJECTION);
+    renderer.LoadIdentity();
+    // A mirror turns every triangle's winding round, and the renderer has no setting to cull the other side. Turning
+    // the image upside down turns it back; whoever samples the target flips it again.
+    renderer.Scale(1.f, -1.f, 1.f);
+    gluPerspective(state.FOV, static_cast<float>(width) / height, state.ViewNear,
+                   state.ViewFar * RENDER_DISTANCE_MULTIPLIER);
+    LoadViewMatrix(state);
+    float mirror[16];
+    MirrorMatrix(planeZ, mirror);
+    renderer.MultMatrix(mirror);
+}
+
+void CameraProjection::MirrorMatrix(float planeZ, float out[16])
+{
+    std::fill_n(out, 16, 0.f);
+    out[0] = 1.f;
+    out[5] = 1.f;
+    out[10] = -1.f;
+    out[14] = 2.f * planeZ;
+    out[15] = 1.f;
 }
 
 float CameraProjection::WorldAspectRatio()

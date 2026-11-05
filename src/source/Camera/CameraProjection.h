@@ -26,6 +26,16 @@ public:
     static void ApplyView(const CameraState& state, int width, int height);
 
     /**
+     * @brief ApplyView mirrored across the height planeZ, with the image upside down
+     */
+    static void ApplyMirroredView(const CameraState& state, int width, int height, float planeZ);
+
+    /**
+     * @brief Mirrors points across the height planeZ, as a column-major matrix
+     */
+    static void MirrorMatrix(float planeZ, float out[16]);
+
+    /**
      * @brief Sets OpenGL viewport with Y-axis flip
      *
      * Takes pixel coordinates directly rather than reference coordinates.

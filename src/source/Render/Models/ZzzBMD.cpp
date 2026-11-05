@@ -48,6 +48,7 @@
 #include "Render/Renderer/RenderUtils.h"
 #include "Render/Terrain/TerrainHeightGrid.h"
 #include "Core/Utilities/FrameProfiler.h"
+#include "Render/Effects/PuddleReflection.h"
 #include "Scenes/MainScene.h"
 #include "Render/Lighting/LightMoodSetting.h"
 
@@ -3079,7 +3080,8 @@ void BMD::RenderBodyShadow(const int blendMesh, const int hiddenMesh, const int 
 
 void BMD::DrawShadow(const Render::ModelDrawing::ShadowDraw& draw) const
 {
-    if ((g_pOption != nullptr && !g_pOption->GetRenderAllEffects()) || IsBodyShadowsDisabledDebug())
+    if ((g_pOption != nullptr && !g_pOption->GetRenderAllEffects()) || IsBodyShadowsDisabledDebug() ||
+        Render::PuddleReflection::IsCapturing())
     {
         return;
     }

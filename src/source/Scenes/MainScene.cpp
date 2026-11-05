@@ -45,6 +45,7 @@
 #include "Camera/CameraMode.h"
 #include "Core/Input/ImeInput.h"
 #include "Render/Drawing/DeferredDraws.h"
+#include "Render/Effects/PuddleReflection.h"
 #include "Render/Drawing/DrawCallLog.h"
 #include "Render/Drawing/LegacyCalls.h"
 
@@ -603,6 +604,8 @@ static void RenderGameWorldPass(BYTE& byWaterMap, int width, int height)
         RenderObjects();
     }
 
+    Render::PuddleReflection::DrawPuddles();
+
     if (renderEffects)
     {
         RenderEffectShadows();
@@ -835,6 +838,7 @@ bool RenderMainScene()
     int width, height;
     BYTE byWaterMap;
 
+    Render::PuddleReflection::CaptureReflection();
     SetupMainSceneViewport(width, height, byWaterMap);
     RenderGameWorld(byWaterMap, width, height);
 
