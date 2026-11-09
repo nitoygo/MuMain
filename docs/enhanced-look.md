@@ -298,6 +298,10 @@ that takes them up. They are not claims of full 3D local-light occlusion.
   brightness is compressed belongs to the colour and HDR conventions in Phase 3.
 - **Ambient occlusion is tied to the bloom switch.** Turning off "Bloom and colour grading" removes ambient occlusion
   too, until Phase 4 separates them.
+- **Direct3D 12 can crash or hang the GPU.** With Enhanced on, a frame can need more sampler descriptors than one
+  heap of SDL's D3D12 backend holds (2048), and SDL's switch to a new heap mid-frame is faulty: the client may exit, or
+  Windows may reset the GPU. Vulkan, the default on Windows, is not affected. Use `[Render] Backend=vulkan` (or
+  `default`) until this is resolved.
 
 ## Developer commands
 
