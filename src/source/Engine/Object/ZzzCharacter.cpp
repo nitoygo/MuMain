@@ -29,6 +29,7 @@
 #include "Engine/Object/AnimationTaskPool.h"
 #include "Engine/Object/CharacterAttachments.h"
 #include "Engine/Object/PlayerActionState.h"
+#include "Render/Look/LookPresetSetting.h"
 #include "Render/Terrain/ZzzLodTerrain.h"
 #include "Render/Textures/ZzzTexture.h"
 #include "Engine/AI/ZzzAI.h"
@@ -839,6 +840,7 @@ int AttackHand = 0;
 
 void SetAttackSpeed()
 {
+    if (const char* forced = std::getenv("MU_ATTACK_SPEED")) { CharacterAttribute->AttackSpeed = CharacterAttribute->MagicSpeed = static_cast<WORD>(std::atoi(forced)); } // TEMP
 #ifndef RGZ_FIX_ATTACK_SPEED
     float AttackSpeed1 = CharacterAttribute->AttackSpeed * 0.004f;
     float MagicSpeed1 = CharacterAttribute->MagicSpeed * 0.004f;
@@ -9611,6 +9613,27 @@ void RenderChristmasCompanions(const CHARACTER* c, vec3_t light, bool Translate,
     }
 }
 
+namespace
+{
+// Enhanced: a player attacking faster than this many animation keys per reference tick leaves afterimages, full
+// strength at twice the speed; they trail by this share of a tick.
+constexpr float SpeedAfterimageStart = 2.f;
+constexpr float SpeedAfterimageSpan = 0.5f;
+
+float SpeedAfterimageStrength(const OBJECT& o)
+{
+    if (o.Type != MODEL_PLAYER || !Engine::Object::IsAttackAction(o.CurrentAction) ||
+        Render::Look::ActiveLookPreset() != LookPreset::Enhanced)
+    {
+        return 0.f;
+    }
+    const float keysPerTick = Models[o.Type].Actions[o.CurrentAction].PlaySpeed;
+    static const bool debugGhosts = std::getenv("MU_GHOST_DEBUG") != nullptr; // TEMP
+    if (debugGhosts) return 3.f; // TEMP
+    return std::clamp((keysPerTick - SpeedAfterimageStart) / SpeedAfterimageStart, 0.f, 1.f);
+}
+} // namespace
+
 void RenderCharacter(const CHARACTER* c, const OBJECT* o, int Select)
 {
     if (g_isCharacterBuff(o, eBuff_CrywolfNPCHide))
@@ -10200,6 +10223,11 @@ void RenderCharacter(const CHARACTER* c, const OBJECT* o, int Select)
                             {
                                 g_CMonkSystem.DarksideRendering(c, p, bodyLight, Translate, Select);
                             }
+                        }
+                        else if (const float strength = SpeedAfterimageStrength(*o); strength > 0.f)
+                        {
+                            const float keys = Models[o->Type].Actions[o->CurrentAction].PlaySpeed * SpeedAfterimageSpan;
+                            RenderCharacter_AfterImage(c, p, bodyLight, Translate, Select, keys, keys * 0.5f, strength);
                         }
                         else
                         {

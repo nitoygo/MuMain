@@ -3435,7 +3435,7 @@ void RenderObject_AfterImage(const OBJECT* o, bool Translate, int Select, int Ex
 }
 
 void RenderCharacter_AfterImage(const CHARACTER* pCha, const PART_t* pPart, vec3_t light, bool Translate, int Select,
-                                float AniInterval1, float AniInterval2)
+                                float AniInterval1, float AniInterval2, float alphaScale)
 {
     const OBJECT* pObj = &pCha->Object;
     const int Type = pPart->Type;
@@ -3459,7 +3459,7 @@ void RenderCharacter_AfterImage(const CHARACTER* pCha, const PART_t* pPart, vec3
         VectorSubtract(pObj->Position, pObj->StartPosition, travel);
         VectorScale(travel, frame / keys, travel);
         VectorAdd(pObj->StartPosition, travel, ghost.Position);
-        ghost.Alpha = g.alpha;
+        ghost.Alpha = g.alpha * alphaScale;
         ghost.AnimationFrame = frame;
         Calc_ObjectAnimation(&ghost, Translate, Select);
         RenderPartObject(&ghost, Type, pPart, light, ghost.Alpha, pPart->Level, pPart->ExcellentFlags,

@@ -71,7 +71,8 @@ void UpdateDrawnObjectHold(OBJECT* o);
 void RefreshStunSkull(OBJECT* o, vec3_t Light);
 void RenderObject_AfterImage(const OBJECT* o, bool Translate = false, int Select = 0, int ExtraMon = 0);
 void RenderCharacter_AfterImage(const CHARACTER* pCha, const PART_t* pPart, vec3_t light, bool Translate = false,
-                                int Select = 0, float AniInterval1 = 1.4f, float AniInterval2 = 0.7f);
+                                int Select = 0, float AniInterval1 = 1.4f, float AniInterval2 = 0.7f,
+                                float alphaScale = 1.f);
 void RenderObject_AfterCharacter(const OBJECT* o, bool Translate = false, int Select = 0, int ExtraMon = 0);
 void Draw_RenderObject_AfterCharacter(const OBJECT* o, bool Translate = false, int Select = 0, int ExtraMon = 0);
 void RenderObjects_AfterCharacter();

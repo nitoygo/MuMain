@@ -527,6 +527,7 @@ std::string WorldStateObject()
     state["map"] = gMapManager.WorldActive;
     state["map_name"] = Core::Text::ToUtf8(gMapManager.GetMapName(gMapManager.WorldActive));
     state["position"] = json::array({Hero->PositionX, Hero->PositionY});
+    state["dbg_action"] = json::array({Hero->Object.CurrentAction, Hero->Object.AnimationFrame, Models[Hero->Object.Type].Actions[Hero->Object.CurrentAction].PlaySpeed, Models[Hero->Object.Type].Actions[Hero->Object.CurrentAction].NumAnimationKeys, Models[MODEL_PLAYER].Actions[PLAYER_ATTACK_SWORD_RIGHT1].PlaySpeed, Hero->CurrentSkill, Hero->CurrentSkill >= 0 && Hero->CurrentSkill < MAX_SKILLS ? static_cast<int>(CharacterAttribute->Skill[Hero->CurrentSkill]) : -1}); // TEMP
     state["alive"] = Hero->Dead <= 0;
     // Attacks are refused inside a safe zone; a scenario needs to know.
     state["safe_zone"] = Hero->SafeZone;
