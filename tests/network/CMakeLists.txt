@@ -111,6 +111,7 @@ mu_add_test(
     NAME test_login_request
     SOURCES
         test_login_request.cpp
+        ${CMAKE_SOURCE_DIR}/tests/data/UserConfigFile.cpp
     LINK_LIBS
         MuClient
 )

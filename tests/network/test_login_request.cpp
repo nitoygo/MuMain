@@ -1,5 +1,9 @@
+#include "stdafx.h"
+
 #include "doctest.h"
 
+#include "../data/UserConfigFile.h"
+#include "Data/GameConfig/GameConfig.h"
 #include "Network/Auth/LoginPackets.h"
 #include "Network/Auth/LoginRequest.h"
 
@@ -141,6 +145,11 @@ TEST_CASE("A relogin fails when the ticket source has no fresh ticket [network][
 
 TEST_CASE("The default ticket source offers no providers and gives no tickets [network][login]")
 {
+    // Without a SiteUrl or a saved sign-in, whatever the developer's own config.ini says.
+    const UserConfigFile config;
+    config.Write("[CONNECTION SETTINGS]\nSiteUrl=\n");
+    GameConfig::GetInstance().Load();
+
     ILoginTicketSource& source = LoginTicketSource();
     CHECK(source.Providers().empty());
 
