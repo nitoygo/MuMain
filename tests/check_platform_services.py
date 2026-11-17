@@ -21,7 +21,7 @@ SKIPPED_DIRS = {"ThirdParty"}
 ALLOWED = {"src/source/Core/Platform/Dpapi.h"}
 SERVICE_HEADERS = {"src/source/Core/Platform/PlatformCrypto.h", "src/source/Core/Utilities/CpuUsage.h",
                    "src/source/GameShop/FileDownloader/ShopDownload.h", "src/source/Render/Renderer/GpuDevice.h",
-                   "src/source/Core/Platform/UserFolder.h"}
+                   "src/source/Core/Platform/UserFolder.h", "src/source/Network/Auth/LoginTicketSource.h"}
 
 PLATFORM_USE = re.compile(r"^\s*#\s*include\s*[<\"](?:openssl/|curl/|(?:Core/Platform/)?[Dd]papi\.h|wincrypt\.h|"
                           r"sys/resource\.h)"

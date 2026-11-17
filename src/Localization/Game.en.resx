@@ -1615,6 +1615,14 @@
     <value>Only save the password on a PC you trust.</value>
     <comment>Login screen: warning under the remember-password checkbox.</comment>
   </data>
+  <data name="LoginSignInWith" xml:space="preserve">
+    <value>Or sign in with</value>
+    <comment>Login screen: heading over the sign-in provider buttons (Discord, ...).</comment>
+  </data>
+  <data name="LoginSignInFailed" xml:space="preserve">
+    <value>Signing in failed. Please try again.</value>
+    <comment>Login screen: a sign-in with a provider (Discord, ...) did not give a login.</comment>
+  </data>
   <data name="LoginSavePasswordWarningTitle" xml:space="preserve">
     <value>WARNING!!!</value>
     <comment>Remember-password confirmation dialog: header.</comment>

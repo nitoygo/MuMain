@@ -108,6 +108,14 @@ mu_add_test(
 )
 
 mu_add_test(
+    NAME test_login_request
+    SOURCES
+        test_login_request.cpp
+    LINK_LIBS
+        MuClient
+)
+
+mu_add_test(
     NAME test_login_scene_reconnect
     SOURCES
         test_login_scene_reconnect.cpp

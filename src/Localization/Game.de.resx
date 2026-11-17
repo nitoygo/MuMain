@@ -1225,6 +1225,14 @@
     <value>Speichern Sie das Passwort nur auf einem PC, dem Sie vertrauen.</value>
     <comment>Login screen: warning under the remember-password checkbox.</comment>
   </data>
+  <data name="LoginSignInWith" xml:space="preserve">
+    <value>Oder anmelden mit</value>
+    <comment>Login screen: heading over the sign-in provider buttons (Discord, ...).</comment>
+  </data>
+  <data name="LoginSignInFailed" xml:space="preserve">
+    <value>Die Anmeldung ist fehlgeschlagen. Bitte versuchen Sie es erneut.</value>
+    <comment>Login screen: a sign-in with a provider (Discord, ...) did not give a login.</comment>
+  </data>
   <data name="LoginSavePasswordWarningTitle" xml:space="preserve">
     <value>WARNUNG!!!</value>
     <comment>Remember-password confirmation dialog: header.</comment>

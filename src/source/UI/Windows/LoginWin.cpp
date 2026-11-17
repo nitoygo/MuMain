@@ -24,6 +24,8 @@
 #include "UI/Core/WindowSystem.h"
 #include "UI/Dialogs/MessageBox.h"
 #include "UI/Windows/RememberPasswordPrompt.h"
+#include "UI/Windows/LoginProviderButtons.h"
+#include "Network/Auth/LoginPackets.h"
 
 #include "Network/Server/ServerListManager.h"
 
@@ -111,6 +113,12 @@ void CLoginWin::Create()
     m_RmlView.MarkDirty("username");
     m_RmlView.MarkDirty("password");
 
+    model.providers = Network::Auth::LoginTicketSource().Providers();
+    model.signInError.clear();
+    m_signInPending = false;
+    m_RmlView.MarkDirty("providers");
+    m_RmlView.MarkDirty("sign_in_error");
+
     // The password is only pre-filled and re-saved when the player previously
     // opted in on a trusted machine.
     m_bSavePasswordChecked = (m_RememberMe != 0) && GameConfig::GetInstance().GetSavePassword();
@@ -144,6 +152,9 @@ void CLoginWin::BindRmlModel(Rml::DataModelConstructor& c, LoginRmlModel& model)
     c.Bind("cancel_label", &model.cancelLabel);
     c.Bind("username", &model.username);
     c.Bind("password", &model.password);
+    c.Bind("sign_in_label", &model.signInLabel);
+    c.Bind("sign_in_error", &model.signInError);
+    UI::Login::BindProviderButtons(c, model.providers);
 
     c.BindEventCallback("login_ok_click",
         [this](Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&) { RmlClickOk(); });
@@ -153,6 +164,12 @@ void CLoginWin::BindRmlModel(Rml::DataModelConstructor& c, LoginRmlModel& model)
         [this](Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&) { RmlToggleRememberMe(); });
     c.BindEventCallback("login_toggle_save_password",
         [this](Rml::DataModelHandle, Rml::Event&, const Rml::VariantList&) { RmlToggleSavePassword(); });
+    c.BindEventCallback("login_provider_click",
+                        [this](Rml::DataModelHandle, Rml::Event&, const Rml::VariantList& arguments)
+                        {
+                            if (arguments.size() == 1)
+                                RmlClickProvider(arguments[0].Get<Rml::String>());
+                        });
 }
 
 void CLoginWin::OnRmlReloaded()
@@ -508,6 +525,7 @@ void CLoginWin::SyncRmlModel()
     syncLabel(&LoginRmlModel::trustWarning, "trust_warning", I18N::Game::LoginTrustWarning);
     syncLabel(&LoginRmlModel::okLabel, "ok_label", I18N::Game::OK);
     syncLabel(&LoginRmlModel::cancelLabel, "cancel_label", I18N::Game::Cancel);
+    syncLabel(&LoginRmlModel::signInLabel, "sign_in_label", I18N::Game::LoginSignInWith);
 }
 
 bool CLoginWin::UpdateMouseEvent()
@@ -562,10 +580,15 @@ void CLoginWin::RequestLogin()
 
 void CLoginWin::SubmitCredentials(const wchar_t* pszUsername, const wchar_t* pszPassword)
 {
-    if (CurrentProtocolState != RECEIVE_JOIN_SERVER_SUCCESS)
+    if (pszUsername == nullptr || pszPassword == nullptr)
         return;
 
-    if (pszUsername == nullptr || pszPassword == nullptr)
+    SubmitLoginRequest(Network::Auth::PasswordLogin{pszUsername, pszPassword});
+}
+
+void CLoginWin::SubmitLoginRequest(const Network::Auth::LoginRequest& request)
+{
+    if (CurrentProtocolState != RECEIVE_JOIN_SERVER_SUCCESS)
         return;
 
     // Put the login screen away before the request goes out. The manual path
@@ -575,33 +598,68 @@ void CLoginWin::SubmitCredentials(const wchar_t* pszUsername, const wchar_t* psz
     Show(false);
 
     // The game server may have dropped the idle login screen; log in once it is back.
-    const std::wstring username = pszUsername;
-    const std::wstring password = pszPassword;
-    const auto submitAgain = [username, password] { g_LoginWin.SubmitCredentials(username.c_str(), password.c_str()); };
+    const auto submitAgain = [request] { g_LoginWin.SubmitLoginRequest(request); };
     if (!LoginSceneReconnect::Instance().EnsureConnected(LoginServer::Game, submitAgain))
         return;
 
-    g_ConsoleDebug->Write(MCD_NORMAL, L"Login with the following account: %ls", pszUsername);
+    // A ticket names no account; the server knows it from the ticket.
+    const std::wstring account = Network::Auth::AccountName(request);
+    g_ConsoleDebug->Write(MCD_NORMAL, L"Login with the following account: %ls", account.c_str());
 
     g_ErrorReport.Write(L"> Login Request.\r\n");
-    g_ErrorReport.Write(L"> Try to Login \"%ls\"\r\n", pszUsername);
+    g_ErrorReport.Write(L"> Try to Login \"%ls\"\r\n", account.c_str());
 
     LogIn = 1;
     // The destination is a fixed-size global. The click path arrives here with
     // a string the input box already bounded, but this entry point is public:
     // anything longer is truncated rather than written past the end.
-    wcsncpy(LogInID, pszUsername, MAX_USERNAME_SIZE);
+    wcsncpy(LogInID, account.c_str(), MAX_USERNAME_SIZE);
     LogInID[MAX_USERNAME_SIZE] = L'\0';
     CurrentProtocolState = REQUEST_LOG_IN;
 
-    SocketClient->ToGameServer()->SendLogin(pszUsername, pszPassword, Version, Serial);
+    Network::Auth::SendLoginRequest(request, Network::Auth::GameServerLoginPackets());
 
-    // Keep the credentials in memory so auto-reconnect can re-login
-    // without prompting after an in-game disconnect.
-    ReconnectManager::Instance().CacheCredentials(pszUsername, pszPassword);
+    // Kept in memory so auto-reconnect can log in again without prompting after an in-game disconnect.
+    ReconnectManager::Instance().CacheLogin(request);
 
     g_pSystemLogBox->AddText(I18N::Game::VerifyingYourAccount, mu::ui::window::TYPE_SYSTEM_MESSAGE);
     g_pSystemLogBox->AddText(I18N::Game::PleaseWait, mu::ui::window::TYPE_SYSTEM_MESSAGE);
+}
+
+void CLoginWin::RmlClickProvider(const std::string& providerId)
+{
+    if (m_signInPending || CurrentProtocolState != RECEIVE_JOIN_SERVER_SUCCESS)
+        return;
+    if (UI::Login::RememberPasswordChoiceState() == UI::Login::RememberPasswordChoice::Pending)
+        return;
+
+    SetSignInError(L"");
+    m_signInPending = true;
+    Network::Auth::LoginTicketSource().Acquire(providerId, [this](const Network::Auth::LoginTicketResult& result)
+                                               { OnProviderTicket(result); });
+}
+
+void CLoginWin::OnProviderTicket(const Network::Auth::LoginTicketResult& result)
+{
+    m_signInPending = false;
+    if (!result.Succeeded())
+    {
+        // The source's reason is for the log; the player gets a plain retry hint.
+        g_ErrorReport.Write(L"> Provider sign-in failed: %hs\r\n", result.error.c_str());
+        SetSignInError(I18N::Game::LoginSignInFailed);
+        return;
+    }
+
+    SubmitLoginRequest(Network::Auth::TicketLogin{result.token});
+}
+
+void CLoginWin::SetSignInError(const wchar_t* text)
+{
+    const std::string utf8 = StringUtils::WideToNarrow(text);
+    if (m_RmlView.GetModel().signInError == utf8)
+        return;
+    m_RmlView.GetModel().signInError = utf8;
+    m_RmlView.MarkDirty("sign_in_error");
 }
 
 void CLoginWin::CancelLogin()

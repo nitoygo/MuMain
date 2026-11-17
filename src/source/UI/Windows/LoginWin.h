@@ -7,6 +7,10 @@
 
 #include "UI/RmlBridge/RmlThemedView.h"
 
+#include "Network/Auth/LoginRequest.h"
+
+#include <vector>
+
 namespace Rml { class ElementDocument; }
 
 // The login dialog: RmlUi (login.rml) renders everything, username/password entry included -- the
@@ -40,6 +44,8 @@ public:
     // credentials in config.ini. The manual path calls it after validating
     // what the player typed; automation calls it directly.
     void SubmitCredentials(const wchar_t* pszUsername, const wchar_t* pszPassword);
+    // The one send path for every login: a password or a ticket from a sign-in provider.
+    void SubmitLoginRequest(const Network::Auth::LoginRequest& request);
 
     // Error-recovery focus redirection (WSclient.cpp on connect, MsgWin.cpp per login-failure
     // reason). selectAll reproduces the native GiveFocus(TRUE) that pre-selected the text so a
@@ -64,6 +70,8 @@ public:
     void RmlClickCancel();
     void RmlToggleRememberMe();
     void RmlToggleSavePassword();
+    // A provider's sign-in button: asks the ticket source for a ticket, then logs in with it.
+    void RmlClickProvider(const std::string& providerId);
 
     // mu::ui::window::IObject
     bool Render() override;
@@ -97,6 +105,8 @@ protected:
 
 private:
     int FirstLoad = 0;
+    // A provider sign-in is running (the player may be in a browser); further clicks wait for it.
+    bool m_signInPending = false;
 
     // Shared by the immediate RmlUi callbacks and UpdateWhileActive()'s keyboard polling; each
     // re-checks the "remember password" prompt's live Pending state itself.
@@ -106,6 +116,8 @@ private:
     void PlayKeyClick(const char* button);
     void ApplyRememberMeChange();
     void ApplySavePasswordChange();
+    void OnProviderTicket(const Network::Auth::LoginTicketResult& result);
+    void SetSignInError(const wchar_t* text);
 
     struct LoginRmlModel
     {
@@ -120,6 +132,11 @@ private:
         Rml::String trustWarning;
         Rml::String okLabel;
         Rml::String cancelLabel;
+        Rml::String signInLabel;
+        Rml::String signInError;
+
+        // The target's sign-in providers; none hides their buttons.
+        std::vector<Network::Auth::LoginProvider> providers;
 
         // Two-way bound to #input_account/#input_password. RmlUi owns the edit buffers, caret,
         // selection, masking and IME; these carry the committed values that SubmitCredentials()

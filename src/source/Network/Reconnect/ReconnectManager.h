@@ -2,16 +2,18 @@
 
 #include <cstdint>
 #include <memory>
+#include <optional>
 
-#include "Core/Globals/_define.h"  // MAX_USERNAME_SIZE, MAX_PASSWORD_SIZE
+#include "Core/Globals/_define.h" // MAX_USERNAME_SIZE
+#include "Network/Auth/LoginRequest.h"
 
 class Connection;
 
 // Drives automatic reconnection after an in-game disconnect (issue #338).
 //
 // When the connection to the game server drops while playing, the client caches
-// the data needed to resume the session (game-server address, account
-// credentials, selected character) and replays the normal
+// the data needed to resume the session (game-server address, the login
+// request, selected character) and replays the normal
 // connect -> login -> character-list -> select-character -> join sequence,
 // trying to connect every few seconds until the server is back. Because the
 // server persists character state, re-entering the game restores the player
@@ -40,7 +42,7 @@ public:
 
     // Session cache, populated during normal play.
     void CacheServer(const wchar_t* ip, unsigned short port);
-    void CacheCredentials(const wchar_t* username, const wchar_t* password);
+    void CacheLogin(const Network::Auth::LoginRequest& request);
     void CacheCharacter(const wchar_t* characterName);
     void ClearSession();
     bool HasSession() const { return m_hasSession; }
@@ -90,6 +92,10 @@ private:
     void UpdateJoining();
     void UpdateRetrying();
 
+    // Logs in over the new connection once the request is ready (a ticket is renewed first).
+    void SendLogin();
+    void OnLoginReady(const Network::Auth::LoginRequest& request);
+
     // Background connection to the game server (keeps the game rendered while waiting).
     void StartStandby();
     void PollStandby();
@@ -107,7 +113,8 @@ private:
 
     wchar_t m_serverIp[256] = {};  // IPv4 literal or hostname
     unsigned short m_serverPort = 0;
-    wchar_t m_username[MAX_USERNAME_SIZE + 1] = {};
-    wchar_t m_password[MAX_PASSWORD_SIZE + 1] = {};
+    std::optional<Network::Auth::LoginRequest> m_login;
+    bool m_awaitingLogin = false; // asked the ticket source for a fresh ticket, not answered yet
+    bool m_loginFailed = false;   // the ticket source had none
     wchar_t m_characterName[MAX_USERNAME_SIZE + 1] = {};
 };

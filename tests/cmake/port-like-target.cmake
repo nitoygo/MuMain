@@ -15,7 +15,8 @@ set(MU_TARGET_ADAPTERS
   "GameShop/FileDownloader/Adapters/ShopDownloadUnavailable.cpp"
   "Core/Utilities/Adapters/CpuUsageUnavailable.cpp"
   "Render/Renderer/Adapters/GpuDeviceSdlChoice.cpp"
-  "Core/Utilities/Log/Adapters/LogSinksNone.cpp")
+  "Core/Utilities/Log/Adapters/LogSinksNone.cpp"
+  "Network/Auth/Adapters/LoginTicketSourceNone.cpp")
 set(MU_TARGET_DEPENDENCIES Cryptopp TurboJPEG)
 
 if(NOT MU_PORT_LIKE_EXECUTABLE)

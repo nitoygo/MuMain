@@ -9,7 +9,8 @@ set(MU_TARGET_ADAPTERS
   "GameShop/FileDownloader/Adapters/CurlShopDownload.cpp"
   "Core/Utilities/Adapters/CpuUsagePosix.cpp"
   "Render/Renderer/Adapters/GpuDeviceSdlChoice.cpp"
-  "Core/Utilities/Log/Adapters/LogSinksNone.cpp")
+  "Core/Utilities/Log/Adapters/LogSinksNone.cpp"
+  "Network/Auth/Adapters/LoginTicketSourceNone.cpp")
 set(MU_TARGET_DEPENDENCIES OpenSSL CURL Cryptopp TurboJPEG)
 set(MU_TARGET_SYSTEM_LIBRARIES
   "-framework AudioToolbox" "-framework AudioUnit" "-framework CoreAudio" "-framework CoreFoundation")

@@ -11,6 +11,7 @@
 #include "Scenes/CharacterScene.h"     // StartGame
 #include "Engine/Object/ZzzCharacter.h"// CharactersClient
 #include "UI/Windows/LoginWin.h"       // g_LoginWin
+#include "Network/Auth/LoginPackets.h"
 #include "MUHelper/MuHelper.h"         // MUHelper::g_MuHelper
 #include "UI/Chat/ChatMessages.h"
 #include "I18N/All.h"
@@ -30,8 +31,6 @@ constexpr int STEP_COUNT = 4;                  // progress-bar steps
 extern double WorldTime;
 extern int LogIn;
 extern wchar_t LogInID[MAX_USERNAME_SIZE + 1];
-extern BYTE Version[SIZE_PROTOCOLVERSION];
-extern BYTE Serial[SIZE_PROTOCOLSERIAL + 1];
 
 ReconnectManager& ReconnectManager::Instance()
 {
@@ -63,15 +62,9 @@ void ReconnectManager::CacheServer(const wchar_t* ip, unsigned short port)
     m_serverPort = port;
 }
 
-void ReconnectManager::CacheCredentials(const wchar_t* username, const wchar_t* password)
+void ReconnectManager::CacheLogin(const Network::Auth::LoginRequest& request)
 {
-    if (username == nullptr || password == nullptr)
-    {
-        return;
-    }
-
-    wcscpy_s(m_username, _countof(m_username), username);
-    wcscpy_s(m_password, _countof(m_password), password);
+    m_login = request;
 }
 
 void ReconnectManager::CacheCharacter(const wchar_t* characterName)
@@ -85,15 +78,14 @@ void ReconnectManager::CacheCharacter(const wchar_t* characterName)
 
     // A full session is only usable once we know the server, the account, and
     // the character to resume.
-    m_hasSession = m_serverIp[0] != L'\0' && m_username[0] != L'\0' && m_characterName[0] != L'\0';
+    m_hasSession = m_serverIp[0] != L'\0' && m_login.has_value() && m_characterName[0] != L'\0';
 }
 
 void ReconnectManager::ClearSession()
 {
     m_hasSession = false;
     m_serverIp[0] = L'\0';
-    m_username[0] = L'\0';
-    m_password[0] = L'\0';
+    m_login.reset();
     m_characterName[0] = L'\0';
 }
 
@@ -263,19 +255,20 @@ void ReconnectManager::UpdateConnecting()
         return;
     }
 
+    // Without a fresh ticket there is nothing to log in with; the player signs in again.
+    if (m_loginFailed)
+    {
+        Abort();
+        return;
+    }
+
     // The game server answers a fresh connection with its hello packet, which
     // ReceiveJoinServer turns into RECEIVE_JOIN_SERVER_SUCCESS (LogIn was reset
     // to 0 by the teardown, so it takes the login branch).
-    if (CurrentProtocolState == RECEIVE_JOIN_SERVER_SUCCESS)
+    if (CurrentProtocolState == RECEIVE_JOIN_SERVER_SUCCESS && !m_awaitingLogin)
     {
         g_LoginWin.Show(false);
-
-        LogIn = 1;
-        wcscpy_s(LogInID, _countof(LogInID), m_username);
-        CurrentProtocolState = REQUEST_LOG_IN;
-        SocketClient->ToGameServer()->SendLogin(m_username, m_password, Version, Serial);
-
-        EnterPhase(Phase::LoggingIn);
+        SendLogin();
         return;
     }
 
@@ -377,6 +370,38 @@ void ReconnectManager::UpdateRetrying()
     EnterPhase(Phase::Retrying);  // server not reachable this time; wait and retry
 }
 
+void ReconnectManager::SendLogin()
+{
+    m_awaitingLogin = true;
+    Network::Auth::PrepareRelogin(
+        *m_login, Network::Auth::LoginTicketSource(),
+        [this](const Network::Auth::LoginRequest& request) { OnLoginReady(request); },
+        [this](const std::string& error)
+        {
+            if (!m_awaitingLogin)
+                return;
+            g_ErrorReport.Write(L"Reconnect: no fresh login ticket: %hs\r\n", error.c_str());
+            // Aborted from Update(), where the teardown is safe; the callback may run elsewhere.
+            m_loginFailed = true;
+        });
+}
+
+void ReconnectManager::OnLoginReady(const Network::Auth::LoginRequest& request)
+{
+    // A late answer for an attempt that already timed out or was cancelled.
+    if (!m_awaitingLogin || m_phase != Phase::Connecting || !IsSocketAlive())
+        return;
+    m_awaitingLogin = false;
+
+    LogIn = 1;
+    wcsncpy(LogInID, Network::Auth::AccountName(request).c_str(), MAX_USERNAME_SIZE);
+    LogInID[MAX_USERNAME_SIZE] = L'\0';
+    CurrentProtocolState = REQUEST_LOG_IN;
+    Network::Auth::SendLoginRequest(request, Network::Auth::GameServerLoginPackets());
+
+    EnterPhase(Phase::LoggingIn);
+}
+
 bool ReconnectManager::TrySelectCachedCharacter()
 {
     if (m_characterName[0] == L'\0' || CharactersClient == nullptr)
@@ -404,6 +429,8 @@ void ReconnectManager::Abort()
     m_cancelRequested = false;
     m_abortAfterTeardown = false;
     m_phase = Phase::Idle;
+    m_awaitingLogin = false;
+    m_loginFailed = false;
     m_standby.reset();
 
     // Begin() already released the in-game data, so this only needs to land on a
@@ -418,6 +445,8 @@ void ReconnectManager::Abort()
 
 void ReconnectManager::EnterPhase(Phase phase)
 {
+    m_awaitingLogin = false;
+    m_loginFailed = false;
     m_phase = phase;
     m_phaseStartTime = WorldTime;
 }
