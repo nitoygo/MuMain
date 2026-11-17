@@ -113,11 +113,12 @@ void CLoginWin::Create()
     m_RmlView.MarkDirty("username");
     m_RmlView.MarkDirty("password");
 
-    model.providers = Network::Auth::LoginTicketSource().Providers();
+    RefreshProviders();
     model.signInError.clear();
+    model.signInStatus.clear();
     m_signInPending = false;
-    m_RmlView.MarkDirty("providers");
     m_RmlView.MarkDirty("sign_in_error");
+    m_RmlView.MarkDirty("sign_in_status");
 
     // The password is only pre-filled and re-saved when the player previously
     // opted in on a trusted machine.
@@ -154,6 +155,7 @@ void CLoginWin::BindRmlModel(Rml::DataModelConstructor& c, LoginRmlModel& model)
     c.Bind("password", &model.password);
     c.Bind("sign_in_label", &model.signInLabel);
     c.Bind("sign_in_error", &model.signInError);
+    c.Bind("sign_in_status", &model.signInStatus);
     UI::Login::BindProviderButtons(c, model.providers);
 
     c.BindEventCallback("login_ok_click",
@@ -310,7 +312,10 @@ void CLoginWin::ApplyRememberMeChange()
 	{
 		m_bSavePasswordChecked = false;
 		config.ClearCredentials();
-	}
+        // The kept website sign-in goes too, and with it "Continue as".
+        config.SetSavedSignIn(L"");
+        RefreshProviders();
+    }
 }
 
 void CLoginWin::ApplySavePasswordChange()
@@ -355,6 +360,8 @@ bool CLoginWin::UpdateWhileShown()
         SetActive(false);
         return true;
     }
+
+    ShowSignInPrompt();
 
     // Prevents Enter/Esc from double-firing past an overlaying modal: a higher-depth modal
     // claiming UpdateMouseEvent() doesn't by itself stop this window's own VK_RETURN/VK_ESCAPE
@@ -547,6 +554,8 @@ void CLoginWin::RequestLogin()
     if (CurrentProtocolState == REQUEST_JOIN_SERVER)
         return;
 
+    // A password login wins over a provider sign-in still waiting in the browser.
+    StopProviderSignIn();
     Show(false);
 
     const auto& model = m_RmlView.GetModel();
@@ -659,11 +668,14 @@ bool CLoginWin::ContinueWithChosenProvider()
 void CLoginWin::OnProviderTicket(const Network::Auth::LoginTicketResult& result)
 {
     m_signInPending = false;
+    SetSignInStatus("");
     if (!result.Succeeded())
     {
         // The source's reason is for the log; the player gets a plain retry hint.
         g_ErrorReport.Write(L"> Provider sign-in failed: %hs\r\n", result.error.c_str());
         SetSignInError(I18N::Game::LoginSignInFailed);
+        // A sign-in the site no longer takes drops its "Continue as".
+        RefreshProviders();
         return;
     }
 
@@ -679,8 +691,49 @@ void CLoginWin::SetSignInError(const wchar_t* text)
     m_RmlView.MarkDirty("sign_in_error");
 }
 
+void CLoginWin::StopProviderSignIn()
+{
+    if (!m_signInPending)
+        return;
+    Network::Auth::LoginTicketSource().Cancel();
+    m_signInPending = false;
+    SetSignInStatus("");
+}
+
+void CLoginWin::RefreshProviders()
+{
+    m_RmlView.GetModel().providers = Network::Auth::LoginTicketSource().Providers();
+    m_RmlView.MarkDirty("providers");
+}
+
+void CLoginWin::ShowSignInPrompt()
+{
+    if (!m_signInPending)
+        return;
+
+    const Network::Auth::LoginPrompt prompt = Network::Auth::LoginTicketSource().Prompt();
+    if (!prompt.code.empty())
+    {
+        wchar_t text[256] = {};
+        mu_swprintf_s(text, I18N::Game::LoginEnterCodeAt, StringUtils::NarrowToWide(prompt.url).c_str(),
+                      StringUtils::NarrowToWide(prompt.code).c_str());
+        SetSignInStatus(StringUtils::WideToNarrow(text));
+        return;
+    }
+    SetSignInStatus(prompt.inBrowser ? StringUtils::WideToNarrow(I18N::Game::LoginContinueInBrowser) : "");
+}
+
+void CLoginWin::SetSignInStatus(const std::string& text)
+{
+    if (m_RmlView.GetModel().signInStatus == text)
+        return;
+    m_RmlView.GetModel().signInStatus = text;
+    m_RmlView.MarkDirty("sign_in_status");
+}
+
 void CLoginWin::CancelLogin()
 {
+    StopProviderSignIn();
     // Back to the server list over a new connection to the connect server. The reconnect
     // checks the server in the background first, so one that is down doesn't hold the screen.
     Show(false);

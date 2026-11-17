@@ -59,12 +59,27 @@ public:
     void SetEncryptedPassword(const std::wstring& encryptedPassword);
     std::wstring GetEncryptedPassword() const { return m_encryptedPassword; }
 
+    // The website sign-in kept for "Continue as" (Network/Auth/SavedSignIn.h), encrypted like the password. Written
+    // at once; empty clears it.
+    std::wstring GetSavedSignIn() const
+    {
+        return m_savedSignIn;
+    }
+    void SetSavedSignIn(const std::wstring& sealed);
+
     // Connection
     std::wstring GetServerIP() const { return m_serverIP; }
     int GetServerPort() const { return m_serverPort; }
 
     void SetServerIP(const std::wstring& ip);
     void SetServerPort(int port);
+
+    // The game's website ([CONNECTION SETTINGS] SiteUrl, e.g. https://mu.example.com), where the login window signs in
+    // through the browser. Empty: no such button. Manual config.ini edit only.
+    std::wstring GetSiteUrl() const
+    {
+        return m_siteUrl;
+    }
 
     // UI — I18N locale code ("en", "de", ...) for the typed translation
     // accessors. Distinct from GetLanguageSelection above, which is the
@@ -238,9 +253,11 @@ private:
     std::wstring m_languageSelection;
     std::wstring m_encryptedUsername;
     std::wstring m_encryptedPassword;
+    std::wstring m_savedSignIn;
 
     std::wstring m_serverIP;
     int m_serverPort;
+    std::wstring m_siteUrl;
 
     std::wstring m_uiLocale;
     bool m_translateItemNames;

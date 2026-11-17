@@ -30,6 +30,16 @@ struct LoginTicketResult
 
 using LoginTicketCallback = std::function<void(const LoginTicketResult&)>;
 
+// What the player has to do outside the game while Acquire() waits on them.
+struct LoginPrompt
+{
+    // Finishing the sign-in in the browser the source opened.
+    bool inBrowser = false;
+    // Or entering this code at this address, on any device (e.g. "BCDF-GHJK" at "https://example.com/link").
+    std::string url;
+    std::string code;
+};
+
 // Where the client gets login tickets: the player signs in with a provider outside the game (a website, a browser),
 // and the source hands over a ticket the game server redeems once. The client never sees a provider's own token.
 // One adapter per target; callbacks run on the main thread, possibly before Acquire()/Renew() return.
@@ -46,6 +56,15 @@ public:
 
     // A fresh ticket for the account signed in last, to log back in after a disconnect.
     virtual void Renew(LoginTicketCallback done) = 0;
+
+    // Stops a running Acquire(), e.g. when the login window closes; its callback is not called.
+    virtual void Cancel() {}
+
+    // What the running Acquire() waits for the player to do; empty when nothing.
+    virtual LoginPrompt Prompt() const
+    {
+        return {};
+    }
 };
 
 // The target's source, from the adapter its target file names.

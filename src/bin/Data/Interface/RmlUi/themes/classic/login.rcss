@@ -204,3 +204,7 @@ body {
 	display: block;
 	color: token(semantic-warning);
 }
+/* What the player has to do outside the game meanwhile, e.g. a code to enter on the website. */
+#classic_box .login-providers-status {
+	display: block;
+}

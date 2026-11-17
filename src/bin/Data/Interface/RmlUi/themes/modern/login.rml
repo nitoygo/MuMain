@@ -91,6 +91,7 @@
 			<div class="btn login-provider-btn" data-for="provider : providers"
 			     data-event-click="login_provider_click(provider.id)">{{provider.display_name}}</div>
 			<span class="login-providers-error" data-if="sign_in_error != ''">{{sign_in_error}}</span>
+			<span class="login-providers-status" data-if="sign_in_status != ''">{{sign_in_status}}</span>
 		</div>
 	</div>
 </body>

@@ -126,6 +126,12 @@ private:
     void ApplySavePasswordChange();
     void OnProviderTicket(const Network::Auth::LoginTicketResult& result);
     void SetSignInError(const wchar_t* text);
+    // Ends a provider sign-in still waiting on the player, e.g. in the browser.
+    void StopProviderSignIn();
+    void RefreshProviders();
+    // What the player has to do outside the game while a provider sign-in waits (a code to enter, the browser).
+    void ShowSignInPrompt();
+    void SetSignInStatus(const std::string& text);
 
     struct LoginRmlModel
     {
@@ -142,6 +148,7 @@ private:
         Rml::String cancelLabel;
         Rml::String signInLabel;
         Rml::String signInError;
+        Rml::String signInStatus;
 
         // The target's sign-in providers; none hides their buttons.
         std::vector<Network::Auth::LoginProvider> providers;

@@ -43,11 +43,12 @@ macro(mu_provide_OpenSSL)
   mu_dependency_target(OpenSSL OpenSSL::Crypto)
 endmacro()
 
-# Shop downloads (GameShop/FileDownloader/Adapters/CurlShopDownload.cpp).
+# Shop downloads (GameShop/FileDownloader/Adapters/CurlShopDownload.cpp) and the website sign-in
+# (Network/Auth/Adapters/LoginTicketSourceBrowser.cpp).
 macro(mu_provide_CURL)
   find_package(CURL)
   if(NOT TARGET CURL::libcurl)
-    mu_dependency_not_found(libcurl "shop downloads (CurlShopDownload.cpp)"
+    mu_dependency_not_found(libcurl "shop downloads (CurlShopDownload.cpp) and website sign-in (LoginTicketSourceBrowser.cpp)"
       "Install libcurl (vcpkg's curl, libcurl4-openssl-dev, Homebrew's curl) or set CURL_ROOT.")
   endif()
   mu_dependency_target(CURL CURL::libcurl)

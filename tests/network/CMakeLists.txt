@@ -318,3 +318,11 @@ mu_add_test(
         ${CMAKE_SOURCE_DIR}/src/source/App/Platform/Windows/Winmain.cpp
     LINK_LIBS MuClient
 )
+
+mu_add_test(
+    NAME test_site_sign_in
+    SOURCES
+        test_site_sign_in.cpp
+    LINK_LIBS
+        MuClient
+)

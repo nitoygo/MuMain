@@ -100,7 +100,7 @@ Error codes: `bad_request`, `unknown_command`, `wrong_scene`, `busy`,
 | `item-name-snapshot` (`out`, `group`) | writes the name of every item (of `group` only, when given) at every level 0 to 15 to the text file `out`, a line `<group>/<number> +<level> <name>` each, to compare with any diff tool before and after a change of the names. `out` is resolved like `screenshot`'s; replies `names`, the count, and `out`, the absolute path written |
 | `repair-tooltip` (`tooltip`'s fields) | the lines of an item's repair tooltip (inventory repair mode, or an NPC that repairs), built for an item made from these fields as `tooltip` makes it (an item number no item uses is a `bad_request`; left out: 0, and full durability) without drawing them: `lines`, each with `text` (a lone line break for a blank line), `color` (the `TEXT_COLOR_*` number) and `bold`; no lines for an item that can't be repaired. The cost is what the open window charges, as in the game: an NPC that repairs, or the inventory (self-repair); 0 with neither open |
 | `login` (`account`, `password`, `server`) | server selection, credentials, character list |
-| `login` (`provider`, `server`) | the same with a ticket from a sign-in provider (e.g. `site` in the browser) |
+| `login` (`provider`, `server`) | the same with a ticket from a sign-in provider (e.g. `site` in the browser; on Windows with a `SiteUrl`, `site` opens the system browser and `site-saved` continues a remembered sign-in) |
 | `select-char` (`name` or `slot`) | enter the world with that character |
 | `logout`, `quit` | back to the character list; close the client |
 | `move` (`x`, `y`) | walk there with the client's own path finder |

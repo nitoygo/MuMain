@@ -19,6 +19,9 @@ MusicVolume=5
 [CONNECTION SETTINGS]
 ServerIP=localhost
 ServerPort=44406
+; The game's website (https://...). Adds "Sign in with <site>" to the login window: the browser signs in, with a
+; password or Discord. Empty: no such button.
+SiteUrl=
 [UI]
 Locale=en
 TranslateItemNames=1

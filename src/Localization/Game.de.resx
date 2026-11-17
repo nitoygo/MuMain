@@ -1229,6 +1229,14 @@
     <value>Oder anmelden mit</value>
     <comment>Login screen: heading over the sign-in provider buttons (Discord, ...).</comment>
   </data>
+  <data name="LoginContinueInBrowser" xml:space="preserve">
+    <value>Schließe die Anmeldung in deinem Browser ab.</value>
+    <comment>Login screen: a provider sign-in waits for the player in the browser it opened.</comment>
+  </data>
+  <data name="LoginEnterCodeAt" xml:space="preserve">
+    <value>Gehe zu %ls und gib %ls ein</value>
+    <comment>Login screen: the device-code sign-in. First %ls is the website address, second the code (e.g. BCDF-GHJK).</comment>
+  </data>
   <data name="LoginSignInFailed" xml:space="preserve">
     <value>Die Anmeldung ist fehlgeschlagen. Bitte versuchen Sie es erneut.</value>
     <comment>Login screen: a sign-in with a provider (Discord, ...) did not give a login.</comment>

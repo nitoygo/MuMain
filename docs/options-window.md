@@ -135,9 +135,10 @@ window writes to these sections:
   threads.
 - `[Audio]` - volumes.
 - `[Login]` - language, and the remembered-credential keys (`RememberMe`,
-  `SavePassword`, `EncryptedUsername`, `EncryptedPassword`); see
-  "Remembering login credentials" below.
-- `[ConnectionSettings]`
+  `SavePassword`, `EncryptedUsername`, `EncryptedPassword`, `SavedSignIn`); see
+  "Remembering login credentials" and "Signing in with the game's website" below.
+- `[ConnectionSettings]` - the server's address and port, and `SiteUrl` (set by
+  hand); see "Signing in with the game's website" below.
 - `[Camera]` - orbital wheel-zoom radius (`Zoom`). **New in this PR**, the
   only key the camera rework added.
 
@@ -176,5 +177,38 @@ token, and refuses a ticket that is used, expired or unknown ("Your account is
 invalid"). After a disconnect, the automatic reconnect gets a fresh ticket
 rather than sending the used one again.
 
-Without a sign-in source, which is every desktop build today, the row is not
-shown and the login screen is unchanged.
+Without a sign-in source the row is not shown and the login screen is
+unchanged.
+
+## Signing in with the game's website
+
+On Windows, a server with a website (the `mu-web` site) can let players sign in
+there instead of typing a game password, so a player who only signs in with
+Discord can play the desktop client too. Set the site's address in `config.ini`:
+
+```
+[CONNECTION SETTINGS]
+SiteUrl=https://mu.example.com
+```
+
+It is empty by default, and then nothing changes. With it set, the login
+screen shows **Sign in with mu.example.com**. A click opens the system browser
+on the site, where the player signs in (password or Discord) and allows "the
+game on this computer"; the browser then says "You can return to the game" and
+the game logs in. The game never sees the password: it gets a single-use login
+ticket and a sign-in token for the site. If the player doesn't finish within
+five minutes, closes the login screen, or logs in with a password instead, the
+sign-in is dropped.
+
+When the game can't receive the browser's answer (another program holds the
+local port it needs, or no browser opens), the login screen shows "Go to
+https://mu.example.com/link and enter BCDF-GHJK" instead: enter that code on the
+site, on any device, and the game logs in within a few seconds.
+
+With **Remember Username** ticked, the site's sign-in token is kept in
+`config.ini` (`SavedSignIn`, encrypted like a saved password and tied to this
+computer and user), and the next start shows **Continue as <name>** and logs in
+on its own once. Unticking Remember Username deletes it. The site lists the
+computer under "Devices signed in" on its sign-in methods page; revoking it
+there makes the next start ask again. Reconnects after a dropped connection use
+the token too, with or without Remember Username.

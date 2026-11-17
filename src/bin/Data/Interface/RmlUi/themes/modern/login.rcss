@@ -310,3 +310,10 @@ body {
 	font-effect: shadow(0dp 1dp #000000);
 	color: token(semantic-warning);
 }
+/* What the player has to do outside the game meanwhile, e.g. a code to enter on the website. */
+.login-providers-status {
+	display: block;
+	font-size: 10dp;
+	font-effect: shadow(0dp 1dp #000000);
+	color: token(text-primary);
+}

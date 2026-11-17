@@ -29,10 +29,12 @@ namespace CfgKeys
     inline constexpr wchar_t CfgKeyLanguage[]          = L"Language";
     inline constexpr wchar_t CfgKeyEncryptedUsername[] = L"EncryptedUsername";
     inline constexpr wchar_t CfgKeyEncryptedPassword[] = L"EncryptedPassword";
+    inline constexpr wchar_t CfgKeySavedSignIn[] = L"SavedSignIn";
 
     // Connection
     inline constexpr wchar_t CfgKeyServerIP[]   = L"ServerIP";
     inline constexpr wchar_t CfgKeyServerPort[] = L"ServerPort";
+    inline constexpr wchar_t CfgKeySiteUrl[] = L"SiteUrl";
 
     // UI
     inline constexpr wchar_t CfgKeyUILocale[] = L"Locale";
@@ -113,6 +115,8 @@ namespace CfgDefaults
 
     inline constexpr wchar_t CfgDefaultServerIP[] = L"localhost";
     inline constexpr int CfgDefaultServerPort = 44406;
+    // No site: no sign-in button.
+    inline constexpr wchar_t CfgDefaultSiteUrl[] = L"";
 
     inline constexpr int CfgDefaultZoom = 1735;  // OrbitalCamera DEFAULT_RADIUS — matches Default-cam camera-to-Hero distance
 

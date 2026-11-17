@@ -107,11 +107,13 @@ void GameConfig::Load()
     m_languageSelection = ReadString(CfgSectionLogin, CfgKeyLanguage, CfgDefaultLanguage);
     m_encryptedUsername = ReadString(CfgSectionLogin, CfgKeyEncryptedUsername, CfgDefaultEncryptedUsername);
     m_encryptedPassword = ReadString(CfgSectionLogin, CfgKeyEncryptedPassword, CfgDefaultEncryptedPassword);
+    m_savedSignIn = ReadString(CfgSectionLogin, CfgKeySavedSignIn, L"");
 
     m_serverIP = GameConfigValidation::ValidateServerIP(
         ReadString(CfgSectionConnectionSettings, CfgKeyServerIP, CfgDefaultServerIP), CfgDefaultServerIP);
     m_serverPort = GameConfigValidation::ValidateServerPort(
         ReadInt(CfgSectionConnectionSettings, CfgKeyServerPort, CfgDefaultServerPort), CfgDefaultServerPort);
+    m_siteUrl = ReadString(CfgSectionConnectionSettings, CfgKeySiteUrl, CfgDefaultSiteUrl);
 
     m_chatCommandFavourites = ReadStringList(L"ChatCommands", L"Favourite");
     m_chatCommandTemplates = ReadStringList(L"ChatCommands", L"Template");
@@ -185,6 +187,7 @@ void GameConfig::Save()
     WriteString(CfgSectionLogin, CfgKeyLanguage, m_languageSelection);
     WriteString(CfgSectionLogin, CfgKeyEncryptedUsername, m_encryptedUsername);
     WriteString(CfgSectionLogin, CfgKeyEncryptedPassword, m_encryptedPassword);
+    WriteString(CfgSectionLogin, CfgKeySavedSignIn, m_savedSignIn);
 
     WriteString(CfgSectionConnectionSettings, CfgKeyServerIP, m_serverIP);
     WriteInt(CfgSectionConnectionSettings, CfgKeyServerPort, m_serverPort);
@@ -406,6 +409,12 @@ void GameConfig::SetEncryptedUsername(const std::wstring& encryptedUsername)
 void GameConfig::SetEncryptedPassword(const std::wstring& encryptedPassword)
 {
     m_encryptedPassword = encryptedPassword;
+}
+
+void GameConfig::SetSavedSignIn(const std::wstring& sealed)
+{
+    m_savedSignIn = sealed;
+    WriteString(CfgSections::CfgSectionLogin, CfgKeys::CfgKeySavedSignIn, m_savedSignIn);
 }
 
 void GameConfig::SetServerIP(const std::wstring& ip)
