@@ -19,6 +19,9 @@ TEST_CASE("A target without a credential store saves no login [core][platform-se
     CHECK(output.empty());
     CHECK_FALSE(mu_decrypt_blob(plaintext.data(), plaintext.size(), output));
     CHECK_FALSE(mu_decrypt_legacy_blob(plaintext.data(), plaintext.size(), output));
+    std::uint8_t digest[MU_SHA256_SIZE] = {};
+    CHECK_FALSE(mu_random_bytes(digest, sizeof(digest)));
+    CHECK_FALSE(mu_sha256(plaintext.data(), plaintext.size(), digest));
 }
 
 TEST_CASE("A target without shop downloads fails them and writes no file [core][platform-services]")

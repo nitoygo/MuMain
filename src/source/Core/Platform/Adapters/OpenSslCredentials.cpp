@@ -11,6 +11,7 @@
 #include <openssl/crypto.h>
 #include <openssl/evp.h>
 #include <openssl/rand.h>
+#include <openssl/sha.h>
 
 namespace
 {
@@ -158,6 +159,17 @@ bool mu_encrypt_blob(const void* input, std::size_t inputSize, std::vector<std::
 bool mu_decrypt_blob(const void* input, std::size_t inputSize, std::vector<std::uint8_t>& output)
 {
     return DecryptWithKey(GetKey(), input, inputSize, output);
+}
+
+bool mu_random_bytes(void* output, std::size_t size)
+{
+    return size <= static_cast<std::size_t>(INT_MAX) &&
+           RAND_bytes(static_cast<unsigned char*>(output), static_cast<int>(size)) == 1;
+}
+
+bool mu_sha256(const void* input, std::size_t inputSize, std::uint8_t* output)
+{
+    return SHA256(static_cast<const unsigned char*>(input), inputSize, output) != nullptr;
 }
 
 bool mu_encrypt_blob_with_key_material(std::string_view material, const void* input, std::size_t inputSize,

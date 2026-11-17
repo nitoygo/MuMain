@@ -23,3 +23,13 @@ bool mu_decrypt_legacy_blob(const void*, std::size_t, std::vector<std::uint8_t>&
     output.clear();
     return false;
 }
+
+bool mu_random_bytes(void*, std::size_t)
+{
+    return false;
+}
+
+bool mu_sha256(const void*, std::size_t, std::uint8_t*)
+{
+    return false;
+}

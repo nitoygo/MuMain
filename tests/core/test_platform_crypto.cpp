@@ -27,6 +27,23 @@ TEST_CASE("Platform crypto authenticates encrypted blobs [core][crypto]")
     CHECK(decrypted.empty());
 }
 
+TEST_CASE("Platform crypto hashes and draws random bytes [core][crypto]")
+{
+    // FIPS 180-2's "abc" vector.
+    constexpr std::string_view abc = "abc";
+    std::array<std::uint8_t, MU_SHA256_SIZE> digest = {};
+    REQUIRE(mu_sha256(abc.data(), abc.size(), digest.data()));
+    CHECK(digest[0] == 0xBA);
+    CHECK(digest[1] == 0x78);
+    CHECK(digest[31] == 0xAD);
+
+    std::array<std::uint8_t, 32> first = {};
+    std::array<std::uint8_t, 32> second = {};
+    REQUIRE(mu_random_bytes(first.data(), first.size()));
+    REQUIRE(mu_random_bytes(second.data(), second.size()));
+    CHECK(first != second);
+}
+
 TEST_CASE("Saved credential blobs keep their format and key derivation [core][crypto]")
 {
     // "MuMain saved login" encrypted under the key from the material "host:1000"; a saved login stops loading if
