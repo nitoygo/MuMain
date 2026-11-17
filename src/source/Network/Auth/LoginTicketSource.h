@@ -11,6 +11,9 @@ struct LoginProvider
 {
     std::string id;
     std::string displayName;
+    // The player already chose it outside the game (e.g. pressed Play on the website while signed in): the login
+    // window continues with it once, without another click.
+    bool autoContinue = false;
 };
 
 // A single-use login ticket, or why there is none.

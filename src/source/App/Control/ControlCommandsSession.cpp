@@ -157,8 +157,9 @@ constexpr std::chrono::milliseconds JoinRetryWindow{8000};
 class LoginAct : public Act
 {
 public:
-    LoginAct(std::string account, std::string password, std::wstring serverGroup)
-        : m_account(std::move(account)), m_password(std::move(password)), m_serverGroup(std::move(serverGroup))
+    LoginAct(std::string account, std::string password, std::wstring serverGroup, std::string provider = {})
+        : m_account(std::move(account)), m_password(std::move(password)), m_serverGroup(std::move(serverGroup)),
+          m_provider(std::move(provider))
     {
     }
 
@@ -359,8 +360,11 @@ private:
             return Status::Running;
         }
 
-        g_LoginWin.SubmitCredentials(Core::Text::FromUtf8(m_account).c_str(),
-                                     Core::Text::FromUtf8(m_password).c_str());
+        if (!m_provider.empty())
+            g_LoginWin.RmlClickProvider(m_provider);
+        else
+            g_LoginWin.SubmitCredentials(Core::Text::FromUtf8(m_account).c_str(),
+                                         Core::Text::FromUtf8(m_password).c_str());
         m_stage = Stage::SubmittingCredentials;
         return Status::Running;
     }
@@ -371,6 +375,12 @@ private:
         if (TakeLoginFailure(reason))
         {
             return Fail(response, ErrorCode::LoginFailed, reason);
+        }
+
+        // A provider that gave no ticket leaves the window up with its error; nothing more will happen.
+        if (!m_provider.empty() && !g_LoginWin.IsSignInPending() && CurrentProtocolState == RECEIVE_JOIN_SERVER_SUCCESS)
+        {
+            return Fail(response, ErrorCode::LoginFailed, "the sign-in provider gave no ticket");
         }
 
         // At or past the list: the only state beyond it is entering the
@@ -398,6 +408,8 @@ private:
     std::string m_account;
     std::string m_password;
     std::wstring m_serverGroup;
+    // A sign-in provider of the target's ticket source instead of the account and password.
+    std::string m_provider;
     // The first server of the group; MU's own list is one server per group
     // in this deployment.
     int m_serverIndex = 0;
@@ -546,6 +558,24 @@ namespace App::Control::Commands
 {
 std::string Login(const Request& request, std::unique_ptr<Act>& act)
 {
+    std::string serverGroup;
+    if (request.Has("server") && !request.GetString("server", serverGroup))
+    {
+        return EncodeError(request.EncodedId(), ErrorCode::BadRequest,
+                           "`server` is the name of a server group; omit it for the first one");
+    }
+
+    std::string provider;
+    if (request.Has("provider"))
+    {
+        if (!request.GetString("provider", provider) || provider.empty())
+        {
+            return EncodeError(request.EncodedId(), ErrorCode::BadRequest, "`provider` is a sign-in provider's id");
+        }
+        act = std::make_unique<LoginAct>("", "", Core::Text::FromUtf8(serverGroup), provider);
+        return {};
+    }
+
     std::string account;
     if (!request.GetString("account", account) || account.empty())
     {
@@ -570,13 +600,6 @@ std::string Login(const Request& request, std::unique_ptr<Act>& act)
     {
         return EncodeError(request.EncodedId(), ErrorCode::BadRequest,
                            "the password is longer than " + std::to_string(MAX_PASSWORD_SIZE) + " characters");
-    }
-
-    std::string serverGroup;
-    if (request.Has("server") && !request.GetString("server", serverGroup))
-    {
-        return EncodeError(request.EncodedId(), ErrorCode::BadRequest,
-                           "`server` is the name of a server group; omit it for the first one");
     }
 
     act = std::make_unique<LoginAct>(account, password, Core::Text::FromUtf8(serverGroup));

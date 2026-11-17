@@ -181,7 +181,10 @@ body {
 }
 #classic_box .login-provider-btn {
 	display: inline-block;
-	width: 108px;
+	/* Sized to its label: a provider may read "Continue as <name>". */
+	min-width: 108px;
+	padding: 0 10px;
+	white-space: nowrap;
 	height: 30px;
 	margin: 0 3px;
 	line-height: 30px;

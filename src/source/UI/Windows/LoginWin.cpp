@@ -639,6 +639,23 @@ void CLoginWin::RmlClickProvider(const std::string& providerId)
                                                { OnProviderTicket(result); });
 }
 
+bool CLoginWin::ContinueWithChosenProvider()
+{
+    if (m_autoContinueTried)
+        return false;
+    m_autoContinueTried = true;
+
+    for (const auto& provider : m_RmlView.GetModel().providers)
+    {
+        if (provider.autoContinue)
+        {
+            RmlClickProvider(provider.id);
+            return true;
+        }
+    }
+    return false;
+}
+
 void CLoginWin::OnProviderTicket(const Network::Auth::LoginTicketResult& result)
 {
     m_signInPending = false;

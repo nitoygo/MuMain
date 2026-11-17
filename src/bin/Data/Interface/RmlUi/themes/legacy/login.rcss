@@ -193,7 +193,10 @@ body {
 }
 .login-provider-btn {
 	display: inline-block;
-	width: 108rem;
+	/* Sized to its label: a provider may read "Continue as <name>". */
+	min-width: 108rem;
+	padding: 0 10rem;
+	white-space: nowrap;
 	height: 30rem;
 	margin: 0 6rem 6rem 0;
 	line-height: 30rem;

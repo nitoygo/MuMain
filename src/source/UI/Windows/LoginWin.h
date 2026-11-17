@@ -72,6 +72,12 @@ public:
     void RmlToggleSavePassword();
     // A provider's sign-in button: asks the ticket source for a ticket, then logs in with it.
     void RmlClickProvider(const std::string& providerId);
+    // Signs in with a provider the player already chose outside the game, once per run. False when there is none.
+    bool ContinueWithChosenProvider();
+    bool IsSignInPending() const
+    {
+        return m_signInPending;
+    }
 
     // mu::ui::window::IObject
     bool Render() override;
@@ -107,6 +113,8 @@ private:
     int FirstLoad = 0;
     // A provider sign-in is running (the player may be in a browser); further clicks wait for it.
     bool m_signInPending = false;
+    // Only the first login window continues on its own; after a failure or a logout the player picks again.
+    bool m_autoContinueTried = false;
 
     // Shared by the immediate RmlUi callbacks and UpdateWhileActive()'s keyboard polling; each
     // re-checks the "remember password" prompt's live Pending state itself.

@@ -670,14 +670,15 @@ void ReceiveJoinServer(const BYTE* ReceiveBuffer)
         switch (Data2->Result)
         {
         case 0x01:
+            HeroKey = ((int)(Data2->NumberH) << 8) + Data2->NumberL;
+            // Before the window opens: a provider it continues with logs in right away.
+            CurrentProtocolState = RECEIVE_JOIN_SERVER_SUCCESS;
             // Auto-reconnect logs in on its own and keeps its dialog on top, so
             // don't surface the manual login window underneath it.
             if (!ReconnectManager::Instance().IsActive())
             {
                 UI::LoginScene::ShowLoginWindow();
             }
-            HeroKey = ((int)(Data2->NumberH) << 8) + Data2->NumberL;
-            CurrentProtocolState = RECEIVE_JOIN_SERVER_SUCCESS;
             break;
 
         default:

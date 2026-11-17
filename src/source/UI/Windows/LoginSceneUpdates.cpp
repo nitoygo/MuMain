@@ -45,7 +45,8 @@ void ServerListReceived()
 void ShowLoginWindow()
 {
     g_LoginWin.Show(true);
-    g_LoginWin.FocusUsername();
+    if (!g_LoginWin.ContinueWithChosenProvider())
+        g_LoginWin.FocusUsername();
 }
 
 void HideLoginWindow()
