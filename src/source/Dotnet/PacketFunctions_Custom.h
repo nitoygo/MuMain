@@ -64,6 +64,17 @@ public:
     /// </remarks>
     void SendLogin(const wchar_t* username, const wchar_t* password, const BYTE* clientVersion,
                    const BYTE* clientSerial);
+
+    /// <summary>
+    /// Sends a LoginWithTicket to this connection: a login with a single-use ticket instead of a password.
+    /// </summary>
+    /// <param name="token">The ticket's token (base64url, 43 characters).</param>
+    /// <param name="clientVersion">The client version.</param>
+    /// <param name="clientSerial">The client serial.</param>
+    /// <remarks>
+    /// Hand-written until the packet package has LoginWithTicket; it then moves to the generated bindings.
+    /// </remarks>
+    void SendLoginWithTicket(const char* token, const BYTE* clientVersion, const BYTE* clientSerial);
 };
 
 /// <summary>

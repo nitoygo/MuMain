@@ -23,6 +23,7 @@ constexpr ManagedExport kManagedExports_Connection[] = {
     // Libraries from before it lack it; the error report then says the version is unknown.
     {"ConnectionManager_GetLibraryVersion", true},
     {"ConnectionManager_SendLogin"},
+    {"ConnectionManager_SendLoginWithTicket"},
     {"ConnectionManager_SendAuthenticateExt"},
     {"ConnectionManager_SendChatMessageExt"},
 };

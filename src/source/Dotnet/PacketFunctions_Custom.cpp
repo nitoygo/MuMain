@@ -36,6 +36,25 @@ void PacketFunctions_ClientToServer_Custom::SendLogin(const wchar_t* username, c
                      clientSerial);
 }
 
+typedef void(CORECLR_DELEGATE_CALLTYPE* SendLoginWithTicketFn)(int32_t, const char*, uint32_t, const BYTE*,
+                                                               const BYTE*);
+
+void PacketFunctions_ClientToServer_Custom::SendLoginWithTicket(const char* token, const BYTE* clientVersion,
+                                                                const BYTE* clientSerial)
+{
+    static SendLoginWithTicketFn dotnet_SendLoginWithTicket = nullptr;
+    if (!dotnet_SendLoginWithTicket)
+    {
+        dotnet_SendLoginWithTicket = LoadManagedSymbol<SendLoginWithTicketFn>("ConnectionManager_SendLoginWithTicket");
+        if (!dotnet_SendLoginWithTicket)
+        {
+            return;
+        }
+    }
+
+    dotnet_SendLoginWithTicket(this->GetHandle(), token, GetTickCount(), clientVersion, clientSerial);
+}
+
 typedef void(CORECLR_DELEGATE_CALLTYPE* SendAuthenticateExtFn)(int32_t, uint16_t, uint32_t);
 
 void PacketFunctions_ChatServer_Custom::SendAuthenticateExt(uint16_t roomId, uint32_t token)

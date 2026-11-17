@@ -85,4 +85,52 @@ public unsafe partial class ConnectionManager
             ManagedLog.Write(ManagedLog.Level.Error, $"NET: Login packet staging failed, handle={handle}: {ex}");
         }
     }
+
+    /// <summary>
+    /// Sends a LoginWithTicket to this connection: a login with a single-use ticket instead of a password.
+    /// </summary>
+    /// <param name="handle">The handle of the connection.</param>
+    /// <param name="token">The ticket's token, UTF-8.</param>
+    /// <param name="tickCount">The tick count.</param>
+    /// <param name="clientVersion">The client version.</param>
+    /// <param name="clientSerial">The client serial.</param>
+    /// <remarks>
+    /// Written by hand until the MUnique.OpenMU.Network.Packets package has the packet and generates this binding.
+    /// The server answers with a LoginResponse; an invalid, expired or used ticket gets AccountInvalid.
+    /// </remarks>
+    [UnmanagedCallersOnly(EntryPoint = "ConnectionManager_SendLoginWithTicket")]
+    public static void SendLoginWithTicket(int handle, IntPtr token, uint @tickCount, byte* @clientVersion, byte* @clientSerial)
+    {
+        if (!Connections.TryGetValue(handle, out var connection))
+        {
+            ManagedLog.Write(ManagedLog.Level.Error, $"NET: Ticket login send skipped; connection handle={handle} not found");
+            return;
+        }
+
+        try
+        {
+            var tokenStr = Marshal.PtrToStringUTF8(@token) ?? throw new ArgumentNullException(nameof(token));
+            ArgumentNullException.ThrowIfNull(@clientVersion);
+            ArgumentNullException.ThrowIfNull(@clientSerial);
+            var version = new ReadOnlySpan<byte>(@clientVersion, LoginWithTicketPacket.ClientVersionLength);
+            var serial = new ReadOnlySpan<byte>(@clientSerial, LoginWithTicketPacket.ClientSerialLength);
+
+            // Fails before staging anything, so a bad token never leaves a half-written packet.
+            Span<byte> packetBytes = stackalloc byte[LoginWithTicketPacket.Length];
+            LoginWithTicketPacket.Write(packetBytes, tokenStr, @tickCount, version, serial);
+            var staged = packetBytes.ToArray();
+            connection.CreateAndSend(pipeWriter =>
+            {
+                staged.CopyTo(pipeWriter.GetSpan(staged.Length));
+                return staged.Length;
+            });
+
+            // The token is a credential: never logged.
+            ManagedLog.Write(ManagedLog.Level.Info, $"NET: Ticket login packet staged, handle={handle}, bytes={LoginWithTicketPacket.Length}");
+        }
+        catch (Exception ex)
+        {
+            ManagedLog.Write(ManagedLog.Level.Error, $"NET: Ticket login packet staging failed, handle={handle}: {ex.GetType().Name}");
+        }
+    }
 }

@@ -291,6 +291,16 @@ if(DOTNET_EXECUTABLE)
             --artifacts-path ${MU_DOTNET_SELF_CHECK_ARTIFACTS}
     )
     set_tests_properties(outbound_flush_loop PROPERTIES TIMEOUT 30)
+
+    add_test(
+        NAME login_ticket_packet
+        COMMAND "${CMAKE_COMMAND}" -E env --unset=Platform
+            "${DOTNET_EXECUTABLE}" run
+            --project ${CMAKE_CURRENT_SOURCE_DIR}/login_ticket_packet_self_check/LoginTicketPacketSelfCheck.csproj
+            --configuration Release
+            --artifacts-path ${MU_DOTNET_SELF_CHECK_ARTIFACTS}
+    )
+    set_tests_properties(login_ticket_packet PROPERTIES TIMEOUT 30)
 endif()
 
 mu_add_test(
