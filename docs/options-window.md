@@ -164,3 +164,17 @@ Stored credentials are obfuscated (not plaintext) and tied to the current
 machine and user account, so copying `config.ini` to another machine does not
 reveal them. This is protection against a casual reader of the file, not a
 determined attacker - which is why saving the password is opt-in.
+
+## Signing in with a provider
+
+Where the client has a sign-in source (for example a browser build served by a
+site the player signed in to), the login screen shows a "Sign in with" row with
+one button per provider, such as Discord. A click signs in with that provider,
+which may open a browser, and logs into the game without a typed password. The
+game server gets a single-use login ticket only, never the provider's own
+token, and refuses a ticket that is used, expired or unknown ("Your account is
+invalid"). After a disconnect, the automatic reconnect gets a fresh ticket
+rather than sending the used one again.
+
+Without a sign-in source, which is every desktop build today, the row is not
+shown and the login screen is unchanged.

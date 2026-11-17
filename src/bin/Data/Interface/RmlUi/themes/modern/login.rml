@@ -84,6 +84,14 @@
 		</div>
 
 		<span class="trust-warning">{{trust_warning}}</span>
+
+		<!-- One button per sign-in provider of the target's ticket source; none hides the block. -->
+		<div class="login-providers" data-if="providers.size > 0">
+			<span class="login-providers-label">{{sign_in_label}}</span>
+			<div class="btn login-provider-btn" data-for="provider : providers"
+			     data-event-click="login_provider_click(provider.id)">{{provider.display_name}}</div>
+			<span class="login-providers-error" data-if="sign_in_error != ''">{{sign_in_error}}</span>
+		</div>
 	</div>
 </body>
 </rml>

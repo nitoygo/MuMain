@@ -177,3 +177,39 @@ body {
    Editor's Events tab gives each kind its sound (interfaceClick). */
 .btn-ok { click-sound: confirm; }
 .btn-cancel { click-sound: cancel; }
+
+/* Sign-in provider buttons, below the trust warning and outside the panel art like it. The block flows on its own, so
+   buttons can be added, removed or moved here without touching the others. */
+.login-providers {
+	position: absolute;
+	left: 30rem;
+	top: 280rem;
+	width: 280rem;
+	pointer-events: none;
+}
+.login-providers-label {
+	display: block;
+	margin-bottom: 4rem;
+}
+.login-provider-btn {
+	display: inline-block;
+	width: 108rem;
+	height: 30rem;
+	margin: 0 6rem 6rem 0;
+	line-height: 30rem;
+	text-align: center;
+	cursor: pointer;
+	pointer-events: auto;
+	decorator: image(legacy-btn-idle);
+	click-sound: confirm;
+}
+.login-provider-btn:hover {
+	decorator: image(legacy-btn-hover);
+}
+.login-provider-btn:active {
+	decorator: image(legacy-btn-active);
+}
+.login-providers-error {
+	display: block;
+	color: token(semantic-warning);
+}

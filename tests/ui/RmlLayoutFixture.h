@@ -8,7 +8,8 @@
 namespace UI::Tests
 {
 std::string ReadFile(const std::filesystem::path& path);
-std::string AssetMarkup(const std::string& theme, const std::string& name);
+// keepBindings leaves the data-* attributes and {{...}} in, for a test that registers the document's data model.
+std::string AssetMarkup(const std::string& theme, const std::string& name, bool keepBindings = false);
 class RmlLayoutFixture
 {
     struct NullRenderer : Rml::RenderInterface

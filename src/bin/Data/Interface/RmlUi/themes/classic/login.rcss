@@ -163,3 +163,41 @@ body {
    Editor's Events tab gives each kind its sound (interfaceClick). */
 .btn-ok { click-sound: confirm; }
 .btn-cancel { click-sound: cancel; }
+
+/* Sign-in provider buttons: above the box, since the box sits on the screen's bottom edge. The block flows on its
+   own, so buttons can be added, removed or moved here without touching the others. */
+#classic_box .login-providers {
+	position: absolute;
+	left: 0;
+	right: 0;
+	bottom: 100%;
+	padding-bottom: calc(6 * var(--px));
+	text-align: center;
+	pointer-events: none;
+}
+#classic_box .login-providers-label {
+	display: block;
+	margin-bottom: calc(3 * var(--px));
+}
+#classic_box .login-provider-btn {
+	display: inline-block;
+	width: 108px;
+	height: 30px;
+	margin: 0 3px;
+	line-height: 30px;
+	text-align: center;
+	cursor: pointer;
+	pointer-events: auto;
+	decorator: image(legacy-btn-idle);
+	click-sound: confirm;
+}
+#classic_box .login-provider-btn:hover {
+	decorator: image(legacy-btn-hover);
+}
+#classic_box .login-provider-btn:active {
+	decorator: image(legacy-btn-active);
+}
+#classic_box .login-providers-error {
+	display: block;
+	color: token(semantic-warning);
+}

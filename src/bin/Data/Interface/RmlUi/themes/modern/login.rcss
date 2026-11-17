@@ -276,3 +276,34 @@ body {
    Editor's Events tab gives each kind its sound (interfaceClick). */
 .btn-ok { click-sound: confirm; }
 .btn-cancel { click-sound: cancel; }
+
+/* Sign-in provider buttons, below the trust warning and outside the dialog shell like it. The block flows on its own,
+   so buttons can be added, removed or moved here without touching the others; their look is base.rcss's .btn. */
+.login-providers {
+	position: absolute;
+	left: 30dp;
+	top: 285dp;
+	width: 280dp;
+	font-family: "token(font-body)";
+	pointer-events: none;
+}
+.login-providers-label {
+	display: block;
+	margin-bottom: 5dp;
+	font-size: 10dp;
+	font-effect: shadow(0dp 1dp #000000);
+	color: token(text-primary);
+}
+.login-provider-btn {
+	position: relative;
+	display: inline-block;
+	width: 108dp;
+	margin: 0 6dp 6dp 0;
+	click-sound: confirm;
+}
+.login-providers-error {
+	display: block;
+	font-size: 10dp;
+	font-effect: shadow(0dp 1dp #000000);
+	color: token(semantic-warning);
+}

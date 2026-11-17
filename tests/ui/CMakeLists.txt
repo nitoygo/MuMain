@@ -269,6 +269,14 @@ mu_add_test(
 )
 
 mu_add_test(
+    NAME login_provider_buttons_tests
+    SOURCES
+        test_login_provider_buttons.cpp
+        ${CMAKE_SOURCE_DIR}/src/source/App/Platform/Windows/Winmain.cpp
+    LINK_LIBS MuClient mu_test_rml_layout_fixture
+)
+
+mu_add_test(
     NAME rml_themed_view_tests
     SOURCES
         test_rml_themed_view.cpp

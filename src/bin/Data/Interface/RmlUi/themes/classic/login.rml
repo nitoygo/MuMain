@@ -33,6 +33,14 @@
 
 		<div class="btn btn-ok" data-event-click="login_ok_click"><span class="btn-text native-text">{{ok_label}}</span></div>
 		<div class="btn btn-cancel" data-event-click="login_cancel_click"><span class="btn-text native-text">{{cancel_label}}</span></div>
+
+		<!-- One button per sign-in provider of the target's ticket source; none hides the block. -->
+		<div class="login-providers" data-if="providers.size > 0">
+			<span class="login-providers-label native-text">{{sign_in_label}}</span>
+			<div class="login-provider-btn native-text" data-for="provider : providers"
+			     data-event-click="login_provider_click(provider.id)">{{provider.display_name}}</div>
+			<span class="login-providers-error native-text" data-if="sign_in_error != ''">{{sign_in_error}}</span>
+		</div>
 	</div>
 </body>
 </rml>
